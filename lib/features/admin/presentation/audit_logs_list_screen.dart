@@ -25,10 +25,15 @@ String actorTypeLabel(String actorType) => switch (actorType) {
 class AuditLogsListScreen extends ConsumerWidget {
   const AuditLogsListScreen({super.key});
 
+  // The live feed this reads from (streamAuditLogs) caps at the 200 most
+  // recent events by design (an unbounded realtime stream isn't a good
+  // idea) -- exporting exactly what's loaded means a large audit trail
+  // silently only gets you the newest 200 rows, so say so explicitly
+  // rather than let an admin assume this is the complete history.
   Future<void> _exportCsv(WidgetRef ref) async {
     final logs = ref.read(adminAuditLogsProvider).value ?? const [];
     await ReportExport.exportCsv(
-      filename: 'ubuntuid_audit_logs.csv',
+      filename: 'ubuntuid_audit_logs_last_200.csv',
       headers: const ['Action', 'Responsible', 'Related table', 'Occurred', 'IP address'],
       rows: [
         for (final log in logs)
@@ -51,7 +56,11 @@ class AuditLogsListScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Audit Logs'),
         actions: [
-          IconButton(icon: const Icon(Icons.download_outlined), tooltip: 'Export CSV', onPressed: () => _exportCsv(ref)),
+          IconButton(
+            icon: const Icon(Icons.download_outlined),
+            tooltip: 'Export last 200 events as CSV',
+            onPressed: () => _exportCsv(ref),
+          ),
         ],
       ),
       body: logsAsync.when(

@@ -27,25 +27,42 @@ class _FlaggedRecordDetailScreenState extends ConsumerState<FlaggedRecordDetailS
 
   Future<void> _resolve() async {
     final notesController = TextEditingController();
+    var showError = false;
     final notes = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Mark as reviewed'),
-        content: TextField(
-          controller: notesController,
-          maxLines: 3,
-          decoration: const InputDecoration(labelText: 'Resolution notes'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, notesController.text.trim()),
-            child: const Text('Confirm'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Mark as reviewed'),
+          content: TextField(
+            controller: notesController,
+            maxLines: 3,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: 'Resolution notes',
+              errorText: showError ? 'Resolution notes are required' : null,
+            ),
+            onChanged: (_) {
+              if (showError) setDialogState(() => showError = false);
+            },
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () {
+                final trimmed = notesController.text.trim();
+                if (trimmed.isEmpty) {
+                  setDialogState(() => showError = true);
+                  return;
+                }
+                Navigator.pop(context, trimmed);
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        ),
       ),
     );
-    if (notes == null || notes.isEmpty) return;
+    if (notes == null) return;
 
     setState(() => _isSubmitting = true);
     try {

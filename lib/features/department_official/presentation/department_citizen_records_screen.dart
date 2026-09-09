@@ -207,7 +207,7 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
   Future<void> _addRecord() async {
     final values = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => _RecordFormDialog(config: widget.config),
+      builder: (context) => _RecordFormDialog(config: widget.config, citizen: widget.citizen),
     );
     if (values == null) return;
     try {
@@ -231,7 +231,7 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
     if (updater == null) return;
     final values = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => _RecordFormDialog(config: widget.config, existingValues: existingRow),
+      builder: (context) => _RecordFormDialog(config: widget.config, citizen: widget.citizen, existingValues: existingRow),
     );
     if (values == null) return;
     try {
@@ -346,9 +346,10 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
 }
 
 class _RecordFormDialog extends StatefulWidget {
-  const _RecordFormDialog({required this.config, this.existingValues});
+  const _RecordFormDialog({required this.config, required this.citizen, this.existingValues});
 
   final RecordTypeConfig config;
+  final CitizenLookupResult citizen;
 
   /// When set, the dialog opens pre-filled for editing this row instead of
   /// a blank "Add" form.
@@ -362,6 +363,7 @@ class _RecordFormDialogState extends State<_RecordFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, String?> _dropdownValues = {};
+  String? _validationError;
 
   bool get _isEditing => widget.existingValues != null;
 
@@ -396,6 +398,11 @@ class _RecordFormDialogState extends State<_RecordFormDialog> {
           ? _dropdownValues[field.key]
           : _controllers[field.key]!.text.trim();
     }
+    final reason = widget.config.validate?.call(widget.citizen, values);
+    if (reason != null) {
+      setState(() => _validationError = reason);
+      return;
+    }
     Navigator.pop(context, values);
   }
 
@@ -408,7 +415,7 @@ class _RecordFormDialogState extends State<_RecordFormDialog> {
     );
     if (picked != null) {
       controller.text = picked.toIso8601String().split('T').first;
-      setState(() {});
+      setState(() => _validationError = null);
     }
   }
 
@@ -428,7 +435,10 @@ class _RecordFormDialogState extends State<_RecordFormDialog> {
                     initialValue: _dropdownValues[field.key],
                     decoration: InputDecoration(labelText: field.label),
                     items: [for (final o in field.options ?? []) DropdownMenuItem(value: o, child: Text(o))],
-                    onChanged: (v) => setState(() => _dropdownValues[field.key] = v),
+                    onChanged: (v) => setState(() {
+                      _dropdownValues[field.key] = v;
+                      _validationError = null;
+                    }),
                   )
                 else if (field.type == RecordFieldType.date)
                   TextFormField(
@@ -446,9 +456,29 @@ class _RecordFormDialogState extends State<_RecordFormDialog> {
                         : TextInputType.text,
                     decoration: InputDecoration(labelText: field.label),
                     validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    onChanged: (_) {
+                      if (_validationError != null) setState(() => _validationError = null);
+                    },
                   ),
                 const SizedBox(height: 12),
               ],
+              if (_validationError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.error_outline, size: 18, color: Theme.of(context).colorScheme.error),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _validationError!,
+                          style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),

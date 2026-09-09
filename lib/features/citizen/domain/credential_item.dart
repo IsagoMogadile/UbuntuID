@@ -8,6 +8,7 @@ class CredentialItem {
     required this.issuedDate,
     this.expiryDate,
     this.nqfLevel,
+    this.qualification,
   });
 
   final String credentialId;
@@ -22,4 +23,25 @@ class CredentialItem {
   /// when this credential has no matching `qualifications` row (i.e. isn't
   /// an education credential).
   final int? nqfLevel;
+
+  /// The real record behind an NSC/TERTIARY_QUALIFICATION credential --
+  /// institution, qualification name, year, result -- sourced live from
+  /// `dbe_nsc_results`/`dhet_academic_records`+`dhet_institutions` rather
+  /// than just the generic credential status. `null` for every other
+  /// credential type.
+  final QualificationDetail? qualification;
+}
+
+class QualificationDetail {
+  const QualificationDetail({
+    required this.qualificationName,
+    required this.result,
+    this.institutionName,
+    this.year,
+  });
+
+  final String qualificationName;
+  final String? institutionName;
+  final String? result;
+  final int? year;
 }

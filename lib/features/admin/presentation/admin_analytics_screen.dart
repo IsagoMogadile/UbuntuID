@@ -2,11 +2,13 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/report_export.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/section_header.dart';
 import '../data/admin_repository.dart';
+import '../domain/admin_analytics.dart';
 
 /// Admin-only charts over live platform data. Colours are drawn from the
 /// active `ColorScheme` (primary/secondary/tertiary + a couple of muted
@@ -16,12 +18,34 @@ import '../data/admin_repository.dart';
 class AdminAnalyticsScreen extends ConsumerWidget {
   const AdminAnalyticsScreen({super.key});
 
+  Future<void> _exportCsv(AdminAnalytics analytics) async {
+    await ReportExport.exportCsv(
+      filename: 'ubuntuid_stats.csv',
+      headers: const ['Category', 'Label', 'Count'],
+      rows: [
+        for (final e in analytics.registrationsByMonth) ['Citizen registrations', e.$1, '${e.$2}'],
+        for (final e in analytics.verificationsByStatus.entries) ['Verification requests', e.key, '${e.value}'],
+        for (final e in analytics.officialsByDepartment) ['Active officials', e.$1, '${e.$2}'],
+        for (final e in analytics.propertiesByProvince) ['Properties', e.$1, '${e.$2}'],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final analyticsAsync = ref.watch(adminAnalyticsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Analytics')),
+      appBar: AppBar(
+        title: const Text('Analytics'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_outlined),
+            tooltip: 'Export stats',
+            onPressed: analyticsAsync.value == null ? null : () => _exportCsv(analyticsAsync.value!),
+          ),
+        ],
+      ),
       body: analyticsAsync.when(
         loading: () => const LoadingIndicator(),
         error: (error, _) => ErrorView(

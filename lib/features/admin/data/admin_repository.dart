@@ -185,10 +185,14 @@ class AdminRepository {
     // Live schema is not uniform: `citizens` uses `registered_at`, the
     // other three role tables use `created_at`. See docs/KNOWN_LIMITATIONS.md.
     String timestampColumn = 'created_at',
+    // Only relevant for `department_officials` -- lets a department's
+    // detail screen filter this role down to just its own officials.
+    bool includeDepartmentId = false,
   }) async {
-    final fullColumns = '$idColumn, $nameColumns, $statusColumn, email, $timestampColumn';
-    final noEmailColumns = '$idColumn, $nameColumns, $statusColumn, $timestampColumn';
-    final minimalColumns = '$idColumn, $statusColumn, $timestampColumn';
+    final deptSuffix = includeDepartmentId ? ', department_id' : '';
+    final fullColumns = '$idColumn, $nameColumns, $statusColumn, email, $timestampColumn$deptSuffix';
+    final noEmailColumns = '$idColumn, $nameColumns, $statusColumn, $timestampColumn$deptSuffix';
+    final minimalColumns = '$idColumn, $statusColumn, $timestampColumn$deptSuffix';
 
     List<Map<String, dynamic>> rows;
     var hasEmail = true;
@@ -216,6 +220,7 @@ class AdminRepository {
           role: role,
           active: isActive(row[statusColumn]),
           createdAt: _date(row[timestampColumn]),
+          departmentId: includeDepartmentId ? row['department_id'] as String? : null,
         ),
     ];
   }
@@ -242,6 +247,7 @@ class AdminRepository {
         buildName: (r) => r['full_name'] as String? ?? 'Department Official',
         statusColumn: 'active',
         isActive: (v) => v != false,
+        includeDepartmentId: true,
       ),
       _fetchUsersFromTable(
         table: 'organisation_users',

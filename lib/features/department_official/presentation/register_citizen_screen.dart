@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/sa_id_generator.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../data/department_repository.dart';
@@ -29,11 +30,19 @@ class _RegisterCitizenScreenState extends ConsumerState<RegisterCitizenScreen> {
   final _emailController = TextEditingController();
 
   DateTime? _dateOfBirth;
+  bool _dobFromIdNumber = false;
   bool _submitting = false;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _idNumberController.addListener(_deriveDateOfBirthFromIdNumber);
+  }
+
+  @override
   void dispose() {
+    _idNumberController.removeListener(_deriveDateOfBirthFromIdNumber);
     _idNumberController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -42,15 +51,41 @@ class _RegisterCitizenScreenState extends ConsumerState<RegisterCitizenScreen> {
     super.dispose();
   }
 
+  // The first 6 digits of a South African ID number encode the holder's
+  // date of birth (YYMMDD) -- derive it automatically instead of asking
+  // the official to also type it by hand, which is redundant and a source
+  // of typos/mismatches against the ID.
+  void _deriveDateOfBirthFromIdNumber() {
+    final dob = saIdDateOfBirth(_idNumberController.text.trim());
+    if (dob != null) {
+      setState(() {
+        _dateOfBirth = dob;
+        _dobFromIdNumber = true;
+      });
+    } else if (_dobFromIdNumber) {
+      // ID number no longer parses (e.g. still being typed/cleared) --
+      // drop the derived value rather than leave a stale one behind.
+      setState(() {
+        _dateOfBirth = null;
+        _dobFromIdNumber = false;
+      });
+    }
+  }
+
   Future<void> _pickDateOfBirth() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime(now.year - 30),
+      initialDate: _dateOfBirth ?? DateTime(now.year - 30),
       firstDate: DateTime(1900),
       lastDate: now,
     );
-    if (picked != null) setState(() => _dateOfBirth = picked);
+    if (picked != null) {
+      setState(() {
+        _dateOfBirth = picked;
+        _dobFromIdNumber = false;
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -125,9 +160,12 @@ class _RegisterCitizenScreenState extends ConsumerState<RegisterCitizenScreen> {
                 InkWell(
                   onTap: _pickDateOfBirth,
                   child: InputDecorator(
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Date of birth',
-                      prefixIcon: Icon(Icons.cake_outlined),
+                      prefixIcon: const Icon(Icons.cake_outlined),
+                      helperText: _dobFromIdNumber
+                          ? 'Derived from ID number -- tap to override'
+                          : 'Tap to select (auto-fills once a valid ID number is entered)',
                     ),
                     child: Text(
                       _dateOfBirth == null ? 'Select a date' : AppFormatters.date(_dateOfBirth!),

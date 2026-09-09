@@ -196,6 +196,19 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
   }
 }
 
+String _credentialSubtitle(VerifiableCredential credential) {
+  final qualification = credential.qualification;
+  if (qualification != null) {
+    final parts = [
+      qualification.qualificationName,
+      if (qualification.institutionName != null) qualification.institutionName!,
+      if (qualification.result != null) qualification.result!,
+    ];
+    return parts.join(' • ');
+  }
+  return credential.issuingDepartment;
+}
+
 class _CitizenResult extends ConsumerWidget {
   const _CitizenResult({
     required this.citizenId,
@@ -265,7 +278,8 @@ class _CitizenResult extends ConsumerWidget {
                       value: selectedCredentialTypeIds.contains(credentials[i].credentialTypeId),
                       onChanged: (checked) => onToggle(credentials[i].credentialTypeId, checked ?? false),
                       title: Text(credentials[i].typeName),
-                      subtitle: Text(credentials[i].issuingDepartment),
+                      subtitle: Text(_credentialSubtitle(credentials[i])),
+                      isThreeLine: credentials[i].qualification != null,
                       secondary: StatusBadge.fromStatus(credentials[i].status),
                     ),
                   ],

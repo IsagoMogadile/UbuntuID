@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/list_item_card.dart';
@@ -11,6 +12,7 @@ import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/staggered_fade_in.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../core/widgets/wallet_card.dart';
 import '../../../routing/app_routes.dart';
 import '../data/citizen_repository.dart';
 
@@ -27,32 +29,27 @@ class CitizenDashboardScreen extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const SectionHeader(title: 'Digital identity'),
+        // The digital ID card, QR code and all, front and centre the
+        // moment a citizen lands here after logging in -- not buried a
+        // couple of taps deep. Tapping it opens the full Document Wallet
+        // (every credential, same card treatment, swipeable).
         identityAsync.when(
-          loading: () => const LoadingIndicator(),
+          loading: () => const SizedBox(height: 260, child: LoadingIndicator()),
           error: (error, _) => const ErrorView(message: 'Could not load your digital identity.'),
-          data: (identity) => AppCard(
-            onTap: () => context.push(AppRoutes.citizenDigitalIdentity),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  child: Icon(Icons.badge_outlined, color: Theme.of(context).colorScheme.primary),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(identity.fullName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
-                      Text('ID ${identity.idNumber}', style: const TextStyle(color: AppColors.charcoalMuted)),
-                    ],
-                  ),
-                ),
-                StatusBadge.fromStatus(identity.currentStatus),
+          data: (identity) => GestureDetector(
+            onTap: () => context.push(AppRoutes.citizenDocumentWallet),
+            child: WalletCard(
+              headerLabel: 'UbuntuID Digital Identity',
+              icon: Icons.verified_user_outlined,
+              qrData: 'UBUNTUID:${identity.idNumber}',
+              primaryLine: identity.fullName.isEmpty ? 'Unknown' : identity.fullName,
+              secondaryLines: [
+                identity.idNumber,
+                'DOB: ${AppFormatters.date(identity.dateOfBirth)}',
               ],
+              status: identity.currentStatus,
+              gradientColors: const [AppColors.green, AppColors.gold],
+              footerNote: 'Tap to open your Document Wallet.',
             ),
           ),
         ),
@@ -73,6 +70,11 @@ class CitizenDashboardScreen extends ConsumerWidget {
           spacing: 10,
           runSpacing: 10,
           children: [
+            _QuickAction(
+              icon: Icons.qr_code_2_outlined,
+              label: 'Document Wallet',
+              onTap: () => context.push(AppRoutes.citizenDocumentWallet),
+            ),
             _QuickAction(
               icon: Icons.badge_outlined,
               label: 'Digital ID',

@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../routing/app_routes.dart';
 import '../../../services/service_providers.dart';
+import '../../shared/data/qualification_lookup.dart';
 import '../domain/citizen_address.dart';
 import '../domain/consent_grant_item.dart';
 import '../domain/credential_item.dart';
@@ -61,7 +63,7 @@ class CitizenRepository {
       lastName: row['last_name'] as String? ?? '',
       dateOfBirth: _parseDate(row['date_of_birth']) ?? DateTime(1900),
       currentStatus: row['current_status'] as String? ?? 'active',
-      registeredAt: _parseDate(row['created_at']) ?? DateTime.now(),
+      registeredAt: _parseDate(row['registered_at']) ?? DateTime.now(),
       phoneNumber: row['phone_number'] as String?,
       email: row['email'] as String?,
     );
@@ -95,39 +97,48 @@ class CitizenRepository {
     ];
   }
 
-  /// `nqf_level` lives on the `qualifications` subtype table (keyed 1:1 by
-  /// `credential_id`), not on `credential_types` -- confirmed live via
-  /// `information_schema.columns` (see docs/DATA_MODEL.md's
-  /// credentials+subtype pattern). A credential with no matching
-  /// `qualifications` row (SASSA/SAPS/SARS/Transport credentials, etc.)
-  /// simply embeds `null` there, which PostgREST returns as `null` rather
-  /// than an error -- no defensive probe needed.
-  /// `qualifications` (the old NQF-level subtype table) no longer exists --
-  /// dropped when DBE/DHET moved to their own dedicated tables
-  /// (`dbe_nsc_results`/`dhet_student_enrollment`). This previously still
-  /// tried to embed it and would have thrown for every one of the 344
-  /// seeded `credentials` rows; fixed to read only what's actually there.
+  /// For NSC/TERTIARY_QUALIFICATION credentials, also resolves the real
+  /// qualification behind them (institution, result, year) via
+  /// `fetchQualificationDetail` -- every other credential type's
+  /// `qualification` stays `null`.
   Future<List<CredentialItem>> getCredentials() async {
     final citizenId = await _citizenId();
+    final idNumber = await _citizenIdNumber();
     final rows = await _client
         .from('credentials')
         .select('credential_id, status, issued_date, expiry_date, '
-            'credential_types(display_name, departments(department_name))')
+            'credential_types(type_code, display_name, departments(department_name))')
         .eq('citizen_id', citizenId)
         .order('issued_date', ascending: false);
 
-    return [
-      for (final row in rows)
-        CredentialItem(
-          credentialId: row['credential_id'] as String,
-          typeName: (row['credential_types']?['display_name'] as String?) ?? 'Credential',
-          issuingDepartment:
-              (row['credential_types']?['departments']?['department_name'] as String?) ?? 'Unknown department',
-          status: row['status'] as String? ?? 'pending',
-          issuedDate: _parseDate(row['issued_date']) ?? DateTime.now(),
-          expiryDate: _parseDate(row['expiry_date']),
-        ),
-    ];
+    final items = <CredentialItem>[];
+    for (final row in rows) {
+      final typeCode = row['credential_types']?['type_code'] as String?;
+      items.add(CredentialItem(
+        credentialId: row['credential_id'] as String,
+        typeName: (row['credential_types']?['display_name'] as String?) ?? 'Credential',
+        issuingDepartment:
+            (row['credential_types']?['departments']?['department_name'] as String?) ?? 'Unknown department',
+        status: _effectiveCredentialStatus(row['status'] as String?, _parseDate(row['expiry_date'])),
+        issuedDate: _parseDate(row['issued_date']) ?? DateTime.now(),
+        expiryDate: _parseDate(row['expiry_date']),
+        qualification: await fetchQualificationDetail(_client, typeCode: typeCode, nationalIdNumber: idNumber),
+      ));
+    }
+    return items;
+  }
+
+  /// The `status` column isn't kept in sync as time passes -- nothing
+  /// flips it from `active` to `expired` once `expiry_date` is in the
+  /// past (there's no scheduled job for it). Recompute it for display so
+  /// an expired credential is never shown as active, regardless of how
+  /// stale the stored column is.
+  static String _effectiveCredentialStatus(String? status, DateTime? expiryDate) {
+    final raw = status ?? 'pending';
+    if (raw == 'active' && expiryDate != null && expiryDate.isBefore(DateTime.now())) {
+      return 'expired';
+    }
+    return raw;
   }
 
   /// A chronological "life events" feed for `CitizenTimelineScreen` --
@@ -269,37 +280,83 @@ class CitizenRepository {
   /// `DigitalIdentityScreen`'s credential list, which already includes
   /// every credential type -- tax compliance, driver's licence, NSC,
   /// tertiary qualification, etc.) -- see `ServicesScreen._routeFor`.
+  /// One tile per department, not a handful of bundled catch-alls -- every
+  /// department that issues a citizen-facing credential/status gets its
+  /// own entry here. Most route to the Digital Identity screen's
+  /// credential list (where every credential type is already shown,
+  /// regardless of issuing department) since that's the real destination;
+  /// SASSA/Human Settlements/Verification keep their own dedicated screens.
   Future<List<ServiceItem>> getServices() async {
     return const [
       ServiceItem(
-        name: 'SASSA Grants',
-        description: 'View your social grant status and payment history',
-        icon: Icons.volunteer_activism_outlined,
+        name: 'Home Affairs',
+        description: 'Passport and civil identity records',
+        icon: Icons.badge_outlined,
         available: true,
+        route: AppRoutes.citizenDigitalIdentity,
       ),
       ServiceItem(
-        name: 'Human Settlements',
-        description: 'View your housing programme status and title deed',
-        icon: Icons.home_work_outlined,
+        name: "Driver's Licence",
+        description: 'Your driving licence status and expiry',
+        icon: Icons.directions_car_outlined,
         available: true,
-      ),
-      ServiceItem(
-        name: 'Identity Verification',
-        description: 'See who has requested to verify your identity',
-        icon: Icons.verified_user_outlined,
-        available: true,
+        route: AppRoutes.citizenDigitalIdentity,
       ),
       ServiceItem(
         name: 'Tax & SARS',
         description: 'Tax compliance status and records',
         icon: Icons.receipt_long_outlined,
         available: true,
+        route: AppRoutes.citizenDigitalIdentity,
       ),
       ServiceItem(
-        name: 'Licences & Qualifications',
-        description: 'Driving licences and registered qualifications',
+        name: 'Police Clearance',
+        description: 'Criminal clearance certificate status',
+        icon: Icons.gavel_outlined,
+        available: true,
+        route: AppRoutes.citizenDigitalIdentity,
+      ),
+      ServiceItem(
+        name: 'Basic Education',
+        description: 'Matric (National Senior Certificate) results',
         icon: Icons.school_outlined,
         available: true,
+        route: AppRoutes.citizenDigitalIdentity,
+      ),
+      ServiceItem(
+        name: 'Higher Education',
+        description: 'Registered tertiary qualifications and results',
+        icon: Icons.workspace_premium_outlined,
+        available: true,
+        route: AppRoutes.citizenDigitalIdentity,
+      ),
+      ServiceItem(
+        name: 'Employment & UIF',
+        description: 'Employment status and UIF contributions',
+        icon: Icons.work_outline,
+        available: true,
+        route: AppRoutes.citizenDigitalIdentity,
+      ),
+      ServiceItem(
+        name: 'SASSA Grants',
+        description: 'View your social grant status and payment history',
+        icon: Icons.volunteer_activism_outlined,
+        available: true,
+        route: AppRoutes.citizenSassa,
+      ),
+      ServiceItem(
+        name: 'Human Settlements',
+        description: 'View your housing programme status and title deed',
+        icon: Icons.home_work_outlined,
+        available: true,
+        route: AppRoutes.citizenHumanSettlements,
+      ),
+      ServiceItem(
+        name: 'Identity Verification',
+        description: 'See who has requested to verify your identity',
+        icon: Icons.verified_user_outlined,
+        available: true,
+        route: AppRoutes.citizenVerification,
       ),
     ];
   }

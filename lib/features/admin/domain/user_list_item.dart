@@ -11,6 +11,7 @@ class UserListItem {
     required this.role,
     required this.active,
     required this.createdAt,
+    this.departmentId,
   });
 
   final String userId;
@@ -19,6 +20,11 @@ class UserListItem {
   final AdminUserRole role;
   final bool active;
   final DateTime createdAt;
+
+  /// Only set for [AdminUserRole.departmentOfficial] rows -- which
+  /// department this official belongs to, so a department's detail screen
+  /// can show only its own officials instead of every official system-wide.
+  final String? departmentId;
 
   String get roleLabel => switch (role) {
         AdminUserRole.citizen => 'Citizen',

@@ -1,3 +1,5 @@
+import '../../../core/utils/age_utils.dart';
+import '../../../core/utils/sa_id_generator.dart';
 import '../../shared/domain/citizen_lookup_result.dart';
 import '../data/department_repository.dart';
 
@@ -44,6 +46,7 @@ class RecordTypeConfig {
     this.idColumn,
     this.buildUpdateData,
     this.buildDelete,
+    this.validate,
   });
 
   final String label;
@@ -55,6 +58,15 @@ class RecordTypeConfig {
       buildInsertData;
   final String Function(Map<String, dynamic> row) rowTitle;
   final String Function(Map<String, dynamic> row) rowSubtitle;
+
+  /// Checked against the submitted form values before insert/update ever
+  /// reaches the repository -- returns a specific, human-readable reason
+  /// the record can't be created (e.g. "This citizen is 12 years old -- a
+  /// driver's licence cannot be issued before age 17.") or `null` if it's
+  /// fine. The database enforces the same floors independently as a hard
+  /// backstop; this is what lets an official see why *before* submitting
+  /// rather than getting a raw Postgres error back.
+  final String? Function(CitizenLookupResult citizen, Map<String, dynamic> formValues)? validate;
 
   /// Primary-key column present in the rows [fetchExisting] returns --
   /// required for edit/delete to be able to target one row.
@@ -104,6 +116,28 @@ const _provinces = [
   'Western Cape',
 ];
 
+/// Shared by every record type that's just "one citizen, one event date,
+/// one minimum age" (driver's licence, tax registration, employment).
+/// Marriage (two people) and SASSA Old Age (current age, not an event
+/// date) have their own inline logic instead.
+String? _minAgeValidator({
+  required CitizenLookupResult citizen,
+  required Map<String, dynamic> values,
+  required String dateKey,
+  required int minAge,
+  required String label,
+}) {
+  final dob = citizen.dateOfBirth ?? saIdDateOfBirth(citizen.idNumber);
+  if (dob == null) return null;
+  final eventDate = DateTime.tryParse(values[dateKey] as String? ?? '') ?? DateTime.now();
+  final age = ageAt(dob, eventDate);
+  if (age < minAge) {
+    return '${citizen.fullName} would be $age years old on ${eventDate.toIso8601String().split('T').first} -- '
+        '$label requires a minimum age of $minAge.';
+  }
+  return null;
+}
+
 List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
   switch (departmentCode) {
     case 'HOME_AFFAIRS':
@@ -121,6 +155,21 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             ),
             RecordField(key: 'date_of_marriage', label: 'Date of marriage', type: _dateOnly),
           ],
+          validate: (citizen, values) {
+            final marriageDate = DateTime.tryParse(values['date_of_marriage'] as String? ?? '');
+            if (marriageDate == null) return null;
+            final spouse1Dob = saIdDateOfBirth(citizen.idNumber);
+            if (spouse1Dob != null && ageAt(spouse1Dob, marriageDate) < 18) {
+              return '${citizen.fullName} would be ${ageAt(spouse1Dob, marriageDate)} years old on this date -- '
+                  'the minimum marriage age is 18.';
+            }
+            final spouse2Dob = saIdDateOfBirth(values['spouse_2_id'] as String? ?? '');
+            if (spouse2Dob != null && ageAt(spouse2Dob, marriageDate) < 18) {
+              return 'The spouse would be ${ageAt(spouse2Dob, marriageDate)} years old on this date -- '
+                  'the minimum marriage age is 18.';
+            }
+            return null;
+          },
           fetchExisting: (repo, citizen) =>
               repo.getRecordsByColumn(table: 'dha_marital_records', column: 'spouse_1_id', value: citizen.idNumber),
           // Via the register_marriage RPC, which rejects the request
@@ -257,6 +306,8 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
               options: ['Valid', 'Suspended', 'Expired', 'Revoked'],
             ),
           ],
+          validate: (citizen, values) =>
+              _minAgeValidator(citizen: citizen, values: values, dateKey: 'issue_date', minAge: 17, label: "a driver's licence"),
           fetchExisting: (repo, citizen) => repo.getRecordsByColumn(
               table: 'dot_driver_licences', column: 'national_id_number', value: citizen.idNumber),
           buildInsertData: (repo, citizen, values) => repo.issueDriversLicence(
@@ -328,6 +379,8 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             ),
             RecordField(key: 'registered_date', label: 'Registered date', type: _dateOnly),
           ],
+          validate: (citizen, values) =>
+              _minAgeValidator(citizen: citizen, values: values, dateKey: 'registered_date', minAge: 18, label: 'a tax registration'),
           fetchExisting: (repo, citizen) => repo.getRecordsByColumn(
               table: 'sars_taxpayers', column: 'national_id_number', value: citizen.idNumber),
           buildInsertData: (repo, citizen, values) => repo.registerTaxpayer(
@@ -342,6 +395,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             citizenId: citizen.citizenId,
             taxNumber: existingRow['tax_number'] as String,
             complianceStatus: values['tax_compliance_status'] as String,
+            registeredDate: DateTime.tryParse(values['registered_date'] as String? ?? ''),
           ),
           rowTitle: (r) => r['tax_number'] as String? ?? '',
           rowSubtitle: (r) => '${r['tax_compliance_status']}',
@@ -378,6 +432,9 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             idColumn: 'return_id',
             idValue: existingRow['return_id'],
             data: {
+              'tax_number': values['tax_number'],
+              'tax_year': int.tryParse(values['tax_year']?.toString() ?? '') ?? DateTime.now().year,
+              'declared_income': num.tryParse(values['declared_income']?.toString() ?? '') ?? 0,
               'refund_or_due_amount': num.tryParse(values['refund_or_due_amount']?.toString() ?? '') ?? 0,
               'filing_status': values['filing_status'],
             },
@@ -420,7 +477,11 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             table: 'saps_criminal_records',
             idColumn: 'case_number',
             idValue: existingRow['case_number'],
-            data: {'sentence_status': values['sentence_status']},
+            data: {
+              'offence_code': values['offence_code'],
+              'conviction_date': values['conviction_date'],
+              'sentence_status': values['sentence_status'],
+            },
           ),
           rowTitle: (r) => r['case_number'] as String? ?? '',
           rowSubtitle: (r) => '${r['offence_code']} • ${r['sentence_status']}',
@@ -464,6 +525,16 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
               options: ['Bachelor Pass', 'Diploma', 'Higher Certificate'],
             ),
           ],
+          validate: (citizen, values) {
+            final dob = citizen.dateOfBirth ?? saIdDateOfBirth(citizen.idNumber);
+            final year = int.tryParse(values['year']?.toString() ?? '');
+            if (dob == null || year == null) return null;
+            final age = year - dob.year;
+            if (age < 14 || age > 25) {
+              return '${citizen.fullName} would be $age years old in $year -- outside the plausible 14-25 range for writing the NSC.';
+            }
+            return null;
+          },
           fetchExisting: (repo, citizen) => repo.getRecordsByColumn(
               table: 'dbe_nsc_results', column: 'national_id_number', value: citizen.idNumber),
           // "Grant matric certificate upon completion" -- the NSC result
@@ -513,6 +584,8 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             citizenId: citizen.citizenId,
             enrollmentId: existingRow['enrollment_id'] as String,
             completionStatus: values['completion_status'] as String,
+            institutionCode: values['institution_code'] as String?,
+            qualificationName: values['qualification_name'] as String?,
           ),
           rowTitle: (r) => r['qualification_name'] as String? ?? '',
           rowSubtitle: (r) => '${r['institution_code']} • ${r['completion_status']}',
@@ -536,15 +609,26 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
               options: ['Distinction', 'Merit', 'Pass', 'Fail'],
             ),
           ],
+          validate: (citizen, values) {
+            final dob = citizen.dateOfBirth ?? saIdDateOfBirth(citizen.idNumber);
+            final year = int.tryParse(values['year']?.toString() ?? '');
+            if (dob == null || year == null) return null;
+            final age = year - dob.year;
+            if (age < 17) {
+              return '${citizen.fullName} would be $age years old in $year -- too young to have completed this qualification.';
+            }
+            return null;
+          },
           fetchExisting: (repo, citizen) => repo.getRecordsByColumn(
               table: 'dhet_academic_records', column: 'national_id_number', value: citizen.idNumber),
-          buildInsertData: (repo, citizen, values) => repo.insertRecord(table: 'dhet_academic_records', data: {
-            'national_id_number': citizen.idNumber,
-            'institution_code': values['institution_code'],
-            'qualification_name': values['qualification_name'],
-            'year': int.tryParse(values['year']?.toString() ?? '') ?? DateTime.now().year,
-            'final_result': values['final_result'],
-          }),
+          buildInsertData: (repo, citizen, values) => repo.recordAcademicResult(
+            citizenId: citizen.citizenId,
+            nationalIdNumber: citizen.idNumber,
+            institutionCode: values['institution_code'] as String,
+            qualificationName: values['qualification_name'] as String,
+            year: int.tryParse(values['year']?.toString() ?? '') ?? DateTime.now().year,
+            finalResult: values['final_result'] as String,
+          ),
           rowTitle: (r) => r['qualification_name'] as String? ?? '',
           rowSubtitle: (r) => '${r['institution_code']} • ${r['year']} • ${r['final_result']}',
         ),
@@ -601,6 +685,20 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
               options: ['Bank Transfer', 'Retail Post Office'],
             ),
           ],
+          // Only "Old Age" carries an age floor -- SRD R370/Child Support/
+          // Disability have no such restriction, and Old Age is judged
+          // against the citizen's *current* age (an ongoing entitlement),
+          // not a submitted event date.
+          validate: (citizen, values) {
+            if (values['grant_type'] != 'Old Age') return null;
+            final dob = citizen.dateOfBirth ?? saIdDateOfBirth(citizen.idNumber);
+            if (dob == null) return null;
+            final age = ageAt(dob, DateTime.now());
+            if (age < 60) {
+              return '${citizen.fullName} is $age years old -- the Old Age grant requires a minimum age of 60.';
+            }
+            return null;
+          },
           fetchExisting: (repo, citizen) =>
               repo.getRecordsByColumn(table: 'sassa_grants', column: 'national_id_number', value: citizen.idNumber),
           buildInsertData: (repo, citizen, values) => repo.issueSassaGrant(
@@ -649,6 +747,8 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
               options: ['Not Claiming', 'Claiming', 'Claim Approved', 'Claim Rejected'],
             ),
           ],
+          validate: (citizen, values) =>
+              _minAgeValidator(citizen: citizen, values: values, dateKey: 'start_date', minAge: 15, label: 'an employment record'),
           fetchExisting: (repo, citizen) => repo.getRecordsByColumn(
               table: 'labour_employment_records', column: 'national_id_number', value: citizen.idNumber),
           buildInsertData: (repo, citizen, values) => repo.recordEmployment(
@@ -667,6 +767,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             employmentStatus: values['employment_status'] as String,
             uifContributionAmount: num.tryParse(values['uif_contribution_amount']?.toString() ?? '') ?? 0,
             uifClaimStatus: values['uif_claim_status'] as String,
+            startDate: DateTime.tryParse(values['start_date'] as String? ?? ''),
           ),
           rowTitle: (r) => r['employer_name'] as String? ?? (r['employment_status'] as String? ?? ''),
           rowSubtitle: (r) => '${r['employment_status']} • UIF: ${r['uif_claim_status'] ?? 'Not Claiming'}',
@@ -716,6 +817,10 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           buildUpdateData: (repo, citizen, existingRow, values) => repo.updatePropertyStatus(
             propertyId: existingRow['property_id'] as String,
             housingStatus: values['housing_status'] as String,
+            municipality: values['municipality'] as String?,
+            province: values['province'] as String?,
+            suburb: (values['suburb'] as String?)?.isEmpty ?? true ? null : values['suburb'] as String,
+            propertyType: values['property_type'] as String?,
           ),
           rowTitle: (r) => r['property_reference'] as String? ?? '',
           rowSubtitle: (r) => '${r['municipality'] ?? ''}, ${r['province'] ?? ''} • ${r['housing_status']}',
@@ -790,6 +895,11 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           buildUpdateData: (repo, citizen, existingRow, values) => repo.updateHousingApplicationStatus(
             housingApplicationId: existingRow['housing_application_id'] as String,
             applicationStatus: values['application_status'] as String,
+            programmeCode: values['programme_code'] as String?,
+            municipality: values['municipality'] as String?,
+            province: values['province'] as String?,
+            householdSize: int.tryParse(values['household_size']?.toString() ?? ''),
+            householdIncome: num.tryParse(values['household_income']?.toString() ?? ''),
           ),
           rowTitle: (r) => r['application_reference'] as String? ?? '',
           rowSubtitle: (r) => '${r['application_status']} • ${r['municipality'] ?? ''}',

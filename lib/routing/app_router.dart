@@ -40,6 +40,7 @@ import '../features/citizen/presentation/citizen_timeline_screen.dart';
 import '../features/citizen/presentation/digital_id_card_screen.dart';
 import '../features/citizen/presentation/digital_identity_screen.dart';
 import '../features/citizen/presentation/document_detail_screen.dart';
+import '../features/citizen/presentation/document_wallet_screen.dart';
 import '../features/citizen/presentation/documents_list_screen.dart';
 import '../features/citizen/presentation/human_settlements_screen.dart';
 import '../features/citizen/presentation/notification_detail_screen.dart';
@@ -287,6 +288,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.citizenVerification, builder: (c, s) => const CitizenVerificationListScreen()),
       GoRoute(path: AppRoutes.citizenConsent, builder: (c, s) => const ConsentManagementScreen()),
       GoRoute(path: AppRoutes.citizenDigitalIdCard, builder: (c, s) => const DigitalIdCardScreen()),
+      GoRoute(path: AppRoutes.citizenDocumentWallet, builder: (c, s) => const DocumentWalletScreen()),
       GoRoute(path: AppRoutes.citizenTimeline, builder: (c, s) => const CitizenTimelineScreen()),
       GoRoute(
         path: '${AppRoutes.citizenVerification}/:id',

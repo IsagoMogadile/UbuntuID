@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/report_export.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/detail_row.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -14,9 +15,49 @@ import '../../../core/widgets/staggered_fade_in.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../routing/app_routes.dart';
 import '../data/citizen_repository.dart';
+import '../domain/credential_item.dart';
+import '../domain/digital_identity.dart';
 
 class DigitalIdentityScreen extends ConsumerWidget {
   const DigitalIdentityScreen({super.key});
+
+  Future<void> _downloadCredential(DigitalIdentity identity, CredentialItem credential) {
+    final qualification = credential.qualification;
+    return ReportExport.exportPdf(
+      filename: '${credential.typeName.replaceAll(' ', '_').toLowerCase()}.pdf',
+      title: credential.typeName,
+      subtitle: '${identity.fullName} • ID ${identity.idNumber}',
+      headers: const ['Field', 'Value'],
+      rows: [
+        ['Issuing department', credential.issuingDepartment],
+        ['Status', credential.status],
+        ['Issued', AppFormatters.date(credential.issuedDate)],
+        ['Expiry', credential.expiryDate == null ? 'n/a' : AppFormatters.date(credential.expiryDate!)],
+        if (credential.nqfLevel != null) ['NQF level', '${credential.nqfLevel}'],
+        if (qualification != null) ...[
+          ['Qualification', qualification.qualificationName],
+          if (qualification.institutionName != null) ['Institution', qualification.institutionName!],
+          if (qualification.year != null) ['Year', '${qualification.year}'],
+          if (qualification.result != null) ['Result', qualification.result!],
+        ],
+      ],
+    );
+  }
+
+  static String _credentialSubtitle(CredentialItem credential) {
+    final qualification = credential.qualification;
+    if (qualification != null) {
+      final parts = [
+        qualification.qualificationName,
+        if (qualification.institutionName != null) qualification.institutionName!,
+        if (qualification.result != null) qualification.result!,
+      ];
+      return parts.join(' • ');
+    }
+    return credential.nqfLevel == null
+        ? credential.issuingDepartment
+        : '${credential.issuingDepartment} • NQF ${credential.nqfLevel}';
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -102,12 +143,22 @@ class DigitalIdentityScreen extends ConsumerWidget {
                           index: i,
                           child: ListTile(
                             title: Text(credentials[i].typeName),
-                            subtitle: Text(
-                              credentials[i].nqfLevel == null
-                                  ? credentials[i].issuingDepartment
-                                  : '${credentials[i].issuingDepartment} • NQF ${credentials[i].nqfLevel}',
+                            subtitle: Text(_credentialSubtitle(credentials[i])),
+                            isThreeLine: credentials[i].qualification != null,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                StatusBadge.fromStatus(credentials[i].status),
+                                IconButton(
+                                  icon: const Icon(Icons.download_outlined, size: 20),
+                                  tooltip: 'Download',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  onPressed: () => _downloadCredential(identity, credentials[i]),
+                                ),
+                              ],
                             ),
-                            trailing: StatusBadge.fromStatus(credentials[i].status),
                           ),
                         ),
                       ],

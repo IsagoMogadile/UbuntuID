@@ -104,7 +104,9 @@ class _DepartmentDetailScreenState extends ConsumerState<DepartmentDetailScreen>
                 loading: () => const LoadingIndicator(),
                 error: (error, _) => const ErrorView(message: 'Could not load officials.'),
                 data: (users) {
-                  final officials = users.where((u) => u.roleLabel == 'Department Official').toList();
+                  final officials = users
+                      .where((u) => u.roleLabel == 'Department Official' && u.departmentId == widget.departmentId)
+                      .toList();
                   if (officials.isEmpty) {
                     return const EmptyState(icon: Icons.badge_outlined, title: 'No officials listed');
                   }

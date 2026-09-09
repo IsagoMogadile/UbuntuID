@@ -67,21 +67,13 @@ class _AccountNotConfiguredScreenState extends ConsumerState<AccountNotConfigure
                     "Affairs already registered you as a citizen, make sure "
                     "you signed up with the exact same email address they "
                     'used for you -- that\'s what links your login to your '
-                    'record automatically. If you confirmed your email to '
-                    'register an organisation, finish that below. Otherwise, '
-                    'contact your administrator to have your access '
-                    'configured, then try again.',
+                    'record automatically. Otherwise, contact your '
+                    'administrator to have your access configured, then try '
+                    'again.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.charcoalMuted),
                   ),
                   const SizedBox(height: 24),
-                  AppButton(
-                    label: 'Finish registering your organisation',
-                    icon: Icons.apartment_outlined,
-                    onPressed: () => context.push(AppRoutes.registerOrganisation),
-                    expand: true,
-                  ),
-                  const SizedBox(height: 8),
                   AppButton(
                     label: 'Check again',
                     icon: Icons.refresh,

@@ -329,12 +329,16 @@ class DepartmentRepository {
     required String citizenId,
     required String taxNumber,
     required String complianceStatus,
+    DateTime? registeredDate,
   }) async {
     await updateRecord(
       table: 'sars_taxpayers',
       idColumn: 'tax_number',
       idValue: taxNumber,
-      data: {'tax_compliance_status': complianceStatus},
+      data: {
+        'tax_compliance_status': complianceStatus,
+        if (registeredDate != null) 'registered_date': registeredDate.toIso8601String().split('T').first,
+      },
     );
     await _updateCredentialMirror(
       citizenId: citizenId,
@@ -412,10 +416,42 @@ class DepartmentRepository {
       'qualification_name': qualificationName,
       'completion_status': completionStatus,
     });
-    await _issueCredentialMirror(
+    // Same LABOUR_STATUS-style bug avoided here: a citizen can legitimately
+    // have more than one enrolment over their life (undergrad, then later a
+    // postgrad) -- update the one TERTIARY_QUALIFICATION credential that
+    // should exist rather than inserting a new mirror row every time.
+    await _updateCredentialMirror(
       citizenId: citizenId,
       typeCode: 'TERTIARY_QUALIFICATION',
       status: completionStatus == 'Graduated' ? 'active' : 'pending',
+    );
+  }
+
+  /// A completed qualification's actual result -- distinct from
+  /// [enrolStudent]'s in-progress enrolment status, and the more
+  /// authoritative of the two when both exist for the same citizen (a
+  /// finished degree with a real result outranks "still enrolled"). Shares
+  /// the same TERTIARY_QUALIFICATION credential mirror as enrolment, kept
+  /// current via _updateCredentialMirror rather than a second row.
+  Future<void> recordAcademicResult({
+    required String citizenId,
+    required String nationalIdNumber,
+    required String institutionCode,
+    required String qualificationName,
+    required int year,
+    required String finalResult,
+  }) async {
+    await _client.from('dhet_academic_records').insert({
+      'national_id_number': nationalIdNumber,
+      'institution_code': institutionCode,
+      'qualification_name': qualificationName,
+      'year': year,
+      'final_result': finalResult,
+    });
+    await _updateCredentialMirror(
+      citizenId: citizenId,
+      typeCode: 'TERTIARY_QUALIFICATION',
+      status: finalResult == 'Fail' ? 'suspended' : 'active',
     );
   }
 
@@ -423,12 +459,18 @@ class DepartmentRepository {
     required String citizenId,
     required String enrollmentId,
     required String completionStatus,
+    String? institutionCode,
+    String? qualificationName,
   }) async {
     await updateRecord(
       table: 'dhet_student_enrollment',
       idColumn: 'enrollment_id',
       idValue: enrollmentId,
-      data: {'completion_status': completionStatus},
+      data: {
+        'completion_status': completionStatus,
+        if (institutionCode != null) 'institution_code': institutionCode,
+        if (qualificationName != null) 'qualification_name': qualificationName,
+      },
     );
     await _updateCredentialMirror(
       citizenId: citizenId,
@@ -490,11 +532,16 @@ class DepartmentRepository {
       'uif_contribution_amount': uifContributionAmount,
       'uif_claim_status': uifClaimStatus,
     });
-    await _issueCredentialMirror(
+    // Unlike passport/licence/tax (one-time "issue" events), a citizen can
+    // have several employment records over time (job changes) -- but there
+    // should only ever be one LABOUR_STATUS credential reflecting their
+    // *current* status, not one per job. _updateCredentialMirror finds and
+    // updates the existing one (or creates it the first time) instead of
+    // always inserting a new row.
+    await _updateCredentialMirror(
       citizenId: citizenId,
       typeCode: 'LABOUR_STATUS',
       status: employmentStatus == 'Unemployed' ? 'suspended' : 'active',
-      issuedDate: startDate,
     );
   }
 
@@ -505,12 +552,14 @@ class DepartmentRepository {
     required String employmentStatus,
     required num uifContributionAmount,
     required String uifClaimStatus,
+    DateTime? startDate,
   }) async {
     await updateRecord(table: 'labour_employment_records', idColumn: 'record_id', idValue: recordId, data: {
       'employer_name': employerName,
       'employment_status': employmentStatus,
       'uif_contribution_amount': uifContributionAmount,
       'uif_claim_status': uifClaimStatus,
+      if (startDate != null) 'start_date': startDate.toIso8601String().split('T').first,
     });
     await _updateCredentialMirror(
       citizenId: citizenId,
@@ -584,12 +633,25 @@ class DepartmentRepository {
     });
   }
 
-  Future<void> updatePropertyStatus({required String propertyId, required String housingStatus}) {
+  Future<void> updatePropertyStatus({
+    required String propertyId,
+    required String housingStatus,
+    String? municipality,
+    String? province,
+    String? suburb,
+    String? propertyType,
+  }) {
     return updateRecord(
       table: 'properties',
       idColumn: 'property_id',
       idValue: propertyId,
-      data: {'housing_status': housingStatus},
+      data: {
+        'housing_status': housingStatus,
+        if (municipality != null) 'municipality': municipality,
+        if (province != null) 'province': province,
+        if (suburb != null) 'suburb': suburb,
+        if (propertyType != null) 'property_type': propertyType,
+      },
     );
   }
 
@@ -657,6 +719,11 @@ class DepartmentRepository {
   Future<void> updateHousingApplicationStatus({
     required String housingApplicationId,
     required String applicationStatus,
+    String? programmeCode,
+    String? municipality,
+    String? province,
+    int? householdSize,
+    num? householdIncome,
   }) {
     return updateRecord(
       table: 'housing_applications',
@@ -666,6 +733,11 @@ class DepartmentRepository {
         'application_status': applicationStatus,
         if (applicationStatus == 'approved') 'approved_date': DateTime.now().toIso8601String().split('T').first,
         if (applicationStatus == 'rejected') 'rejected_date': DateTime.now().toIso8601String().split('T').first,
+        if (programmeCode != null) 'programme_code': programmeCode,
+        if (municipality != null) 'municipality': municipality,
+        if (province != null) 'province': province,
+        if (householdSize != null) 'household_size': householdSize,
+        if (householdIncome != null) 'household_income': householdIncome,
       },
     );
   }

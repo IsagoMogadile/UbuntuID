@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/loading_indicator.dart';
 import '../application/role_resolution.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -54,11 +55,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                     style: TextStyle(fontSize: 13),
                   ),
                   SizedBox(height: 28),
-                  SizedBox(
-                    height: 26,
-                    width: 26,
-                    child: CircularProgressIndicator(strokeWidth: 2.6),
-                  ),
+                  AppLoadingBar(width: 120),
                 ],
               )
             : ErrorView(message: _error!, onRetry: _resolve),

@@ -39,6 +39,7 @@ class AppRoutes {
   static const citizenVerification = '/citizen/verification';
   static const citizenConsent = '/citizen/profile/consent';
   static const citizenDigitalIdCard = '/citizen/profile/id-card';
+  static const citizenDocumentWallet = '/citizen/wallet';
   static const citizenTimeline = '/citizen/timeline';
 
   // Department official

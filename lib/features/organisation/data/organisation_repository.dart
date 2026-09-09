@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../services/service_providers.dart';
+import '../../citizen/domain/credential_item.dart';
+import '../../shared/data/qualification_lookup.dart';
 import '../domain/organisation_colleague_item.dart';
 import '../domain/organisation_dashboard_stats.dart';
 
@@ -258,22 +260,47 @@ class OrganisationRepository {
 
     final rows = await _client
         .from('credentials')
-        .select('credential_id, status, credential_type_id, '
-            'credential_types(credential_type_id, display_name, departments(department_name))')
+        .select('credential_id, status, expiry_date, credential_type_id, '
+            'credential_types(credential_type_id, type_code, display_name, departments(department_name)), '
+            'citizens(id_number)')
         .eq('citizen_id', citizenId)
         .inFilter('credential_type_id', allowedTypeIds.toList())
         .order('issued_date', ascending: false);
 
-    return [
-      for (final row in rows)
-        VerifiableCredential(
-          credentialTypeId: row['credential_type_id'] as String,
-          typeName: (row['credential_types']?['display_name'] as String?) ?? 'Credential',
-          issuingDepartment:
-              (row['credential_types']?['departments']?['department_name'] as String?) ?? 'Unknown department',
-          status: row['status'] as String? ?? 'pending',
-        ),
-    ];
+    final idNumber = rows.isEmpty ? null : rows.first['citizens']?['id_number'] as String?;
+
+    final items = <VerifiableCredential>[];
+    for (final row in rows) {
+      final typeCode = row['credential_types']?['type_code'] as String?;
+      items.add(VerifiableCredential(
+        credentialTypeId: row['credential_type_id'] as String,
+        typeName: (row['credential_types']?['display_name'] as String?) ?? 'Credential',
+        issuingDepartment:
+            (row['credential_types']?['departments']?['department_name'] as String?) ?? 'Unknown department',
+        status: _effectiveCredentialStatus(row['status'] as String?, _parseNullableDate(row['expiry_date'])),
+        qualification: idNumber == null
+            ? null
+            : await fetchQualificationDetail(_client, typeCode: typeCode, nationalIdNumber: idNumber),
+      ));
+    }
+    return items;
+  }
+
+  static DateTime? _parseNullableDate(dynamic value) {
+    if (value == null) return null;
+    return DateTime.tryParse(value as String);
+  }
+
+  /// Mirrors `CitizenRepository._effectiveCredentialStatus` -- the `status`
+  /// column is never flipped to `expired` as time passes (no scheduled
+  /// job for it), so an organisation verifying a citizen must not trust it
+  /// blindly once `expiry_date` has passed.
+  static String _effectiveCredentialStatus(String? status, DateTime? expiryDate) {
+    final raw = status ?? 'pending';
+    if (raw == 'active' && expiryDate != null && expiryDate.isBefore(DateTime.now())) {
+      return 'expired';
+    }
+    return raw;
   }
 
   /// Raises a verification request: one `consent_grants` row (recording
@@ -430,12 +457,17 @@ class VerifiableCredential {
     required this.typeName,
     required this.issuingDepartment,
     required this.status,
+    this.qualification,
   });
 
   final String credentialTypeId;
   final String typeName;
   final String issuingDepartment;
   final String status;
+
+  /// The real record behind an NSC/TERTIARY_QUALIFICATION credential --
+  /// see `fetchQualificationDetail`. `null` for every other credential type.
+  final QualificationDetail? qualification;
 }
 
 final organisationRepositoryProvider = Provider<OrganisationRepository>((ref) {

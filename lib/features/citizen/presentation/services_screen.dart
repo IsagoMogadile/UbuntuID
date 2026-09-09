@@ -7,25 +7,16 @@ import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../routing/app_routes.dart';
 import '../data/citizen_repository.dart';
+import '../domain/service_item.dart';
 
 class ServicesScreen extends ConsumerWidget {
   const ServicesScreen({super.key});
 
-  static String _routeFor(dynamic service) {
-    if (!(service.available as bool)) {
-      return '${AppRoutes.comingSoon}?feature=${Uri.encodeComponent(service.name as String)}';
+  static String _routeFor(ServiceItem service) {
+    if (!service.available) {
+      return '${AppRoutes.comingSoon}?feature=${Uri.encodeComponent(service.name)}';
     }
-    return switch (service.name as String) {
-      'SASSA Grants' => AppRoutes.citizenSassa,
-      'Human Settlements' => AppRoutes.citizenHumanSettlements,
-      'Identity Verification' => AppRoutes.citizenVerification,
-      // Both already live on the Digital Identity screen's credential list
-      // (every credential type, including Tax Compliance and Driver's
-      // Licence/NSC/Tertiary Qualification) -- no separate screen needed.
-      'Tax & SARS' => AppRoutes.citizenDigitalIdentity,
-      'Licences & Qualifications' => AppRoutes.citizenDigitalIdentity,
-      _ => '${AppRoutes.comingSoon}?feature=${Uri.encodeComponent(service.name as String)}',
-    };
+    return service.route;
   }
 
   @override
