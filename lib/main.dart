@@ -22,6 +22,7 @@ class UbuntuIdApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'UbuntuID',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
