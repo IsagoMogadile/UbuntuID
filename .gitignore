@@ -47,8 +47,10 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
-# Environment variables (Supabase URL/anon key)
+# Environment variables (Supabase URL/anon key) -- passed to `flutter run`/
+# `flutter build` via --dart-define-from-file, see dart_defines.example.json
 .env
+dart_defines.json
 
 # Database backups (contain real user PII - never commit)
 backups/

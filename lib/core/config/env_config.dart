@@ -1,9 +1,13 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
+/// Read at compile time via `--dart-define`/`--dart-define-from-file`
+/// (see README/docs/DEPLOYMENT.md) rather than a bundled `.env` asset --
+/// Flutter Web has no server-side process to hold a runtime-loaded
+/// secrets file, and a `.env` shipped as a static asset is just a
+/// plaintext file fetchable at a public URL. Compiling the values in
+/// keeps local dev and CI/Vercel on the same mechanism.
 class EnvConfig {
   EnvConfig._();
 
-  static String get supabaseUrl => dotenv.env['SUPABASE_URL'] ?? '';
+  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 
-  static String get supabaseAnonKey => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  static const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 }

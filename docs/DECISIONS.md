@@ -8,6 +8,41 @@ than editing the old one — the trail matters.
 
 ---
 
+## 2026-09-10 — Vercel deployment: --dart-define instead of a bundled .env
+
+**What changed:** `SUPABASE_URL`/`SUPABASE_ANON_KEY` were read at runtime
+from a `.env` file, declared as a Flutter asset (`pubspec.yaml: assets:
+- .env`) and loaded via `flutter_dotenv` in `main.dart`.
+
+**Why:** a teammate set up a GitHub repo to deploy this to Vercel.
+`.env` is (correctly) gitignored, so it doesn't exist on a fresh clone --
+but it was a *required* asset, so `flutter build web` would fail outright
+on Vercel with no `.env` present to bundle. Flutter Web also has no
+server process to load a runtime secrets file from in the first place;
+a `.env` shipped as a static asset is just a plaintext file sitting at a
+public URL anyway, so bundling it was never actually hiding anything --
+RLS is the real boundary here (see `PROJECT_SCOPE.md`), same as it is for
+every other place this app touches Supabase directly from the browser.
+
+**How:** switched to compiling the two values in at build time via
+`--dart-define` (`EnvConfig` now reads `String.fromEnvironment`, dropped
+`flutter_dotenv` entirely). Local dev uses `--dart-define-from-file` on a
+gitignored `dart_defines.json` (same shape `.env` was, see
+`dart_defines.example.json`). Added `vercel.json` (`framework: null`,
+custom `buildCommand`/`outputDirectory`) and `scripts/vercel-build.sh`,
+which installs the Flutter SDK itself -- Vercel's build image doesn't
+have one -- then builds with `SUPABASE_URL`/`SUPABASE_ANON_KEY` read from
+Vercel's own Project Environment Variables. See `docs/DEPLOYMENT.md` for
+the setup steps. Verified with a real local `flutter build web --release
+--dart-define-from-file=dart_defines.json` -- built clean, no `.env`
+asset in the output bundle.
+
+**Not done here:** the GitHub repo itself -- this local checkout has no
+`git remote` configured, so nothing has been pushed. That needs sorting
+out with the teammate separately.
+
+---
+
 ## 2026-09-10 — Offer employment: any reviewed outcome, not just 'completed'
 
 **What changed:** the "Offer employment" button on the verification
