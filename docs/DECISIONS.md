@@ -8,6 +8,140 @@ than editing the old one — the trail matters.
 
 ---
 
+## 2026-09-10 — Offer employment: any reviewed outcome, not just 'completed'
+
+**What changed:** the "Offer employment" button on the verification
+detail screen required `overallStatus == 'completed'` exactly, hiding it
+for 'partially_verified', 'failed', or 'rejected' results.
+
+**Why:** hiring is the organisation's own call, not the system's --
+per the user, they should still be able to offer employment after
+reviewing an applicant even when the automated check came back partial or
+negative. `_reviewedStatuses = {completed, partially_verified, failed,
+rejected}` now gates the button (both places it appears in
+`verification_request_detail_screen.dart`) -- 'cancelled' is deliberately
+excluded, since it means no review happened at all, not a reviewed
+outcome.
+
+---
+
+## 2026-09-10 — Services tiles show that department's own record, not everything mixed
+
+**What changed:** 6 of the 12 Services tiles (Driver's Licence, Tax &
+SARS, Police Clearance, Basic Education, Higher Education, Employment &
+UIF) all routed to the same undifferentiated Digital Identity screen,
+which listed every credential type mixed together regardless of which
+tile was tapped.
+
+**Why:** user: "each secive show that department stuff. eg Drivers
+licence then see liceses, if i dont have then just say no data." Each
+tile should show only its own department's record, and say "No data"
+plainly if the citizen doesn't have one -- not a placeholder or the
+unrelated full list.
+
+**How:** `CredentialItem` gained a `typeCode` field (was already fetched
+from `credential_types.type_code` but discarded). `DigitalIdentityScreen`
+gained optional `filterTypeCode`/`title` params, read off new `?type=` /
+`?title=` query params on its route (`CitizenRepository
+._digitalIdentityRoute`, same query-param convention already used by
+`comingSoon`). When a filter is set, a new `_FilteredCredentialView`
+shows only that one credential type's record(s) -- or an explicit "No
+data" empty state -- instead of the full identity overview. Home Affairs
+is the one tile left unfiltered: the citizen's own identity details
+(name, ID number, DOB) are themselves Home Affairs' civil-registry data,
+so the full view already is that department's own stuff.
+
+---
+
+## 2026-09-10 — Offering employment now updates Labour's official record too
+
+**What changed:** "Offer Employment" previously only wrote the
+organisation's own private `organisation_employees` row -- Employment and
+Labour's real `labour_employment_records` was untouched, on the reasoning
+that an organisation shouldn't get to write a government table directly.
+The user pointed out the missing piece: "department of labour records
+this, and citizen is now working" -- the government record needs to
+actually reflect the hire, not just the employer's private note.
+
+**Why this doesn't contradict the "departments have zero role" correction
+above:** that correction was specifically about *verification* -- an
+activity departments genuinely never participated in. Recording who's
+employed is Employment and Labour's actual, existing job (they already
+manage Employment/UIF records by hand for other cases). This just gives
+that job a second, automatic trigger, the same way DBE's matric result
+already updates a citizen's profile without anyone re-typing it elsewhere.
+
+**How:** a new `offer_employment` RPC (SECURITY DEFINER, since an
+organisation still has no RLS write access to `labour_employment_records`
+or `credentials` -- this is a deliberately narrow, audited exception, not
+an open door) does both writes in one call: the organisation's HR row
+always succeeds; the government record is set to 'Employed' too, *unless*
+the citizen is currently enrolled full-time with DHET, in which case only
+the government write is skipped (with a clear reason shown to the
+organisation) -- same rule `record_employment` already enforces for an
+official doing this by hand, just not allowed to silently fail the whole
+offer over a rule the organisation has no visibility into.
+
+Applied live via the Supabase MCP on 2026-09-10. See
+`docs/database/offer_employment_records_with_labour.sql`.
+
+---
+
+## 2026-09-10 — Correction: departments have zero role in verification, not a reduced one
+
+**What was wrong:** the previous entries in this log ("Department Services
+rebuilt...", the automated-verification work) still left department
+officials able to *see* verification requests -- a "Pending requests"
+tile and stat cards on their dashboard, a full "Verification" bottom-nav
+tab and route, read access via `verification_requests_select_department`.
+The intent was already "officials don't decide", but the dashboard still
+treated verification as department business at all.
+
+**Correction, in the user's own words:** "no verification requests are
+sent [to departments]... all departments do not need to verify anything
+unless in case of audits." The real flow: a department (DBE, say) adds a
+credential to a citizen's profile as a normal part of its own job --
+nothing to do with verification. Separately, an applicant applies to an
+organisation (Spar) entirely outside UbuntuID; Spar keeps its own list of
+applicants inside UbuntuID, types in what one applicant's (external)
+application claims, submits it, and gets back an automated comparison.
+Departments are never in that loop at all -- not notified, not shown a
+queue, nothing -- except that an administrator can still look at any of it
+for audit purposes (the existing admin verification queue, unchanged).
+
+**Also corrected:** the dashboard's per-department special-action tiles
+(Register a new citizen, SAPS Wanted List, ...) had been added to *both*
+the dashboard and the Services screen -- flagged as "moved, not copied"
+but actually still duplicated. Removed from the dashboard entirely; it now
+links to Services rather than repeating its contents.
+
+**Changes made:**
+- Removed the "Verification" bottom-nav tab, its route, and the dead
+  `DepartmentVerificationListScreen` file for department officials only
+  (organisations and admins are unaffected -- they're the actual
+  participants).
+- Removed `pendingVerifications`/`processedThisMonth` from
+  `DepartmentDashboardStats` and the query that computed them --
+  dashboard now shows only officials-count and department-specific
+  record stats (e.g. "Credentials issued"), nothing verification-shaped.
+- Dashboard's special-action tiles removed; a single "Services" link
+  card replaces them.
+- Renamed the organisation-facing screens to match the applicant/
+  application vocabulary directly: "Verify Citizen" → "New Applicant",
+  "Verification Requests" → "Applicants", "Request verification" →
+  "Submit application", nav tab "Search"/"Verification" → "New
+  Applicant"/"Applicants".
+- Wrote (but could not apply -- Supabase MCP was disconnected this
+  session) `docs/database/remove_department_verification_access.sql`,
+  dropping `verification_requests_select_department` and removing the
+  `department_official_can_see_request` branch from
+  `can_view_verification_request()`, so this is enforced at the database
+  level too, not just hidden in the UI -- matching this project's own
+  "RLS is the real boundary" principle. Must be applied before this
+  correction is actually complete.
+
+---
+
 ## 2026-09-10 — QA pass found and fixed a real authorization bug
 
 **What happened:** live end-to-end testing (real Auth accounts, real RLS,

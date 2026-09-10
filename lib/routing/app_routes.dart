@@ -47,7 +47,6 @@ class AppRoutes {
 
   // Department official
   static const departmentDashboard = '/department-official';
-  static const departmentVerification = '/department-official/verification';
   static const departmentServices = '/department-official/services';
   static const departmentProfile = '/department-official/profile';
   static const departmentRegisterCitizen = '/department-official/register-citizen';

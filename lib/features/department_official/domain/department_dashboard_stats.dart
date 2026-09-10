@@ -3,15 +3,11 @@ import 'package:flutter/material.dart';
 class DepartmentDashboardStats {
   const DepartmentDashboardStats({
     required this.departmentName,
-    required this.pendingVerifications,
-    required this.processedThisMonth,
     required this.activeOfficials,
     this.categoryStats = const [],
   });
 
   final String departmentName;
-  final int pendingVerifications;
-  final int processedThisMonth;
   final int activeOfficials;
 
   /// Extra stat cards specific to this department's category (Home

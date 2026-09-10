@@ -10,7 +10,7 @@ class OrganisationVerificationListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Verification Requests')),
+      appBar: AppBar(title: const Text('Applicants')),
       body: VerificationRequestListView(
         onOpen: (id) => context.push('${AppRoutes.organisationVerification}/$id'),
       ),

@@ -26,6 +26,13 @@ const _processingWait = Duration(seconds: 18);
 const _openStatuses = {'pending', 'processing'};
 const _terminalStatuses = {'completed', 'partially_verified', 'failed', 'rejected', 'cancelled'};
 
+/// Terminal statuses that reflect an actual review outcome (as opposed to
+/// 'cancelled', which means no review happened at all). Hiring is the
+/// organisation's own call -- they can still offer employment after
+/// reviewing an applicant even if the check came back partial or failed,
+/// so "Offer employment" is gated on this set, not just 'completed'.
+const _reviewedStatuses = {'completed', 'partially_verified', 'failed', 'rejected'};
+
 /// Shared detail body used by the department official, organisation and
 /// administrator "Verification request" screens.
 ///
@@ -193,7 +200,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
     }
 
     try {
-      await ref.read(organisationRepositoryProvider).offerEmployment(
+      final result = await ref.read(organisationRepositoryProvider).offerEmployment(
             citizenId: citizenId,
             jobTitle: titleController.text.trim(),
             departmentOrPosition: positionController.text.trim().isEmpty ? null : positionController.text.trim(),
@@ -203,7 +210,14 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
             sourceVerificationRequestId: widget.requestId,
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Employment offer created.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+            result.labourRecorded
+                ? 'Employment offer created. Department of Labour\'s official record now shows this citizen as employed.'
+                : 'Employment offer created. ${result.skipReason ?? "Department of Labour's official record was not updated."}',
+          ),
+          duration: const Duration(seconds: 5),
+        ));
       }
     } catch (e) {
       if (mounted) {
@@ -292,7 +306,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
                 ),
                 const SizedBox(height: 12),
                 AppButton(
-                  label: 'Start verification',
+                  label: 'Start review',
                   icon: Icons.play_circle_outline,
                   expand: true,
                   loading: _starting,
@@ -309,7 +323,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
                   message: 'You\'ve already viewed this result. Submit a new verification request to see the '
                       'comparison again.',
                 ),
-                if (request.overallStatus == 'completed' && request.citizenId != null) ...[
+                if (_reviewedStatuses.contains(request.overallStatus) && request.citizenId != null) ...[
                   const SizedBox(height: 12),
                   AppButton(
                     label: 'Offer employment',
@@ -321,7 +335,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
               ] else ...[
                 const SectionHeader(title: 'Verification results'),
                 _ResultsList(requestId: widget.requestId),
-                if (isOwningOrg && request.overallStatus == 'completed' && request.citizenId != null) ...[
+                if (isOwningOrg && _reviewedStatuses.contains(request.overallStatus) && request.citizenId != null) ...[
                   const SizedBox(height: 20),
                   AppButton(
                     label: 'Offer employment',

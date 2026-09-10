@@ -19,7 +19,19 @@ import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
 
 class DigitalIdentityScreen extends ConsumerWidget {
-  const DigitalIdentityScreen({super.key});
+  const DigitalIdentityScreen({super.key, this.filterTypeCode, this.title});
+
+  /// When set (a Services tile other than Home Affairs), the screen shows
+  /// only this one department's credential -- not the full identity
+  /// overview -- and says so plainly ("No data") if the citizen doesn't
+  /// have one. `null` for the Home Affairs tile, which keeps the full,
+  /// unfiltered view below (the citizen's own identity details are
+  /// themselves Home Affairs' civil-registry data).
+  final String? filterTypeCode;
+
+  /// AppBar title when [filterTypeCode] is set (the Services tile's own
+  /// name, e.g. "Driver's Licence"). Falls back to "Digital Identity".
+  final String? title;
 
   Future<void> _downloadCredential(DigitalIdentity identity, CredentialItem credential) {
     final qualification = credential.qualification;
@@ -63,16 +75,25 @@ class DigitalIdentityScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final identityAsync = ref.watch(digitalIdentityProvider);
     final credentialsAsync = ref.watch(credentialsProvider);
+    final filterTypeCode = this.filterTypeCode;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Digital Identity')),
+      appBar: AppBar(title: Text(filterTypeCode != null ? (title ?? 'Digital Identity') : 'Digital Identity')),
       body: identityAsync.when(
         loading: () => const LoadingIndicator(),
         error: (error, _) => ErrorView(
           message: 'Could not load your digital identity.',
           onRetry: () => ref.invalidate(digitalIdentityProvider),
         ),
-        data: (identity) => ListView(
+        data: (identity) => filterTypeCode != null
+            ? _FilteredCredentialView(
+                identity: identity,
+                credentialsAsync: credentialsAsync,
+                typeCode: filterTypeCode,
+                title: title ?? 'Digital Identity',
+                onDownload: _downloadCredential,
+              )
+            : ListView(
           padding: const EdgeInsets.all(16),
           children: [
             const SectionHeader(title: 'Digital ID overview'),
@@ -189,6 +210,78 @@ class DigitalIdentityScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The Services screen's per-department view -- everything but that one
+/// department's own credential is left out entirely, and "No data" is
+/// shown plainly rather than an empty generic list when the citizen
+/// doesn't have one.
+class _FilteredCredentialView extends StatelessWidget {
+  const _FilteredCredentialView({
+    required this.identity,
+    required this.credentialsAsync,
+    required this.typeCode,
+    required this.title,
+    required this.onDownload,
+  });
+
+  final DigitalIdentity identity;
+  final AsyncValue<List<CredentialItem>> credentialsAsync;
+  final String typeCode;
+  final String title;
+  final Future<void> Function(DigitalIdentity, CredentialItem) onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    return credentialsAsync.when(
+      loading: () => const LoadingIndicator(),
+      error: (error, _) => const ErrorView(message: 'Could not load this record.'),
+      data: (credentials) {
+        final matches = credentials.where((c) => c.typeCode == typeCode).toList();
+        if (matches.isEmpty) {
+          return EmptyState(
+            icon: Icons.inbox_outlined,
+            title: 'No data',
+            message: '$title has no record on file for you.',
+          );
+        }
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (var i = 0; i < matches.length; i++) ...[
+                    if (i > 0) const Divider(height: 1),
+                    ListTile(
+                      title: Text(matches[i].typeName),
+                      subtitle: Text(DigitalIdentityScreen._credentialSubtitle(matches[i])),
+                      isThreeLine: matches[i].qualification != null,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          StatusBadge.fromStatus(matches[i].status),
+                          IconButton(
+                            icon: const Icon(Icons.download_outlined, size: 20),
+                            tooltip: 'Download',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            onPressed: () => onDownload(identity, matches[i]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

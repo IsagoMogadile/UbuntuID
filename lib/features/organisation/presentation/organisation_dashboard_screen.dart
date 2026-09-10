@@ -68,8 +68,8 @@ class OrganisationDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           AppButton(
-            label: 'Verify a citizen',
-            icon: Icons.person_search_outlined,
+            label: 'New applicant',
+            icon: Icons.person_add_alt_outlined,
             expand: true,
             onPressed: () => context.go(AppRoutes.organisationSearch),
           ),
@@ -79,7 +79,7 @@ class OrganisationDashboardScreen extends ConsumerWidget {
             children: [
               Expanded(
                 child: _StatCard(
-                  label: 'Pending requests',
+                  label: 'Pending applicants',
                   value: stats.pendingVerifications,
                   icon: Icons.hourglass_top_outlined,
                   onTap: () => context.go(AppRoutes.organisationVerification),
@@ -88,7 +88,7 @@ class OrganisationDashboardScreen extends ConsumerWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _StatCard(
-                  label: 'Completed (month)',
+                  label: 'Reviewed (month)',
                   value: stats.completedThisMonth,
                   icon: Icons.task_alt_outlined,
                   onTap: () => context.go(AppRoutes.organisationVerification),
@@ -98,7 +98,7 @@ class OrganisationDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           SectionHeader(
-            title: 'Verification requests',
+            title: 'Applicants',
             action: TextButton(
               onPressed: () => context.go(AppRoutes.organisationVerification),
               child: const Text('View all'),
@@ -110,7 +110,7 @@ class OrganisationDashboardScreen extends ConsumerWidget {
               children: [
                 const Icon(Icons.fact_check_outlined),
                 const SizedBox(width: 12),
-                Expanded(child: Text('${stats.pendingVerifications} requests awaiting a response')),
+                Expanded(child: Text('${stats.pendingVerifications} applicants awaiting review')),
                 const Icon(Icons.chevron_right),
               ],
             ),

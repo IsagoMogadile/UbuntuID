@@ -2,6 +2,7 @@
 class CredentialItem {
   const CredentialItem({
     required this.credentialId,
+    required this.typeCode,
     required this.typeName,
     required this.issuingDepartment,
     required this.status,
@@ -12,6 +13,11 @@ class CredentialItem {
   });
 
   final String credentialId;
+
+  /// `credential_types.type_code` (e.g. 'DRIVERS_LICENCE', 'NSC') -- used to
+  /// filter the credential list down to one department's worth for the
+  /// Services screen's per-department detail views.
+  final String typeCode;
   final String typeName;
   final String issuingDepartment;
   final String status;

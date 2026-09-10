@@ -60,7 +60,6 @@ import '../features/department_official/presentation/department_colleagues_scree
 import '../features/department_official/presentation/department_dashboard_screen.dart';
 import '../features/department_official/presentation/department_profile_screen.dart';
 import '../features/department_official/presentation/department_services_screen.dart';
-import '../features/department_official/presentation/department_verification_list_screen.dart';
 import '../features/department_official/presentation/edit_citizen_screen.dart';
 import '../features/department_official/presentation/register_citizen_screen.dart';
 import '../features/department_official/presentation/saps_clearance_search_screen.dart';
@@ -284,7 +283,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // its own branch, never escape to the root navigator.
       GoRoute(
         path: AppRoutes.citizenDigitalIdentity,
-        builder: (c, s) => const DigitalIdentityScreen(),
+        builder: (c, s) => DigitalIdentityScreen(
+          filterTypeCode: s.uri.queryParameters['type'],
+          title: s.uri.queryParameters['title'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.citizenDocuments,
@@ -325,7 +327,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           title: 'UbuntuID',
           destinations: const [
             AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
-            AppNavDestination(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Verification'),
             AppNavDestination(icon: Icons.apps_outlined, selectedIcon: Icons.apps, label: 'Services'),
             AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
           ],
@@ -335,22 +336,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(path: AppRoutes.departmentDashboard, builder: (c, s) => const DepartmentDashboardScreen()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(
-              path: AppRoutes.departmentVerification,
-              builder: (c, s) => const DepartmentVerificationListScreen(),
-            ),
-          ]),
-          StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.departmentServices, builder: (c, s) => const DepartmentServicesScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.departmentProfile, builder: (c, s) => const DepartmentProfileScreen()),
           ]),
         ],
-      ),
-      GoRoute(
-        path: '${AppRoutes.departmentVerification}/:id',
-        builder: (c, s) => VerificationRequestDetailScreen(requestId: s.pathParameters['id']!),
       ),
       // Reached from the department dashboard, not a bottom-nav tab --
       // visible only to Home Affairs officials (see
@@ -378,8 +369,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           title: 'UbuntuID',
           destinations: const [
             AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
-            AppNavDestination(icon: Icons.search_outlined, selectedIcon: Icons.search, label: 'Search'),
-            AppNavDestination(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Verification'),
+            AppNavDestination(icon: Icons.person_add_alt_outlined, selectedIcon: Icons.person_add_alt, label: 'New Applicant'),
+            AppNavDestination(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Applicants'),
             AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
           ],
         ),

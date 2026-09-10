@@ -14,13 +14,12 @@ import '../../../routing/app_routes.dart';
 import '../data/organisation_repository.dart';
 import '../domain/verification_claim_config.dart';
 
-/// The organisation's core feature (spec §11/§12): search a citizen by ID
-/// number, review what identity/credential information UbuntuID exposes to
-/// this organisation, then raise a verification request. The organisation
-/// never creates the citizen's account, never sees data it isn't
-/// authorised to, and never applies for anything on the citizen's behalf --
-/// the actual application (job, grant, etc.) happens in the organisation's
-/// own external system before this screen is ever used.
+/// The organisation's core feature (spec §11/§12): the applicant's actual
+/// application happens entirely outside UbuntuID (Spar's own hiring
+/// process, say) -- this screen is where an organisation worker finds that
+/// applicant, types in what their application claims, and submits it for
+/// an automated check. The organisation never creates the citizen's
+/// account and never sees data it isn't authorised to.
 class CitizenSearchScreen extends ConsumerStatefulWidget {
   const CitizenSearchScreen({super.key});
 
@@ -37,7 +36,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
   String? _selectedCitizenId;
   final Set<String> _selectedCredentialTypeIds = {};
   // credentialTypeId -> typeCode, tracked alongside the selection so
-  // _requestVerification can look up claim fields without re-reading the
+  // _submitApplication can look up claim fields without re-reading the
   // credentials provider.
   final Map<String, String> _selectedCredentialTypeCodes = {};
   // credentialTypeId -> (fieldKey -> claimed value), what the organisation
@@ -74,10 +73,10 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
     });
   }
 
-  Future<void> _requestVerification(String citizenId) async {
+  Future<void> _submitApplication(String citizenId) async {
     if (_selectedCredentialTypeIds.isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Select at least one credential to verify.')));
+          .showSnackBar(const SnackBar(content: Text('Select at least one credential to check.')));
       return;
     }
     for (final credentialTypeId in _selectedCredentialTypeIds) {
@@ -88,7 +87,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
         final value = claim[field.key]?.toString().trim();
         if (value == null || value.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Fill in "${field.label}" before requesting this verification.')),
+            SnackBar(content: Text('Fill in "${field.label}" before submitting this application.')),
           );
           return;
         }
@@ -98,15 +97,15 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Request verification'),
+        title: const Text('Submit application'),
         content: Text(
           'Start an automated check of ${_selectedCredentialTypeIds.length} credential(s) against what you\'ve '
-          'entered for this citizen? UbuntuID compares this against the real department records -- no official '
+          'entered for this applicant? UbuntuID compares this against the real department records -- no official '
           'reviews it manually.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Request')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit')),
         ],
       ),
     );
@@ -125,7 +124,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not raise this request: $e')));
+            .showSnackBar(SnackBar(content: Text('Could not submit this application: $e')));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -137,7 +136,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
     final resultAsync = _searchQuery == null ? null : ref.watch(citizenSearchResultProvider(_searchQuery!));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Verify Citizen')),
+      appBar: AppBar(title: const Text('New Applicant')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -180,9 +179,9 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
               const Expanded(
                 child: EmptyState(
                   icon: Icons.person_search_outlined,
-                  title: 'Search for a citizen',
-                  message: 'Enter the ID number plus at least a first or last name to look up a citizen and '
-                      'request verification.',
+                  title: 'Find an applicant',
+                  message: 'Enter the ID number plus at least a first or last name to look up the applicant and '
+                      'submit their application.',
                 ),
               )
             else
@@ -242,7 +241,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
                         _claims.putIfAbsent(credentialTypeId, () => {})[fieldKey] = value;
                       }),
                       submitting: _submitting,
-                      onRequestVerification: () => _requestVerification(selected.citizenId),
+                      onSubmitApplication: () => _submitApplication(selected.citizenId),
                     );
                   },
                 ),
@@ -279,7 +278,7 @@ class _CitizenResult extends ConsumerWidget {
     required this.onToggle,
     required this.onClaimFieldChanged,
     required this.submitting,
-    required this.onRequestVerification,
+    required this.onSubmitApplication,
   });
 
   final String citizenId;
@@ -291,7 +290,7 @@ class _CitizenResult extends ConsumerWidget {
   final void Function(String credentialTypeId, String typeCode, bool selected) onToggle;
   final void Function(String credentialTypeId, String fieldKey, dynamic value) onClaimFieldChanged;
   final bool submitting;
-  final VoidCallback onRequestVerification;
+  final VoidCallback onSubmitApplication;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -318,7 +317,7 @@ class _CitizenResult extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Select credentials to verify', style: Theme.of(context).textTheme.titleSmall),
+        Text('What does the application need checked?', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         credentialsAsync.when(
           loading: () => const LoadingIndicator(),
@@ -361,11 +360,11 @@ class _CitizenResult extends ConsumerWidget {
         ),
         const SizedBox(height: 20),
         AppButton(
-          label: 'Request verification',
+          label: 'Submit application',
           icon: Icons.fact_check_outlined,
           expand: true,
           loading: submitting,
-          onPressed: submitting ? null : onRequestVerification,
+          onPressed: submitting ? null : onSubmitApplication,
         ),
       ],
     );

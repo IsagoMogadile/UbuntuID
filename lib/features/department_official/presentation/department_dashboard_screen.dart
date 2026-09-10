@@ -10,6 +10,14 @@ import '../../../core/widgets/shimmer_loading.dart';
 import '../../../routing/app_routes.dart';
 import '../data/department_repository.dart';
 
+/// A department official never sees or acts on verification here -- an
+/// organisation requests it, an automated check decides it
+/// (`start_verification`/`complete_verification`), and a department
+/// official's own involvement is none at all (see `docs/DECISIONS.md`).
+/// This dashboard is deliberately lean: department-relevant stats, then a
+/// single link into Services for everything else -- every specific
+/// record-type action (Marriage, Passport, Register a new citizen, ...)
+/// lives there once, not duplicated here too.
 class DepartmentDashboardScreen extends ConsumerWidget {
   const DepartmentDashboardScreen({super.key});
 
@@ -43,45 +51,22 @@ class DepartmentDashboardScreen extends ConsumerWidget {
             children: [
               Expanded(
                 child: _StatCard(
-                  label: 'Pending',
-                  value: stats.pendingVerifications,
-                  icon: Icons.hourglass_top_outlined,
-                  onTap: () => context.go(AppRoutes.departmentVerification),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatCard(
-                  label: 'Processed (month)',
-                  value: stats.processedThisMonth,
-                  icon: Icons.task_alt_outlined,
-                  onTap: () => context.go(AppRoutes.departmentVerification),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatCard(
                   label: 'Officials',
                   value: stats.activeOfficials,
                   icon: Icons.groups_outlined,
                   onTap: () => context.push(AppRoutes.departmentColleagues),
                 ),
               ),
-            ],
-          ),
-          if (stats.categoryStats.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
+              if (stats.categoryStats.isNotEmpty) ...[
                 for (final item in stats.categoryStats) ...[
+                  const SizedBox(width: 10),
                   Expanded(
                     child: _StatCard(label: item.label, value: item.value, icon: item.icon),
                   ),
-                  if (item != stats.categoryStats.last) const SizedBox(width: 10),
                 ],
               ],
-            ),
-          ],
+            ],
+          ),
           const SizedBox(height: 20),
           const SectionHeader(title: 'Citizens'),
           AppCard(
@@ -95,106 +80,21 @@ class DepartmentDashboardScreen extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 20),
+          const SectionHeader(title: 'Services'),
           AppCard(
-            onTap: () => context.push(AppRoutes.departmentCitizenRecords),
+            onTap: () => context.push(AppRoutes.departmentServices),
             child: const Row(
               children: [
-                Icon(Icons.folder_shared_outlined),
+                Icon(Icons.apps_outlined),
                 SizedBox(width: 12),
-                Expanded(child: Text('Manage department records for a citizen')),
+                Expanded(child: Text('Every record type this department manages')),
                 Icon(Icons.chevron_right),
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          SectionHeader(
-            title: 'Pending requests',
-            action: TextButton(
-              onPressed: () => context.go(AppRoutes.departmentVerification),
-              child: const Text('View all'),
-            ),
-          ),
-          AppCard(
-            onTap: () => context.go(AppRoutes.departmentVerification),
-            child: Row(
-              children: [
-                const Icon(Icons.fact_check_outlined),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text('${stats.pendingVerifications} verification requests awaiting review'),
-                ),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          SectionHeader(
-            title: stats.departmentName,
-            action: TextButton(
-              onPressed: () => context.push(AppRoutes.departmentServices),
-              child: const Text('View all services'),
-            ),
-          ),
-          const _DepartmentSpecialServices(),
         ],
       ),
-    );
-  }
-}
-
-/// The department-specific dedicated screens (Register a new citizen,
-/// SAPS Wanted List/Offenders/Clearance search, ...) surfaced on the
-/// dashboard too, not just buried in Department Services -- driven by the
-/// same `departmentServicesProvider` so every department that has one of
-/// these gets it here automatically (previously hardcoded for only 2 of
-/// the 9 departments -- Home Affairs and SAPS -- see
-/// docs/KNOWN_LIMITATIONS.md). The generic per-record-type services
-/// (Marriage, Passport, ...) stay on the Services screen, not repeated
-/// here, since they all need a citizen picked first anyway.
-class _DepartmentSpecialServices extends ConsumerWidget {
-  const _DepartmentSpecialServices();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final servicesAsync = ref.watch(departmentServicesProvider);
-    return servicesAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (e, _) => const SizedBox.shrink(),
-      data: (services) {
-        final special = services.where((s) => s.route != null).toList();
-        if (special.isEmpty) {
-          return AppCard(
-            onTap: () => context.push(AppRoutes.departmentCitizenRecords),
-            child: const Row(
-              children: [
-                Icon(Icons.folder_shared_outlined),
-                SizedBox(width: 12),
-                Expanded(child: Text('Manage department records for a citizen')),
-                Icon(Icons.chevron_right),
-              ],
-            ),
-          );
-        }
-        return Column(
-          children: [
-            for (var i = 0; i < special.length; i++) ...[
-              if (i > 0) const SizedBox(height: 10),
-              AppCard(
-                onTap: () => context.push(special[i].route!),
-                child: Row(
-                  children: [
-                    Icon(special[i].icon),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(special[i].name)),
-                    const Icon(Icons.chevron_right),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        );
-      },
     );
   }
 }

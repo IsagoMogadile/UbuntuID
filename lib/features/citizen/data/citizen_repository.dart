@@ -118,6 +118,7 @@ class CitizenRepository {
       final typeCode = row['credential_types']?['type_code'] as String?;
       items.add(CredentialItem(
         credentialId: row['credential_id'] as String,
+        typeCode: typeCode ?? '',
         typeName: (row['credential_types']?['display_name'] as String?) ?? 'Credential',
         issuingDepartment:
             (row['credential_types']?['departments']?['department_name'] as String?) ?? 'Unknown department',
@@ -274,22 +275,29 @@ class CitizenRepository {
   }
 
   /// A static menu (not a Supabase read itself -- each entry routes to a
-  /// screen that reads live data). All 5 previously routed through
-  /// "Identity Verification"/"Tax & SARS"/"Licences & Qualifications" were
-  /// marked `available: false` and dead-ended on the generic "coming soon"
-  /// screen even though the real screens they describe already exist and
-  /// are wired to live data (`CitizenVerificationListScreen`,
-  /// `DigitalIdentityScreen`'s credential list, which already includes
-  /// every credential type -- tax compliance, driver's licence, NSC,
-  /// tertiary qualification, etc.) -- see `ServicesScreen._routeFor`.
-  /// One tile per department, not a handful of bundled catch-alls -- every
-  /// department that issues a citizen-facing credential/status gets its
-  /// own entry here. Most route to the Digital Identity screen's
-  /// credential list (where every credential type is already shown,
-  /// regardless of issuing department) since that's the real destination;
-  /// SASSA/Human Settlements/Verification keep their own dedicated screens.
+  /// screen that reads live data). One tile per department, not a handful
+  /// of bundled catch-alls -- every department that issues a citizen-facing
+  /// credential/status gets its own entry here. Most route to the Digital
+  /// Identity screen, filtered to that one department's credential type (see
+  /// `_digitalIdentityRoute`) so a tile only ever shows that department's
+  /// own record, "No data" if the citizen doesn't have one -- not the
+  /// mixed, every-department list. Home Affairs is the one exception: it
+  /// keeps the screen's full, unfiltered view, since the citizen's own
+  /// identity details (name, ID number, DOB) are themselves Home Affairs'
+  /// civil-registry data. SASSA/Human Settlements/Verification keep their
+  /// own dedicated screens.
+  /// Builds the Digital Identity route filtered to one department's
+  /// credential type, e.g. '/citizen/digital-identity?type=NSC&title=Basic%20Education'.
+  static String _digitalIdentityRoute(String title, String typeCode) {
+    final query = {'type': typeCode, 'title': title}
+        .entries
+        .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+    return '${AppRoutes.citizenDigitalIdentity}?$query';
+  }
+
   Future<List<ServiceItem>> getServices() async {
-    return const [
+    return [
       ServiceItem(
         name: 'Home Affairs',
         description: 'Passport and civil identity records',
@@ -302,42 +310,42 @@ class CitizenRepository {
         description: 'Your driving licence status and expiry',
         icon: Icons.directions_car_outlined,
         available: true,
-        route: AppRoutes.citizenDigitalIdentity,
+        route: _digitalIdentityRoute("Driver's Licence", 'DRIVERS_LICENCE'),
       ),
       ServiceItem(
         name: 'Tax & SARS',
         description: 'Tax compliance status and records',
         icon: Icons.receipt_long_outlined,
         available: true,
-        route: AppRoutes.citizenDigitalIdentity,
+        route: _digitalIdentityRoute('Tax & SARS', 'TAX_COMPLIANCE'),
       ),
       ServiceItem(
         name: 'Police Clearance',
         description: 'Criminal clearance certificate status',
         icon: Icons.gavel_outlined,
         available: true,
-        route: AppRoutes.citizenDigitalIdentity,
+        route: _digitalIdentityRoute('Police Clearance', 'CRIMINAL_CLEARANCE'),
       ),
       ServiceItem(
         name: 'Basic Education',
         description: 'Matric (National Senior Certificate) results',
         icon: Icons.school_outlined,
         available: true,
-        route: AppRoutes.citizenDigitalIdentity,
+        route: _digitalIdentityRoute('Basic Education', 'NSC'),
       ),
       ServiceItem(
         name: 'Higher Education',
         description: 'Registered tertiary qualifications and results',
         icon: Icons.workspace_premium_outlined,
         available: true,
-        route: AppRoutes.citizenDigitalIdentity,
+        route: _digitalIdentityRoute('Higher Education', 'TERTIARY_QUALIFICATION'),
       ),
       ServiceItem(
         name: 'Employment & UIF',
         description: 'Employment status and UIF contributions',
         icon: Icons.work_outline,
         available: true,
-        route: AppRoutes.citizenDigitalIdentity,
+        route: _digitalIdentityRoute('Employment & UIF', 'LABOUR_STATUS'),
       ),
       ServiceItem(
         name: 'SASSA Grants',

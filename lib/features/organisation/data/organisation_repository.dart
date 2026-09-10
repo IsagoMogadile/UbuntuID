@@ -388,12 +388,18 @@ class OrganisationRepository {
     return requestId;
   }
 
-  /// "Offer Employment" -- creates the organisation's own HR record for
-  /// this citizen (`organisation_employees`, entirely separate from the
-  /// government's `labour_employment_records`, which stays LABOUR-official
-  /// only). [sourceVerificationRequestId] just records which verification
-  /// led to the offer, for traceability -- not required.
-  Future<void> offerEmployment({
+  /// "Offer Employment" -- via the `offer_employment` RPC (docs/database/
+  /// offer_employment_records_with_labour.sql), which does two things in
+  /// one call: creates the organisation's own HR record
+  /// (`organisation_employees`) -- always succeeds, it's their own
+  /// internal note -- and records the citizen as 'Employed' with
+  /// Employment and Labour's own `labour_employment_records` too, unless
+  /// they're currently enrolled full-time (same rule an official's own
+  /// record-employment action enforces), in which case the government
+  /// record is skipped rather than the whole offer failing.
+  /// [sourceVerificationRequestId] just records which verification led to
+  /// the offer, for traceability -- not required.
+  Future<OfferEmploymentResult> offerEmployment({
     required String citizenId,
     required String jobTitle,
     String? departmentOrPosition,
@@ -402,23 +408,19 @@ class OrganisationRepository {
     required DateTime startDate,
     String? sourceVerificationRequestId,
   }) async {
-    final row = await _orgUserRow();
-    final organisation = row['organisations'] as Map<String, dynamic>?;
-    final organisationId = organisation?['organisation_id'] as String?;
-    if (organisationId == null) {
-      throw const AppException('No organisation is linked to this account.');
-    }
-    await _client.from('organisation_employees').insert({
-      'citizen_id': citizenId,
-      'organisation_id': organisationId,
-      'offered_by_user_id': row['organisation_user_id'] as String,
-      'source_verification_request_id': sourceVerificationRequestId,
-      'job_title': jobTitle,
-      'department_or_position': departmentOrPosition,
-      'salary': salary,
-      'salary_frequency': salaryFrequency,
-      'start_date': startDate.toIso8601String().split('T').first,
-    });
+    final result = await _client.rpc('offer_employment', params: {
+      'p_citizen_id': citizenId,
+      'p_job_title': jobTitle,
+      'p_department_or_position': departmentOrPosition,
+      'p_salary': salary,
+      'p_salary_frequency': salaryFrequency,
+      'p_start_date': startDate.toIso8601String().split('T').first,
+      'p_source_verification_request_id': sourceVerificationRequestId,
+    }) as Map<String, dynamic>;
+    return OfferEmploymentResult(
+      labourRecorded: result['labour_recorded'] as bool? ?? false,
+      skipReason: result['skip_reason'] as String?,
+    );
   }
 
   Future<List<OrganisationEmployeeItem>> getEmployees() async {
@@ -503,6 +505,16 @@ class CredentialTypeOption {
   final String typeCode;
   final String displayName;
   final String issuingDepartment;
+}
+
+/// Result of [OrganisationRepository.offerEmployment] -- whether
+/// Employment and Labour's own official record was also updated, and why
+/// not if it wasn't (still enrolled full-time).
+class OfferEmploymentResult {
+  const OfferEmploymentResult({required this.labourRecorded, this.skipReason});
+
+  final bool labourRecorded;
+  final String? skipReason;
 }
 
 /// Mirrors `public.organisation_employees` -- one row the organisation

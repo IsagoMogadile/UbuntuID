@@ -941,49 +941,19 @@ class DepartmentRepository {
     final category = DepartmentCategory.fromName(departmentName);
 
     if (departmentId == null) {
-      return DepartmentDashboardStats(
-        departmentName: departmentName,
-        pendingVerifications: 0,
-        processedThisMonth: 0,
-        activeOfficials: 0,
-      );
+      return DepartmentDashboardStats(departmentName: departmentName, activeOfficials: 0);
     }
 
+    // Only needed for _categoryStats' own per-category stats (e.g. "Credentials
+    // issued" for DBE/DHET) -- verification is not a department concern any
+    // more (organisations request it, an automated check decides it; a
+    // department official never sees or acts on it -- see
+    // docs/DECISIONS.md).
     final credentialTypeIds = await _client
         .from('credential_types')
         .select('credential_type_id')
         .eq('issuing_department_id', departmentId);
     final typeIds = [for (final r in credentialTypeIds) r['credential_type_id'] as String];
-
-    var pending = 0;
-    var processedThisMonth = 0;
-    if (typeIds.isNotEmpty) {
-      final resultRows = await _client
-          .from('verification_results')
-          .select('request_id')
-          .inFilter('credential_type_id', typeIds);
-      final requestIds = {for (final r in resultRows) r['request_id'] as String}.toList();
-
-      if (requestIds.isNotEmpty) {
-        final monthStart = DateTime(DateTime.now().year, DateTime.now().month, 1).toIso8601String();
-        final requests = await _client
-            .from('verification_requests')
-            .select('overall_status, responded_at')
-            .inFilter('request_id', requestIds);
-
-        for (final r in requests) {
-          final status = r['overall_status'] as String? ?? '';
-          // 'in_review' is not a valid overall_status value (confirmed live
-          // via verification_status_check); 'processing' is the real
-          // in-flight state.
-          if (status == 'pending' || status == 'processing') pending++;
-          final respondedAt = r['responded_at'] as String?;
-          if (respondedAt != null && respondedAt.compareTo(monthStart) >= 0) {
-            processedThisMonth++;
-          }
-        }
-      }
-    }
 
     final activeOfficials = await _client
         .from('department_officials')
@@ -995,8 +965,6 @@ class DepartmentRepository {
 
     return DepartmentDashboardStats(
       departmentName: departmentName,
-      pendingVerifications: pending,
-      processedThisMonth: processedThisMonth,
       activeOfficials: activeOfficials,
       categoryStats: categoryStats,
     );
