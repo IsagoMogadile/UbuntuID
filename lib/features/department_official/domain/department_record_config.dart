@@ -1,7 +1,37 @@
+import 'package:flutter/material.dart' show IconData, Icons;
+
 import '../../../core/utils/age_utils.dart';
 import '../../../core/utils/sa_id_generator.dart';
 import '../../shared/domain/citizen_lookup_result.dart';
 import '../data/department_repository.dart';
+
+/// Resolves a [RecordTypeConfig.icon] name string to the real [IconData] --
+/// shared by the record-list UI (department_citizen_records_screen.dart)
+/// and `DepartmentRepository.getServices()`, which builds the Department
+/// Services list directly from these record types rather than from
+/// `credential_types` (previously every department showed at most one
+/// service tile, since most departments only have one verifiable
+/// credential type -- see docs/KNOWN_LIMITATIONS.md).
+const recordTypeIconByName = <String, IconData>{
+  'favorite_outline': Icons.favorite_outline,
+  'event_busy_outlined': Icons.event_busy_outlined,
+  'menu_book_outlined': Icons.menu_book_outlined,
+  'badge_outlined': Icons.badge_outlined,
+  'directions_car_outlined': Icons.directions_car_outlined,
+  'account_balance_outlined': Icons.account_balance_outlined,
+  'receipt_long_outlined': Icons.receipt_long_outlined,
+  'gavel_outlined': Icons.gavel_outlined,
+  'verified_outlined': Icons.verified_outlined,
+  'school_outlined': Icons.school_outlined,
+  'payments_outlined': Icons.payments_outlined,
+  'volunteer_activism_outlined': Icons.volunteer_activism_outlined,
+  'work_outline': Icons.work_outline,
+  'flight_land_outlined': Icons.flight_land_outlined,
+  'workspace_premium_outlined': Icons.workspace_premium_outlined,
+  'home_work_outlined': Icons.home_work_outlined,
+  'description_outlined': Icons.description_outlined,
+  'assignment_outlined': Icons.assignment_outlined,
+};
 
 enum RecordFieldType { text, number, date, dropdown, boolean }
 
@@ -11,12 +41,19 @@ class RecordField {
     required this.label,
     required this.type,
     this.options,
+    this.optional = false,
   });
 
   final String key;
   final String label;
   final RecordFieldType type;
   final List<String>? options;
+
+  /// When true, this field's form control isn't required -- used for the
+  /// mature-age-exemption reason, which only needs a value when the
+  /// exemption itself is ticked (checked in `validate`, not the form's
+  /// built-in "Required" rule).
+  final bool optional;
 }
 
 /// One record type a department official can view/create for a searched
@@ -44,6 +81,7 @@ class RecordTypeConfig {
     required this.rowTitle,
     required this.rowSubtitle,
     this.idColumn,
+    this.table,
     this.buildUpdateData,
     this.buildDelete,
     this.validate,
@@ -68,9 +106,15 @@ class RecordTypeConfig {
   /// rather than getting a raw Postgres error back.
   final String? Function(CitizenLookupResult citizen, Map<String, dynamic> formValues)? validate;
 
-  /// Primary-key column present in the rows [fetchExisting] returns --
-  /// required for edit/delete to be able to target one row.
+  /// Primary-key column present in the rows [fetchExisting] returns.
   final String? idColumn;
+
+  /// The underlying Postgres table [fetchExisting] reads. Used by "Lodge
+  /// appeal" (department_citizen_records_screen.dart) to record which
+  /// table+row an appeal is against (`appeals.related_table`/`related_id`)
+  /// -- both [table] and [idColumn] must be set for a row to be appealable;
+  /// a config missing either just doesn't get an Appeal action.
+  final String? table;
 
   /// Takes [citizen] too (not just the existing row) because updating a
   /// record's status also needs to update that citizen's mirrored
@@ -145,6 +189,8 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
         RecordTypeConfig(
           label: 'Marriage',
           icon: 'favorite_outline',
+          idColumn: 'marriage_id',
+          table: 'dha_marital_records',
           fields: const [
             RecordField(key: 'spouse_2_id', label: "Spouse's SA ID number", type: RecordFieldType.text),
             RecordField(
@@ -187,6 +233,8 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
         RecordTypeConfig(
           label: 'Death',
           icon: 'event_busy_outlined',
+          idColumn: 'death_id',
+          table: 'dha_death_records',
           fields: const [
             RecordField(key: 'date_of_death', label: 'Date of death', type: _dateOnly),
             RecordField(key: 'place_of_death', label: 'Place of death', type: RecordFieldType.text),
@@ -210,6 +258,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'Passport',
           icon: 'menu_book_outlined',
           idColumn: 'passport_number',
+          table: 'dha_passports',
           fields: const [
             RecordField(key: 'issue_date', label: 'Issue date', type: _dateOnly),
             RecordField(key: 'expiry_date', label: 'Expiry date', type: _dateOnly),
@@ -243,6 +292,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'Immigration',
           icon: 'flight_land_outlined',
           idColumn: 'immigration_id',
+          table: 'dha_immigration_records',
           fields: const [
             RecordField(
               key: 'visa_type',
@@ -290,6 +340,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: "Driver's Licence",
           icon: 'badge_outlined',
           idColumn: 'licence_number',
+          table: 'dot_driver_licences',
           fields: const [
             RecordField(
               key: 'licence_code',
@@ -333,6 +384,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'Vehicle / Number Plate',
           icon: 'directions_car_outlined',
           idColumn: 'vin_number',
+          table: 'dot_vehicles',
           fields: const [
             RecordField(key: 'make', label: 'Make', type: RecordFieldType.text),
             RecordField(key: 'model', label: 'Model', type: RecordFieldType.text),
@@ -370,6 +422,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'Taxpayer Registration',
           icon: 'account_balance_outlined',
           idColumn: 'tax_number',
+          table: 'sars_taxpayers',
           fields: const [
             RecordField(
               key: 'tax_compliance_status',
@@ -404,6 +457,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'Tax Return',
           icon: 'receipt_long_outlined',
           idColumn: 'return_id',
+          table: 'sars_tax_returns',
           fields: const [
             RecordField(key: 'tax_number', label: "Taxpayer's tax number", type: RecordFieldType.text),
             RecordField(key: 'tax_year', label: 'Tax year', type: RecordFieldType.number),
@@ -450,6 +504,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'Criminal Record',
           icon: 'gavel_outlined',
           idColumn: 'case_number',
+          table: 'saps_criminal_records',
           fields: const [
             RecordField(
               key: 'offence_code',
@@ -489,6 +544,8 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
         RecordTypeConfig(
           label: 'Clearance Certificate',
           icon: 'verified_outlined',
+          idColumn: 'certificate_number',
+          table: 'saps_clearance_certificates',
           fields: const [
             RecordField(key: 'issue_date', label: 'Issue date', type: _dateOnly),
             RecordField(
@@ -516,6 +573,8 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
         RecordTypeConfig(
           label: 'Matric Certificate',
           icon: 'school_outlined',
+          idColumn: 'matric_exam_number',
+          table: 'dbe_nsc_results',
           fields: const [
             RecordField(key: 'year', label: 'Year', type: RecordFieldType.number),
             RecordField(
@@ -525,13 +584,17 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
               options: ['Bachelor Pass', 'Diploma', 'Higher Certificate'],
             ),
           ],
+          // Real floor, no ceiling: the standard route sits Grade 12 around
+          // 17-19, but DBE's private/adult-candidate route lets someone sit
+          // and pass matric well into adulthood -- there is no upper age
+          // limit for writing the NSC, only a minimum of 17.
           validate: (citizen, values) {
             final dob = citizen.dateOfBirth ?? saIdDateOfBirth(citizen.idNumber);
             final year = int.tryParse(values['year']?.toString() ?? '');
             if (dob == null || year == null) return null;
             final age = year - dob.year;
-            if (age < 14 || age > 25) {
-              return '${citizen.fullName} would be $age years old in $year -- outside the plausible 14-25 range for writing the NSC.';
+            if (age < 17) {
+              return '${citizen.fullName} would be $age years old in $year -- the minimum age to write the NSC (including as a private/adult candidate) is 17.';
             }
             return null;
           },
@@ -556,6 +619,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'Student Enrolment',
           icon: 'menu_book_outlined',
           idColumn: 'enrollment_id',
+          table: 'dhet_student_enrollment',
           fields: const [
             RecordField(
               key: 'institution_code',
@@ -570,7 +634,39 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
               type: RecordFieldType.dropdown,
               options: ['Enrolled', 'Graduated', 'Dropped'],
             ),
+            RecordField(
+              key: 'study_mode',
+              label: 'Study mode',
+              type: RecordFieldType.dropdown,
+              options: ['Full-time', 'Part-time'],
+            ),
+            RecordField(
+              key: 'mature_age_exemption',
+              label: 'No matric on file -- mature age exemption',
+              type: RecordFieldType.dropdown,
+              options: ['No', 'Yes'],
+            ),
+            RecordField(
+              key: 'mature_age_exemption_reason',
+              label: 'Exemption reason (required if "Yes" above)',
+              type: RecordFieldType.text,
+              optional: true,
+            ),
           ],
+          // A university/TVET college requires a matric (NSC) pass for
+          // admission -- enforced server-side by the `enrol_student` RPC
+          // (docs/database/cross_department_eligibility_checks.sql), which
+          // rejects the insert unless the citizen already has a
+          // `dbe_nsc_results` row or this exemption is set with a reason.
+          // This client-side check just surfaces the same rule earlier,
+          // same as every other `validate` here.
+          validate: (citizen, values) {
+            if (values['mature_age_exemption'] == 'Yes' &&
+                (values['mature_age_exemption_reason'] as String? ?? '').trim().isEmpty) {
+              return 'A reason is required when registering a mature age exemption.';
+            }
+            return null;
+          },
           fetchExisting: (repo, citizen) => repo.getRecordsByColumn(
               table: 'dhet_student_enrollment', column: 'national_id_number', value: citizen.idNumber),
           buildInsertData: (repo, citizen, values) => repo.enrolStudent(
@@ -579,6 +675,9 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             institutionCode: values['institution_code'] as String,
             qualificationName: values['qualification_name'] as String,
             completionStatus: values['completion_status'] as String,
+            studyMode: values['study_mode'] as String,
+            matureAgeExemption: values['mature_age_exemption'] == 'Yes',
+            matureAgeExemptionReason: values['mature_age_exemption_reason'] as String?,
           ),
           buildUpdateData: (repo, citizen, existingRow, values) => repo.updateStudentEnrolment(
             citizenId: citizen.citizenId,
@@ -586,13 +685,17 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             completionStatus: values['completion_status'] as String,
             institutionCode: values['institution_code'] as String?,
             qualificationName: values['qualification_name'] as String?,
+            studyMode: values['study_mode'] as String?,
           ),
           rowTitle: (r) => r['qualification_name'] as String? ?? '',
-          rowSubtitle: (r) => '${r['institution_code']} • ${r['completion_status']}',
+          rowSubtitle: (r) =>
+              '${r['institution_code']} • ${r['completion_status']} • ${r['study_mode'] ?? 'Full-time'}',
         ),
         RecordTypeConfig(
           label: 'Academic Record',
           icon: 'workspace_premium_outlined',
+          idColumn: 'record_id',
+          table: 'dhet_academic_records',
           fields: const [
             RecordField(
               key: 'institution_code',
@@ -635,6 +738,8 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
         RecordTypeConfig(
           label: 'NSFAS Funding',
           icon: 'payments_outlined',
+          idColumn: 'application_id',
+          table: 'dhet_nsfas_funding',
           fields: const [
             RecordField(key: 'funding_year', label: 'Funding year', type: RecordFieldType.number),
             RecordField(
@@ -645,14 +750,19 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             ),
             RecordField(key: 'disbursed_amount', label: 'Disbursed amount (R)', type: RecordFieldType.number),
           ],
+          // Approving funding ('Yes') is rejected server-side by the
+          // `issue_nsfas_funding` RPC unless this citizen is actively
+          // enrolled and has no active employment record -- NSFAS funds
+          // students without a full-time income, not employed people
+          // (docs/database/cross_department_eligibility_checks.sql).
           fetchExisting: (repo, citizen) => repo.getRecordsByColumn(
               table: 'dhet_nsfas_funding', column: 'national_id_number', value: citizen.idNumber),
-          buildInsertData: (repo, citizen, values) => repo.insertRecord(table: 'dhet_nsfas_funding', data: {
-            'national_id_number': citizen.idNumber,
-            'funding_year': int.tryParse(values['funding_year']?.toString() ?? '') ?? DateTime.now().year,
-            'approved_status': values['approved_status'] == 'Yes',
-            'disbursed_amount': num.tryParse(values['disbursed_amount']?.toString() ?? '') ?? 0,
-          }),
+          buildInsertData: (repo, citizen, values) => repo.issueNsfasFunding(
+            nationalIdNumber: citizen.idNumber,
+            fundingYear: int.tryParse(values['funding_year']?.toString() ?? '') ?? DateTime.now().year,
+            approvedStatus: values['approved_status'] == 'Yes',
+            disbursedAmount: num.tryParse(values['disbursed_amount']?.toString() ?? '') ?? 0,
+          ),
           rowTitle: (r) => 'NSFAS ${r['funding_year']}',
           rowSubtitle: (r) =>
               '${r['approved_status'] == true ? 'Approved' : 'Not approved'} • R${r['disbursed_amount']}',
@@ -665,6 +775,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'SASSA Grant',
           icon: 'volunteer_activism_outlined',
           idColumn: 'grant_id',
+          table: 'sassa_grants',
           fields: const [
             RecordField(
               key: 'grant_type',
@@ -730,6 +841,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'Employment / UIF',
           icon: 'work_outline',
           idColumn: 'record_id',
+          table: 'labour_employment_records',
           fields: const [
             RecordField(key: 'employer_name', label: 'Employer (organisation)', type: RecordFieldType.text),
             RecordField(
@@ -780,6 +892,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'Property',
           icon: 'home_work_outlined',
           idColumn: 'property_id',
+          table: 'properties',
           fields: const [
             RecordField(key: 'municipality', label: 'Municipality', type: RecordFieldType.text),
             RecordField(
@@ -828,6 +941,8 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
         RecordTypeConfig(
           label: 'Title Deed',
           icon: 'description_outlined',
+          idColumn: 'title_deed_id',
+          table: 'title_deeds',
           fields: const [
             RecordField(
               key: 'deed_type',
@@ -856,6 +971,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           label: 'Housing Application',
           icon: 'assignment_outlined',
           idColumn: 'housing_application_id',
+          table: 'housing_applications',
           fields: const [
             RecordField(
               key: 'programme_code',

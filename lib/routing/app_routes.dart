@@ -13,6 +13,7 @@ class AppRoutes {
   static const forgotPassword = '/forgot-password';
   static const resetPassword = '/reset-password';
   static const accountNotConfigured = '/account-not-configured';
+  static const accountRevoked = '/account-revoked';
 
   /// Public (no login required) -- reachable from the login screen's "About
   /// UbuntuID" button for a new/prospective user who hasn't signed up yet.
@@ -41,6 +42,8 @@ class AppRoutes {
   static const citizenDigitalIdCard = '/citizen/profile/id-card';
   static const citizenDocumentWallet = '/citizen/wallet';
   static const citizenTimeline = '/citizen/timeline';
+  static const citizenEmployment = '/citizen/employment';
+  static const citizenAppeals = '/citizen/appeals';
 
   // Department official
   static const departmentDashboard = '/department-official';
@@ -71,6 +74,7 @@ class AppRoutes {
   static const adminAudit = '/admin/audit';
   static const adminVerification = '/admin/verification';
   static const adminFlaggedRecords = '/admin/flagged-records';
+  static const adminAppeals = '/admin/appeals';
   static const adminProfile = '/admin/profile';
   static const adminOfficialNew = '/admin/officials/new';
   static const adminOfficialEdit = '/admin/officials'; // + '/:id/edit'

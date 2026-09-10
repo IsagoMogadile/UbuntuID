@@ -12,6 +12,6 @@ class DepartmentCitizenSearchScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.read(departmentRepositoryProvider);
-    return CitizenLookupScreen(onSearch: repo.searchCitizenByIdNumber);
+    return CitizenLookupScreen(onSearch: repo.searchCitizens);
   }
 }

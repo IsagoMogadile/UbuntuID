@@ -31,9 +31,9 @@ class DepartmentServicesScreen extends ConsumerWidget {
             final service = services[index];
             return ListItemCard(
               title: service.name,
-              subtitle: '${service.description} • tap to search a citizen and manage this record type',
+              subtitle: service.description,
               leadingIcon: service.icon,
-              onTap: () => context.push(AppRoutes.departmentCitizenRecords),
+              onTap: () => context.push(service.route ?? AppRoutes.departmentCitizenRecords),
             );
           },
         ),

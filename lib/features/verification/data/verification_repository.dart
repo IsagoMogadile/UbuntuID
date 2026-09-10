@@ -18,6 +18,7 @@ class VerificationRepository {
   final RoleService _roleService;
 
   static const _requestSelect = 'request_id, overall_status, requested_at, responded_at, '
+      'processing_started_at, org_viewed_at, organisation_id, citizen_id, '
       'citizens(first_name, last_name), organisations(legal_name)';
 
   Future<RoleLookupResult?> _currentRole() async {
@@ -34,12 +35,17 @@ class VerificationRepository {
             .trim();
     return VerificationRequestSummary(
       requestId: row['request_id'] as String,
+      organisationId: row['organisation_id'] as String?,
+      citizenId: row['citizen_id'] as String?,
       citizenDisplayName: citizenName.isEmpty ? 'Unknown citizen' : citizenName,
       organisationName: (organisation?['legal_name'] as String?) ?? 'Unknown organisation',
       overallStatus: row['overall_status'] as String? ?? 'pending',
       requestedAt: DateTime.tryParse(row['requested_at'] as String? ?? '') ?? DateTime.now(),
       respondedAt:
           row['responded_at'] == null ? null : DateTime.tryParse(row['responded_at'] as String),
+      processingStartedAt:
+          row['processing_started_at'] == null ? null : DateTime.tryParse(row['processing_started_at'] as String),
+      orgViewedAt: row['org_viewed_at'] == null ? null : DateTime.tryParse(row['org_viewed_at'] as String),
     );
   }
 
@@ -155,18 +161,49 @@ class VerificationRepository {
     return value.toString();
   }
 
-  /// Approve/reject a request. `overall_status` is constrained live to
-  /// `pending, processing, completed, partially_verified, failed, rejected,
-  /// cancelled` (confirmed via `verification_status_check`) -- 'approved'
-  /// is not a valid value, 'completed' is the terminal success state.
-  /// Requires the `verification_requests_update_*` RLS policies; the live
-  /// audit trigger on this table automatically produces an `audit_logs`
-  /// row (confirmed live).
-  Future<void> decide(String requestId, {required bool approve}) {
-    return _client.from('verification_requests').update({
-      'overall_status': approve ? 'completed' : 'rejected',
-      'responded_at': DateTime.now().toIso8601String(),
-    }).eq('request_id', requestId);
+  /// The signed-in organisation user's own `organisation_id`, or null for
+  /// any other role -- used to decide whether *this* user is the one
+  /// allowed to start/complete/acknowledge a given request (the RPCs below
+  /// re-check this server-side too; this is just for the UI to know
+  /// whether to show the button at all).
+  Future<String?> currentOrganisationId() async {
+    final role = await _currentRole();
+    if (role == null || role.role != UserRole.organisationUser) return null;
+    final row = await _client
+        .from('organisation_users')
+        .select('organisation_id')
+        .eq('organisation_user_id', role.identityId)
+        .maybeSingle();
+    return row?['organisation_id'] as String?;
+  }
+
+  /// `overall_status` is constrained live to `pending, processing,
+  /// completed, partially_verified, failed, rejected, cancelled`
+  /// (confirmed via `verification_status_check`). Nobody can set these by
+  /// hand any more -- `start_verification`/`complete_verification`
+  /// (docs/database/automated_verification_and_org_revocation.sql) are the
+  /// only writers left; RLS was tightened to remove every direct client
+  /// update path, so a department official or administrator can no longer
+  /// "decide" a request themselves.
+  Future<void> startVerification(String requestId) {
+    return _client.rpc('start_verification', params: {'p_request_id': requestId});
+  }
+
+  /// Called after the client-side "processing" wait -- does the real
+  /// claimed-vs-verified comparison and sets the terminal status. Returns
+  /// the resulting `overall_status`.
+  Future<String> completeVerification(String requestId) async {
+    final result = await _client.rpc('complete_verification', params: {'p_request_id': requestId});
+    return (result as Map<String, dynamic>)['overall_status'] as String? ?? 'failed';
+  }
+
+  /// Marks a completed request as seen by the organisation -- after this,
+  /// re-opening the request only shows the summary status, not the
+  /// per-credential claimed/verified detail (see
+  /// `VerificationRequestDetailScreen`). A fresh look requires a new
+  /// verification request.
+  Future<void> acknowledgeResult(String requestId) {
+    return _client.rpc('acknowledge_verification_result', params: {'p_request_id': requestId});
   }
 }
 
@@ -189,9 +226,10 @@ final verificationResultLinesProvider =
   return ref.watch(verificationRepositoryProvider).getResultLines(requestId);
 });
 
-/// Whether the signed-in user is allowed to approve/reject (department
-/// official or administrator) -- organisations only ever raise requests.
-final canDecideVerificationProvider = FutureProvider.autoDispose<bool>((ref) async {
-  final role = await ref.watch(verificationRepositoryProvider).currentRole();
-  return role == UserRole.departmentOfficial || role == UserRole.administrator;
+/// The signed-in organisation user's own `organisation_id`, or null for any
+/// other role -- a request only shows Start/processing/Done controls to
+/// the organisation that owns it (department officials/admins/citizens
+/// only ever get a read-only view now; nobody "decides" any more).
+final currentOrganisationIdProvider = FutureProvider.autoDispose<String?>((ref) {
+  return ref.watch(verificationRepositoryProvider).currentOrganisationId();
 });

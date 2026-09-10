@@ -103,14 +103,33 @@ database trigger keeping them in sync.
 exist** — DBE/DHET credentials are `dbe_nsc_results`/`dhet_student_enrollment`
 now, not a generic qualifications row.
 
+`dhet_student_enrollment` gained `study_mode` (`Full-time`/`Part-time`),
+`mature_age_exemption` (bool), and `mature_age_exemption_reason` this
+session — see `docs/database/cross_department_eligibility_checks.sql`
+(applied live). Enrolling a student, issuing NSFAS funding, and recording
+employment now go through `enrol_student`/`issue_nsfas_funding`/
+`record_employment` RPCs rather than raw inserts, enforcing
+matric-before-university, NSFAS-requires-active-enrolment-and-no-
+employment, and full-time-employment-blocked-while-enrolled-full-time
+respectively.
+
 ## Organisations & registration
 
 ```
-organisations (organisation_id pk, registration_status: pending|approved|declined)
-     ├── organisation_users (organisation_user_id pk, user_role: manager|administrator|member)
+organisations (organisation_id pk, registration_status: pending|approved|declined|revoked)
+     ├── organisation_users (organisation_user_id pk, user_role: manager|administrator|member, active bool)
      └── organisation_credential_scopes (organisation_id, credential_type_id)  -- what this org may verify
 organisation_verifications (…) ──> organisations, ubuntuid_administrators   -- one row per admin review decision
 ```
+
+`revoked` (reversible via `admin_reinstate_organisation`) sits alongside
+`pending`/`approved`/`declined`, each transition requiring a reason
+(`revoked_at`/`revoke_reason`/`revoked_by_admin_id`,
+`reinstated_at`/`reinstate_reason`/`reinstated_by_admin_id` — history kept
+on both, not cleared on reinstate). `RoleService.checkAccountActive`
+(checked right after login and on every navigation within a role area —
+see `docs/KNOWN_LIMITATIONS.md`) is the actual enforcement point, since
+Supabase Auth login itself can't be blocked by RLS.
 
 `organisation_credential_scopes` is chosen at registration
 (`register_organisation` RPC) and editable only by resubmitting a declined
@@ -126,12 +145,14 @@ verification_requests (request_id pk)
      ├──> citizens (citizen_id)
      ├──> organisations (organisation_id)
      ├──> consent_grants (consent_id, NOT NULL)
-     └──> job_applications (application_id, optional)
+     └──> job_applications (application_id, optional — this table doesn't
+          exist; the column is a dangling, unused FK target)
 
 verification_results (result_id pk)
      ├──> verification_requests (request_id)
      ├──> credential_types (credential_type_id)
-     └──> department_officials (checked_by_official_id)
+     └──> department_officials (checked_by_official_id — always NULL now,
+          see below)
 ```
 
 `overall_status` is `CHECK`-constrained to `pending, processing, completed,
@@ -142,6 +163,26 @@ restricted, pending`.
 `OrganisationRepository.getCitizenCredentialsForVerification` narrows the
 credentials shown to only the organisation's `organisation_credential_scopes`
 — an application-layer filter, not an RLS one (see `docs/KNOWN_LIMITATIONS.md`).
+
+**Verification is fully automated, not manually decided** (added this
+session, see `docs/database/automated_verification_and_org_revocation.sql`
+and `docs/KNOWN_LIMITATIONS.md`). `verification_requests` gained
+`processing_started_at`/`org_viewed_at`. The organisation fills in
+`verification_results.claimed_value` (jsonb, structured per credential
+type — `verification_claim_config.dart`) at request time; `start_verification`
+flips the request to `processing`; `complete_verification` computes the
+real `verified_value`/`match_status` per row (via the `_compare_credential_claim`
+helper, one branch per credential type against the real department table)
+and the request's terminal `overall_status`. `checked_by_official_id`
+stays `NULL` forever now — no official does this any more. RLS has no
+client-writable path to `overall_status`/`match_status` left at all; only
+these two `SECURITY DEFINER` RPCs can set them.
+
+`organisation_employees` (new) is the organisation's own "Offer Employment"
+HR record — job title, salary, start date — keyed by `citizen_id` +
+`organisation_id`, entirely separate from `labour_employment_records`
+(the government's Employment & Labour department record, unaffected).
+Visible to the owning organisation, the citizen themselves, and admins.
 
 ## Households (citizen addresses & property)
 

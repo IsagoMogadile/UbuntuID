@@ -45,6 +45,66 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
     }
   }
 
+  Future<void> _revokeOrReinstate(OrganisationListItem organisation, {required bool revoke}) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: Text(revoke ? 'Revoke access' : 'Reinstate access'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                revoke
+                    ? 'This organisation\'s staff will lose data access and be signed out on their next login. This can be reversed later.'
+                    : 'This restores the organisation to approved status. Its staff will be able to log in and access data again.',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(labelText: 'Reason (required)'),
+                maxLines: 3,
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: Text(revoke ? 'Revoke' : 'Reinstate'),
+            ),
+          ],
+        );
+      },
+    );
+    if (reason == null || reason.isEmpty) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      final repo = ref.read(adminRepositoryProvider);
+      if (revoke) {
+        await repo.revokeOrganisation(organisationId: organisation.organisationId, reason: reason);
+      } else {
+        await repo.reinstateOrganisation(organisationId: organisation.organisationId, reason: reason);
+      }
+      ref.invalidate(adminOrganisationsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(revoke ? 'Organisation access revoked.' : 'Organisation access reinstated.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not complete this action: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   Future<void> _review(OrganisationListItem organisation, bool approve) async {
     String? notes;
     if (!approve) {
@@ -134,11 +194,27 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
                     DetailRow(label: 'Requested', value: AppFormatters.date(organisation.registeredAt)),
                     if (organisation.declineReason != null && organisation.declineReason!.isNotEmpty)
                       DetailRow(label: 'Decline reason', value: organisation.declineReason!),
+                    if (organisation.revokedAt != null) ...[
+                      DetailRow(label: 'Revoked', value: AppFormatters.dateTime(organisation.revokedAt!)),
+                      DetailRow(label: 'Revoke reason', value: organisation.revokeReason ?? ''),
+                    ],
+                    if (organisation.reinstatedAt != null) ...[
+                      DetailRow(label: 'Reinstated', value: AppFormatters.dateTime(organisation.reinstatedAt!)),
+                      DetailRow(label: 'Reinstate reason', value: organisation.reinstateReason ?? ''),
+                    ],
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-              if (organisation.registrationStatus != 'approved') ...[
+              if (organisation.registrationStatus == 'revoked')
+                AppButton(
+                  label: 'Reinstate access',
+                  icon: Icons.replay_circle_filled_outlined,
+                  expand: true,
+                  loading: _isSubmitting,
+                  onPressed: _isSubmitting ? null : () => _revokeOrReinstate(organisation, revoke: false),
+                )
+              else if (organisation.registrationStatus != 'approved') ...[
                 Row(
                   children: [
                     Expanded(
@@ -163,7 +239,7 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
                     ),
                   ],
                 ),
-              ] else
+              ] else ...[
                 AppButton(
                   label: 'Revoke verification',
                   icon: Icons.remove_circle_outline,
@@ -172,6 +248,16 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
                   loading: _isSubmitting,
                   onPressed: _isSubmitting ? null : () => _toggleVerified(organisation),
                 ),
+                const SizedBox(height: 10),
+                AppButton(
+                  label: 'Revoke access',
+                  icon: Icons.block_outlined,
+                  variant: AppButtonVariant.secondary,
+                  expand: true,
+                  loading: _isSubmitting,
+                  onPressed: _isSubmitting ? null : () => _revokeOrReinstate(organisation, revoke: true),
+                ),
+              ],
             ],
           );
         },

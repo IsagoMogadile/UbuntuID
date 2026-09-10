@@ -27,5 +27,11 @@ Future<String> resolveDestinationRoute(WidgetRef ref) async {
 
   if (result == null) return AppRoutes.accountNotConfigured;
 
+  final blockedReason = await roleService.checkAccountActive(result);
+  if (blockedReason != null) {
+    await ref.read(authServiceProvider).signOut();
+    return '${AppRoutes.accountRevoked}?reason=${Uri.encodeComponent(blockedReason)}';
+  }
+
   return AppRoutes.dashboardForRole(result.role);
 }

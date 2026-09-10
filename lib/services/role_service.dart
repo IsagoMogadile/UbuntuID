@@ -42,6 +42,51 @@ class RoleService {
     return null;
   }
 
+  /// Checked right after role resolution (`resolveDestinationRoute`, and
+  /// again in the router's role-area guard for an already-open session) --
+  /// Supabase Auth login itself can't be blocked by RLS (it happens before
+  /// any Postgres query runs), so this is the actual enforcement point for
+  /// "a revoked organisation's staff/an inactive official can't use the
+  /// app": their auth login still technically succeeds, but this catches
+  /// it immediately afterward and the caller signs them back out. Returns
+  /// a human-readable reason if the account should be blocked, or `null`
+  /// if it's fine. Citizens have no such gate -- `citizens.is_active`
+  /// governs departmental service access, not login, by existing design.
+  Future<String?> checkAccountActive(RoleLookupResult result) async {
+    switch (result.role) {
+      case UserRole.organisationUser:
+        final row = await _client
+            .from('organisation_users')
+            .select('active, organisations(registration_status)')
+            .eq('organisation_user_id', result.identityId)
+            .maybeSingle();
+        if (row == null) return null;
+        if (row['active'] == false) {
+          return 'Your account has been deactivated by your organisation\'s administrator.';
+        }
+        final status = row['organisations']?['registration_status'] as String?;
+        if (status == 'revoked') {
+          return 'Your organisation\'s access to UbuntuID has been revoked. Contact a UbuntuID administrator.';
+        }
+        return null;
+
+      case UserRole.departmentOfficial:
+        final row = await _client
+            .from('department_officials')
+            .select('active')
+            .eq('official_id', result.identityId)
+            .maybeSingle();
+        if (row?['active'] == false) {
+          return 'Your account has been deactivated by your department\'s administrator.';
+        }
+        return null;
+
+      case UserRole.citizen:
+      case UserRole.administrator:
+        return null;
+    }
+  }
+
   /// If Home Affairs already created a `citizens` row for this person's
   /// email (before they ever had a login), this links the freshly
   /// self-registered auth account to that row -- server-side, via the

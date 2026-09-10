@@ -3,36 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
-import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../routing/app_routes.dart';
 import '../../shared/domain/citizen_lookup_result.dart';
+import '../../shared/presentation/citizen_lookup_screen.dart';
 import '../data/department_repository.dart';
 import '../domain/department_record_config.dart';
 
-const _iconByName = <String, IconData>{
-  'favorite_outline': Icons.favorite_outline,
-  'event_busy_outlined': Icons.event_busy_outlined,
-  'menu_book_outlined': Icons.menu_book_outlined,
-  'badge_outlined': Icons.badge_outlined,
-  'directions_car_outlined': Icons.directions_car_outlined,
-  'account_balance_outlined': Icons.account_balance_outlined,
-  'receipt_long_outlined': Icons.receipt_long_outlined,
-  'gavel_outlined': Icons.gavel_outlined,
-  'verified_outlined': Icons.verified_outlined,
-  'school_outlined': Icons.school_outlined,
-  'payments_outlined': Icons.payments_outlined,
-  'volunteer_activism_outlined': Icons.volunteer_activism_outlined,
-  'work_outline': Icons.work_outline,
-  'flight_land_outlined': Icons.flight_land_outlined,
-  'workspace_premium_outlined': Icons.workspace_premium_outlined,
-  'home_work_outlined': Icons.home_work_outlined,
-  'description_outlined': Icons.description_outlined,
-  'assignment_outlined': Icons.assignment_outlined,
-};
+const _iconByName = recordTypeIconByName;
 
 /// Search a citizen, then create/view this official's department-specific
 /// records for them (register a marriage, issue a licence, record a tax
@@ -46,93 +26,44 @@ class DepartmentCitizenRecordsScreen extends ConsumerStatefulWidget {
 }
 
 class _DepartmentCitizenRecordsScreenState extends ConsumerState<DepartmentCitizenRecordsScreen> {
-  final _idNumberController = TextEditingController();
-  bool _searched = false;
-  bool _loading = false;
-  String? _error;
   CitizenLookupResult? _citizen;
-
-  @override
-  void dispose() {
-    _idNumberController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _search() async {
-    final value = _idNumberController.text.trim();
-    if (value.isEmpty) return;
-    setState(() {
-      _searched = true;
-      _loading = true;
-      _error = null;
-      _citizen = null;
-    });
-    try {
-      final result = await ref.read(departmentRepositoryProvider).searchCitizenByIdNumber(value);
-      if (mounted) setState(() => _citizen = result);
-    } catch (e) {
-      if (mounted) setState(() => _error = 'Could not complete this search: $e');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(departmentProfileProvider);
+    final citizen = _citizen;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Department Records')),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: AppTextField(
-                    label: 'Citizen ID number',
-                    controller: _idNumberController,
-                    keyboardType: TextInputType.number,
-                    prefixIcon: Icons.badge_outlined,
-                    onFieldSubmitted: (_) => _search(),
-                  ),
+        child: citizen == null
+            ? CitizenSearchPanel(
+                onSearch: ref.read(departmentRepositoryProvider).searchCitizens,
+                onSelect: (selected) => setState(() => _citizen = selected),
+              )
+            : profileAsync.when(
+                loading: () => const LoadingIndicator(),
+                error: (e, _) => const EmptyState(
+                  icon: Icons.error_outline,
+                  title: 'Could not load your department',
+                  message: '',
                 ),
-                const SizedBox(width: 10),
-                AppButton(label: 'Search', icon: Icons.search, loading: _loading, onPressed: _loading ? null : _search),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: !_searched
-                  ? const EmptyState(
-                      icon: Icons.folder_shared_outlined,
-                      title: 'Search a citizen',
-                      message: 'Enter an ID number to view and add your department\'s records for that citizen.',
-                    )
-                  : _loading
-                      ? const LoadingIndicator()
-                      : _error != null
-                          ? EmptyState(icon: Icons.error_outline, title: 'Search failed', message: _error!)
-                          : _citizen == null
-                              ? const EmptyState(
-                                  icon: Icons.person_off_outlined,
-                                  title: 'No citizen found',
-                                  message: 'No citizen matches this ID number.',
-                                )
-                              : profileAsync.when(
-                                  loading: () => const LoadingIndicator(),
-                                  error: (e, _) => const EmptyState(
-                                    icon: Icons.error_outline,
-                                    title: 'Could not load your department',
-                                    message: '',
-                                  ),
-                                  data: (profile) => _RecordSections(citizen: _citizen!, departmentCode: profile.departmentCode),
-                                ),
-            ),
-          ],
-        ),
+                data: (profile) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () => setState(() => _citizen = null),
+                        icon: const Icon(Icons.swap_horiz, size: 18),
+                        label: const Text('Change citizen'),
+                      ),
+                    ),
+                    Expanded(child: _RecordSections(citizen: citizen, departmentCode: profile.departmentCode)),
+                  ],
+                ),
+              ),
       ),
     );
   }
@@ -275,6 +206,62 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
     }
   }
 
+  Future<void> _lodgeAppeal(Map<String, dynamic> existingRow) async {
+    final table = widget.config.table;
+    final idColumn = widget.config.idColumn;
+    if (table == null || idColumn == null) return;
+    final relatedId = existingRow[idColumn]?.toString();
+    if (relatedId == null) return;
+
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: Text('Lodge appeal -- ${widget.config.rowTitle(existingRow)}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('The citizen is disputing this record. An administrator will review this appeal.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(labelText: 'Appeal reason (required)'),
+                maxLines: 3,
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: const Text('Lodge appeal'),
+            ),
+          ],
+        );
+      },
+    );
+    if (reason == null || reason.isEmpty) return;
+
+    try {
+      await ref.read(departmentRepositoryProvider).lodgeAppeal(
+            citizenId: widget.citizen.citizenId,
+            relatedTable: table,
+            relatedId: relatedId,
+            appealReason: reason,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appeal lodged.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not lodge this appeal: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -325,13 +312,25 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
                         title: Text(widget.config.rowTitle(rows[i])),
                         subtitle: Text(widget.config.rowSubtitle(rows[i])),
                         onTap: widget.config.buildUpdateData == null ? null : () => _editRecord(rows[i]),
-                        trailing: widget.config.buildDelete == null
-                            ? (widget.config.buildUpdateData == null ? null : const Icon(Icons.edit_outlined, size: 18))
-                            : IconButton(
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.config.table != null && widget.config.idColumn != null)
+                              IconButton(
+                                icon: const Icon(Icons.gavel_outlined, size: 18),
+                                tooltip: 'Lodge appeal',
+                                onPressed: () => _lodgeAppeal(rows[i]),
+                              ),
+                            if (widget.config.buildUpdateData != null && widget.config.buildDelete == null)
+                              const Icon(Icons.edit_outlined, size: 18),
+                            if (widget.config.buildDelete != null)
+                              IconButton(
                                 icon: const Icon(Icons.delete_outline, size: 18),
                                 tooltip: 'Remove',
                                 onPressed: () => _deleteRecord(rows[i]),
                               ),
+                          ],
+                        ),
                       ),
                     ],
                   ],
@@ -455,7 +454,8 @@ class _RecordFormDialogState extends State<_RecordFormDialog> {
                         ? const TextInputType.numberWithOptions(decimal: true)
                         : TextInputType.text,
                     decoration: InputDecoration(labelText: field.label),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    validator:
+                        field.optional ? null : (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                     onChanged: (_) {
                       if (_validationError != null) setState(() => _validationError = null);
                     },

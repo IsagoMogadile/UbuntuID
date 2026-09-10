@@ -9,7 +9,6 @@ import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../routing/app_routes.dart';
 import '../data/department_repository.dart';
-import '../domain/department_category.dart';
 
 class DepartmentDashboardScreen extends ConsumerWidget {
   const DepartmentDashboardScreen({super.key});
@@ -17,8 +16,6 @@ class DepartmentDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(departmentDashboardStatsProvider);
-    final profileAsync = ref.watch(departmentProfileProvider);
-    final category = profileAsync.value?.category;
 
     return statsAsync.when(
       loading: () => const Padding(
@@ -131,62 +128,73 @@ class DepartmentDashboardScreen extends ConsumerWidget {
               ],
             ),
           ),
-          if (category == DepartmentCategory.homeAffairs) ...[
-            const SizedBox(height: 20),
-            const SectionHeader(title: 'Home Affairs'),
-            AppCard(
-              onTap: () => context.push(AppRoutes.departmentRegisterCitizen),
-              child: const Row(
-                children: [
-                  Icon(Icons.person_add_alt_outlined),
-                  SizedBox(width: 12),
-                  Expanded(child: Text('Register a new citizen')),
-                  Icon(Icons.chevron_right),
-                ],
-              ),
+          const SizedBox(height: 20),
+          SectionHeader(
+            title: stats.departmentName,
+            action: TextButton(
+              onPressed: () => context.push(AppRoutes.departmentServices),
+              child: const Text('View all services'),
             ),
-          ],
-          if (category == DepartmentCategory.saps) ...[
-            const SizedBox(height: 20),
-            const SectionHeader(title: 'SAPS'),
-            AppCard(
-              onTap: () => context.push(AppRoutes.departmentClearanceSearch),
-              child: const Row(
-                children: [
-                  Icon(Icons.fingerprint_outlined),
-                  SizedBox(width: 12),
-                  Expanded(child: Text('Search a citizen for clearance records')),
-                  Icon(Icons.chevron_right),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            AppCard(
-              onTap: () => context.push(AppRoutes.departmentSapsWanted),
-              child: const Row(
-                children: [
-                  Icon(Icons.person_search_outlined),
-                  SizedBox(width: 12),
-                  Expanded(child: Text('Wanted list')),
-                  Icon(Icons.chevron_right),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            AppCard(
-              onTap: () => context.push(AppRoutes.departmentSapsOffenders),
-              child: const Row(
-                children: [
-                  Icon(Icons.gavel_outlined),
-                  SizedBox(width: 12),
-                  Expanded(child: Text('Offenders')),
-                  Icon(Icons.chevron_right),
-                ],
-              ),
-            ),
-          ],
+          ),
+          const _DepartmentSpecialServices(),
         ],
       ),
+    );
+  }
+}
+
+/// The department-specific dedicated screens (Register a new citizen,
+/// SAPS Wanted List/Offenders/Clearance search, ...) surfaced on the
+/// dashboard too, not just buried in Department Services -- driven by the
+/// same `departmentServicesProvider` so every department that has one of
+/// these gets it here automatically (previously hardcoded for only 2 of
+/// the 9 departments -- Home Affairs and SAPS -- see
+/// docs/KNOWN_LIMITATIONS.md). The generic per-record-type services
+/// (Marriage, Passport, ...) stay on the Services screen, not repeated
+/// here, since they all need a citizen picked first anyway.
+class _DepartmentSpecialServices extends ConsumerWidget {
+  const _DepartmentSpecialServices();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final servicesAsync = ref.watch(departmentServicesProvider);
+    return servicesAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, _) => const SizedBox.shrink(),
+      data: (services) {
+        final special = services.where((s) => s.route != null).toList();
+        if (special.isEmpty) {
+          return AppCard(
+            onTap: () => context.push(AppRoutes.departmentCitizenRecords),
+            child: const Row(
+              children: [
+                Icon(Icons.folder_shared_outlined),
+                SizedBox(width: 12),
+                Expanded(child: Text('Manage department records for a citizen')),
+                Icon(Icons.chevron_right),
+              ],
+            ),
+          );
+        }
+        return Column(
+          children: [
+            for (var i = 0; i < special.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              AppCard(
+                onTap: () => context.push(special[i].route!),
+                child: Row(
+                  children: [
+                    Icon(special[i].icon),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(special[i].name)),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

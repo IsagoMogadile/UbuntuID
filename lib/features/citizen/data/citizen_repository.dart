@@ -10,7 +10,9 @@ import '../domain/citizen_address.dart';
 import '../domain/consent_grant_item.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
+import '../domain/appeal_summary.dart';
 import '../domain/document_item.dart';
+import '../domain/employment_item.dart';
 import '../domain/notification_item.dart';
 import '../domain/service_item.dart';
 import '../domain/timeline_event.dart';
@@ -358,6 +360,74 @@ class CitizenRepository {
         available: true,
         route: AppRoutes.citizenVerification,
       ),
+      ServiceItem(
+        name: 'My Appeals',
+        description: 'Appeals lodged on your behalf at a department, and their outcome',
+        icon: Icons.gavel_outlined,
+        available: true,
+        route: AppRoutes.citizenAppeals,
+      ),
+      ServiceItem(
+        name: 'My Employment',
+        description: 'Employers who have offered you employment via UbuntuID',
+        icon: Icons.business_center_outlined,
+        available: true,
+        route: AppRoutes.citizenEmployment,
+      ),
+    ];
+  }
+
+  /// This citizen's own `appeals` rows -- lodged by an official on their
+  /// behalf, reviewed/decided by an administrator. Gated by
+  /// `appeals_select`'s `citizen_id = current_citizen_id()` branch.
+  Future<List<AppealSummary>> getMyAppeals() async {
+    final citizenId = await _citizenId();
+    final rows = await _client
+        .from('appeals')
+        .select('appeal_id, appeal_reason, status, submitted_at, decision, decision_notes, '
+            'departments(department_name)')
+        .eq('citizen_id', citizenId)
+        .order('submitted_at', ascending: false);
+    return [
+      for (final row in rows)
+        AppealSummary(
+          appealId: row['appeal_id'] as String,
+          departmentName: (row['departments']?['department_name'] as String?) ?? 'Unknown department',
+          appealReason: row['appeal_reason'] as String? ?? '',
+          status: row['status'] as String? ?? 'submitted',
+          submittedAt: DateTime.tryParse(row['submitted_at'] as String? ?? '') ?? DateTime.now(),
+          decision: row['decision'] as String?,
+          decisionNotes: row['decision_notes'] as String?,
+        ),
+    ];
+  }
+
+  /// This citizen's own `organisation_employees` rows -- offers made by
+  /// organisations (`OrganisationRepository.offerEmployment`), distinct
+  /// from the government's `labour_employment_records` (shown via the
+  /// "Employment & UIF" credential instead). Gated by
+  /// `organisation_employees_select`'s `citizen_id = current_citizen_id()`
+  /// branch.
+  Future<List<EmploymentItem>> getMyEmployment() async {
+    final citizenId = await _citizenId();
+    final rows = await _client
+        .from('organisation_employees')
+        .select('employee_id, job_title, department_or_position, salary, salary_frequency, '
+            'employment_status, start_date, organisations(legal_name)')
+        .eq('citizen_id', citizenId)
+        .order('start_date', ascending: false);
+    return [
+      for (final row in rows)
+        EmploymentItem(
+          employeeId: row['employee_id'] as String,
+          organisationName: (row['organisations']?['legal_name'] as String?) ?? 'Unknown employer',
+          jobTitle: row['job_title'] as String? ?? '',
+          departmentOrPosition: row['department_or_position'] as String?,
+          salary: row['salary'] as num?,
+          salaryFrequency: row['salary_frequency'] as String? ?? 'Monthly',
+          employmentStatus: row['employment_status'] as String? ?? 'Active',
+          startDate: DateTime.tryParse(row['start_date'] as String? ?? '') ?? DateTime.now(),
+        ),
     ];
   }
 
@@ -496,6 +566,14 @@ final documentsProvider = FutureProvider.autoDispose<List<DocumentItem>>((ref) {
 
 final servicesProvider = FutureProvider.autoDispose<List<ServiceItem>>((ref) {
   return ref.watch(citizenRepositoryProvider).getServices();
+});
+
+final myEmploymentProvider = FutureProvider.autoDispose<List<EmploymentItem>>((ref) {
+  return ref.watch(citizenRepositoryProvider).getMyEmployment();
+});
+
+final myAppealsProvider = FutureProvider.autoDispose<List<AppealSummary>>((ref) {
+  return ref.watch(citizenRepositoryProvider).getMyAppeals();
 });
 
 class NotificationsController extends AsyncNotifier<List<NotificationItem>> {

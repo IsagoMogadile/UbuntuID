@@ -20,6 +20,8 @@ import '../features/admin/presentation/department_detail_screen.dart';
 import '../features/admin/presentation/department_form_screen.dart';
 import '../features/admin/presentation/department_official_form_screen.dart';
 import '../features/admin/presentation/departments_list_screen.dart';
+import '../features/admin/presentation/appeal_detail_screen.dart';
+import '../features/admin/presentation/appeals_list_screen.dart';
 import '../features/admin/presentation/flagged_record_detail_screen.dart';
 import '../features/admin/presentation/flagged_records_list_screen.dart';
 import '../features/admin/presentation/organisation_detail_screen.dart';
@@ -27,6 +29,7 @@ import '../features/admin/presentation/organisations_list_screen.dart';
 import '../features/admin/presentation/user_detail_screen.dart';
 import '../features/admin/presentation/users_list_screen.dart';
 import '../features/auth/presentation/account_not_configured_screen.dart';
+import '../features/auth/presentation/account_revoked_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
@@ -37,6 +40,8 @@ import '../features/citizen/presentation/citizen_dashboard_screen.dart';
 import '../features/citizen/presentation/citizen_verification_list_screen.dart';
 import '../features/citizen/presentation/consent_management_screen.dart';
 import '../features/citizen/presentation/citizen_timeline_screen.dart';
+import '../features/citizen/presentation/my_appeals_screen.dart';
+import '../features/citizen/presentation/my_employment_screen.dart';
 import '../features/citizen/presentation/digital_id_card_screen.dart';
 import '../features/citizen/presentation/digital_identity_screen.dart';
 import '../features/citizen/presentation/document_detail_screen.dart';
@@ -147,6 +152,19 @@ Future<String?> _resolveRoleAreaRedirect(Ref ref, UserRole requiredRole) async {
   final roleResult = await ref.read(currentRoleProvider.future);
   if (roleResult == null) return AppRoutes.accountNotConfigured;
   if (roleResult.role != requiredRole) return AppRoutes.unauthorized;
+
+  // Re-checked on every navigation within a role area (this function
+  // already runs per-navigation for the role-match check above) -- this is
+  // the "block on next action" enforcement for a revoked organisation/
+  // deactivated official: no real-time listener, just piggybacking on the
+  // guard that already runs here. An already-open session keeps working
+  // until its next navigation, at which point it's signed out.
+  final blockedReason = await ref.read(roleServiceProvider).checkAccountActive(roleResult);
+  if (blockedReason != null) {
+    await ref.read(authServiceProvider).signOut();
+    return '${AppRoutes.accountRevoked}?reason=${Uri.encodeComponent(blockedReason)}';
+  }
+
   return null;
 }
 
@@ -192,6 +210,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.accountNotConfigured,
         builder: (c, s) => const AccountNotConfiguredScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.accountRevoked,
+        builder: (c, s) => AccountRevokedScreen(reason: s.uri.queryParameters['reason']),
       ),
       // Public -- reachable from the login screen without signing in.
       GoRoute(path: AppRoutes.about, builder: (c, s) => const AboutScreen()),
@@ -290,6 +312,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.citizenDigitalIdCard, builder: (c, s) => const DigitalIdCardScreen()),
       GoRoute(path: AppRoutes.citizenDocumentWallet, builder: (c, s) => const DocumentWalletScreen()),
       GoRoute(path: AppRoutes.citizenTimeline, builder: (c, s) => const CitizenTimelineScreen()),
+      GoRoute(path: AppRoutes.citizenEmployment, builder: (c, s) => const MyEmploymentScreen()),
       GoRoute(
         path: '${AppRoutes.citizenVerification}/:id',
         builder: (c, s) => VerificationRequestDetailScreen(requestId: s.pathParameters['id']!),
@@ -471,6 +494,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '${AppRoutes.adminFlaggedRecords}/:id',
         builder: (c, s) => FlaggedRecordDetailScreen(flagId: s.pathParameters['id']!),
       ),
+      GoRoute(path: AppRoutes.adminAppeals, builder: (c, s) => const AppealsListScreen()),
+      GoRoute(
+        path: '${AppRoutes.adminAppeals}/:id',
+        builder: (c, s) => AppealDetailScreen(appealId: s.pathParameters['id']!),
+      ),
+      GoRoute(path: AppRoutes.citizenAppeals, builder: (c, s) => const MyAppealsScreen()),
       GoRoute(path: AppRoutes.adminProfile, builder: (c, s) => const AdminProfileScreen()),
     ],
   );

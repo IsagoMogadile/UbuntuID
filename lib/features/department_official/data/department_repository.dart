@@ -4,10 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../core/utils/email_generator.dart';
+import '../../../routing/app_routes.dart';
 import '../../../services/service_providers.dart';
 import '../../shared/domain/citizen_lookup_result.dart';
 import '../domain/department_category.dart';
 import '../domain/department_dashboard_stats.dart';
+import '../domain/department_record_config.dart';
 
 /// Real Supabase-backed department-official data source. Schema reference:
 /// docs/SCREEN_DATABASE_MAP.md §3 and docs/DATA_MODEL.md.
@@ -403,18 +405,31 @@ class DepartmentRepository {
     );
   }
 
+  /// Goes through the `enrol_student` RPC (docs/database/
+  /// cross_department_eligibility_checks.sql) rather than a raw INSERT --
+  /// it rejects server-side unless the citizen already has a matric (NSC)
+  /// record with Basic Education, or [matureAgeExemption] is set with a
+  /// [matureAgeExemptionReason] (which also raises a `flagged_records` entry
+  /// for admin review).
   Future<void> enrolStudent({
     required String citizenId,
     required String nationalIdNumber,
     required String institutionCode,
     required String qualificationName,
     required String completionStatus,
+    required String studyMode,
+    bool matureAgeExemption = false,
+    String? matureAgeExemptionReason,
   }) async {
-    await _client.from('dhet_student_enrollment').insert({
-      'national_id_number': nationalIdNumber,
-      'institution_code': institutionCode,
-      'qualification_name': qualificationName,
-      'completion_status': completionStatus,
+    await _client.rpc('enrol_student', params: {
+      'p_citizen_id': citizenId,
+      'p_national_id_number': nationalIdNumber,
+      'p_institution_code': institutionCode,
+      'p_qualification_name': qualificationName,
+      'p_completion_status': completionStatus,
+      'p_study_mode': studyMode,
+      'p_mature_age_exemption': matureAgeExemption,
+      'p_mature_age_exemption_reason': matureAgeExemptionReason,
     });
     // Same LABOUR_STATUS-style bug avoided here: a citizen can legitimately
     // have more than one enrolment over their life (undergrad, then later a
@@ -461,6 +476,7 @@ class DepartmentRepository {
     required String completionStatus,
     String? institutionCode,
     String? qualificationName,
+    String? studyMode,
   }) async {
     await updateRecord(
       table: 'dhet_student_enrollment',
@@ -470,6 +486,7 @@ class DepartmentRepository {
         'completion_status': completionStatus,
         if (institutionCode != null) 'institution_code': institutionCode,
         if (qualificationName != null) 'qualification_name': qualificationName,
+        if (studyMode != null) 'study_mode': studyMode,
       },
     );
     await _updateCredentialMirror(
@@ -477,6 +494,26 @@ class DepartmentRepository {
       typeCode: 'TERTIARY_QUALIFICATION',
       status: completionStatus == 'Graduated' ? 'active' : 'pending',
     );
+  }
+
+  /// Goes through the `issue_nsfas_funding` RPC (docs/database/
+  /// cross_department_eligibility_checks.sql) rather than a raw INSERT --
+  /// approving funding (`approvedStatus: true`) is rejected server-side
+  /// unless the citizen has an active ("Enrolled") enrolment and no active
+  /// employment record. Recording a non-approved application always
+  /// succeeds (that's itself a valid, auditable outcome).
+  Future<void> issueNsfasFunding({
+    required String nationalIdNumber,
+    required int fundingYear,
+    required bool approvedStatus,
+    required num disbursedAmount,
+  }) {
+    return _client.rpc('issue_nsfas_funding', params: {
+      'p_national_id_number': nationalIdNumber,
+      'p_funding_year': fundingYear,
+      'p_approved_status': approvedStatus,
+      'p_disbursed_amount': disbursedAmount,
+    });
   }
 
   Future<void> issueSassaGrant({
@@ -515,6 +552,11 @@ class DepartmentRepository {
     await _updateCredentialMirror(citizenId: citizenId, typeCode: 'SASSA_STATUS', status: 'revoked');
   }
 
+  /// Goes through the `record_employment` RPC (docs/database/
+  /// cross_department_eligibility_checks.sql) rather than a raw INSERT --
+  /// it rejects server-side when [employmentStatus] is Employed/
+  /// Self-Employed and the citizen is currently enrolled *full-time* with
+  /// DHET (part-time enrolment, or no active enrolment, is unaffected).
   Future<void> recordEmployment({
     required String citizenId,
     required String nationalIdNumber,
@@ -524,13 +566,13 @@ class DepartmentRepository {
     required num uifContributionAmount,
     required String uifClaimStatus,
   }) async {
-    await _client.from('labour_employment_records').insert({
-      'national_id_number': nationalIdNumber,
-      'employer_name': employerName,
-      'employment_status': employmentStatus,
-      'start_date': startDate?.toIso8601String().split('T').first,
-      'uif_contribution_amount': uifContributionAmount,
-      'uif_claim_status': uifClaimStatus,
+    await _client.rpc('record_employment', params: {
+      'p_national_id_number': nationalIdNumber,
+      'p_employer_name': employerName,
+      'p_employment_status': employmentStatus,
+      'p_start_date': startDate?.toIso8601String().split('T').first,
+      'p_uif_contribution_amount': uifContributionAmount,
+      'p_uif_claim_status': uifClaimStatus,
     });
     // Unlike passport/licence/tax (one-time "issue" events), a citizen can
     // have several employment records over time (job changes) -- but there
@@ -1140,6 +1182,66 @@ class DepartmentRepository {
     );
   }
 
+  /// Search by any combination of first name, last name and/or ID number
+  /// (partial, case-insensitive on the names) -- returns a result list an
+  /// official picks from, rather than requiring the exact ID up front like
+  /// [searchCitizenByIdNumber]. Passing no filters at all (every argument
+  /// null/empty) browses the first 50 citizens ordered by surname -- the
+  /// "view all" case. Same `citizens_select` RLS as [searchCitizenByIdNumber]
+  /// -- department officials and admins already have full-table read access
+  /// to citizen identity rows, this only changes how they filter it.
+  Future<List<CitizenLookupResult>> searchCitizens({
+    String? idNumber,
+    String? firstName,
+    String? lastName,
+  }) async {
+    var query = _client
+        .from('citizens')
+        .select('citizen_id, first_name, last_name, id_number, date_of_birth, current_status, phone_number, email');
+    if (idNumber != null && idNumber.trim().isNotEmpty) {
+      query = query.eq('id_number', idNumber.trim());
+    }
+    if (firstName != null && firstName.trim().isNotEmpty) {
+      query = query.ilike('first_name', '%${firstName.trim()}%');
+    }
+    if (lastName != null && lastName.trim().isNotEmpty) {
+      query = query.ilike('last_name', '%${lastName.trim()}%');
+    }
+    final rows = await query.order('last_name').limit(50);
+    return [
+      for (final row in rows)
+        CitizenLookupResult(
+          citizenId: row['citizen_id'] as String,
+          firstName: row['first_name'] as String? ?? '',
+          lastName: row['last_name'] as String? ?? '',
+          idNumber: row['id_number'] as String? ?? '',
+          currentStatus: row['current_status'] as String? ?? 'unknown',
+          dateOfBirth: (row['date_of_birth'] as String?) == null ? null : DateTime.tryParse(row['date_of_birth'] as String),
+          phoneNumber: row['phone_number'] as String?,
+          email: row['email'] as String?,
+        ),
+    ];
+  }
+
+  /// Lodges an appeal on a citizen's behalf against an existing record in
+  /// this official's own department -- the citizen visits in person and
+  /// disputes something (a suspended licence, a declined grant, etc.); an
+  /// administrator (not another official) later reviews and decides it via
+  /// `admin_decide_appeal` (docs/database/appeals_workflow.sql).
+  Future<void> lodgeAppeal({
+    required String citizenId,
+    required String relatedTable,
+    required String relatedId,
+    required String appealReason,
+  }) {
+    return _client.rpc('lodge_appeal', params: {
+      'p_citizen_id': citizenId,
+      'p_related_table': relatedTable,
+      'p_related_id': relatedId,
+      'p_appeal_reason': appealReason,
+    });
+  }
+
   /// Fellow officials in the caller's own department -- requires
   /// `department_officials_select_colleagues` (an official can only see
   /// their own row otherwise, which also meant the "Officials" dashboard
@@ -1193,33 +1295,61 @@ class DepartmentRepository {
     });
   }
 
+  /// Built directly from [recordTypesForDepartment] -- one tile per actual
+  /// record type this department manages (Marriage, Death, Passport,
+  /// Immigration for Home Affairs; Driver's Licence, Vehicle for
+  /// Transport; etc.), plus a handful of dedicated department-wide screens
+  /// that don't fit the generic "pick a citizen first" shape. Previously
+  /// derived from `credential_types` instead, which meant most departments
+  /// (only one verifiable credential type each) showed a single generic
+  /// tile no matter how many record types they actually managed -- see
+  /// docs/KNOWN_LIMITATIONS.md.
   Future<List<DepartmentServiceItem>> getServices() async {
-    final row = await _officialRow();
-    final departmentId = row['department_id'] as String?;
-    if (departmentId == null) return [];
-
-    final rows = await _client
-        .from('credential_types')
-        .select('display_name, description')
-        .eq('issuing_department_id', departmentId)
-        .order('display_name');
-
-    const icons = [
-      Icons.verified_user_outlined,
-      Icons.workspace_premium_outlined,
-      Icons.badge_outlined,
-      Icons.assignment_ind_outlined,
-    ];
+    final profile = await getProfile();
+    final recordTypes = recordTypesForDepartment(profile.departmentCode);
 
     return [
-      for (var i = 0; i < rows.length; i++)
+      for (final type in recordTypes)
         DepartmentServiceItem(
-          name: rows[i]['display_name'] as String? ?? 'Service',
-          description: rows[i]['description'] as String? ?? 'Credential type issued by this department.',
-          icon: icons[i % icons.length],
+          name: type.label,
+          description: 'Search a citizen and manage their ${type.label.toLowerCase()} record.',
+          icon: recordTypeIconByName[type.icon] ?? Icons.folder_outlined,
         ),
+      ..._specialServicesFor(profile.departmentCode),
     ];
   }
+
+  static List<DepartmentServiceItem> _specialServicesFor(String departmentCode) => switch (departmentCode) {
+        'HOME_AFFAIRS' => const [
+            DepartmentServiceItem(
+              name: 'Register a new citizen',
+              description: "Create a citizen's central identity record.",
+              icon: Icons.person_add_alt_outlined,
+              route: AppRoutes.departmentRegisterCitizen,
+            ),
+          ],
+        'SAPS' => const [
+            DepartmentServiceItem(
+              name: 'Clearance search',
+              description: 'Search a citizen for their criminal-clearance status.',
+              icon: Icons.fingerprint_outlined,
+              route: AppRoutes.departmentClearanceSearch,
+            ),
+            DepartmentServiceItem(
+              name: 'Wanted list',
+              description: 'Department-wide list of wanted persons.',
+              icon: Icons.person_search_outlined,
+              route: AppRoutes.departmentSapsWanted,
+            ),
+            DepartmentServiceItem(
+              name: 'Offenders',
+              description: 'Department-wide list of offenders on record.',
+              icon: Icons.gavel_outlined,
+              route: AppRoutes.departmentSapsOffenders,
+            ),
+          ],
+        _ => const [],
+      };
 }
 
 class DepartmentOfficialProfile {
@@ -1268,11 +1398,18 @@ class ClearanceSearchResult {
 }
 
 class DepartmentServiceItem {
-  const DepartmentServiceItem({required this.name, required this.description, required this.icon});
+  const DepartmentServiceItem({required this.name, required this.description, required this.icon, this.route});
 
   final String name;
   final String description;
   final IconData icon;
+
+  /// Null means "search a citizen, then manage this record type" (the
+  /// generic `departmentCitizenRecords` flow) -- set only for the handful
+  /// of department-wide or dedicated screens (Register a new citizen,
+  /// SAPS Wanted List/Offenders/Clearance search) that aren't "pick a
+  /// citizen first".
+  final String? route;
 }
 
 class ColleagueItem {

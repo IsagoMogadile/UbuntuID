@@ -5,6 +5,7 @@ import '../../../core/errors/app_exception.dart';
 import '../../../services/service_providers.dart';
 import '../../shared/domain/citizen_lookup_result.dart';
 import '../domain/admin_analytics.dart';
+import '../domain/appeal_item.dart';
 import '../domain/admin_stats.dart';
 import '../domain/audit_log_item.dart';
 import '../domain/compliance_audit_item.dart';
@@ -309,7 +310,7 @@ class AdminRepository {
     // `organisations` uses `registered_at`, not `created_at` -- see
     // docs/KNOWN_LIMITATIONS.md.
     const base = 'organisation_id, legal_name, organisation_type, access_tier, verified, registered_at, '
-        'registration_status, decline_reason';
+        'registration_status, decline_reason, revoked_at, revoke_reason, reinstated_at, reinstate_reason';
     var hasContactEmail = true;
     List<Map<String, dynamic>> rows;
     try {
@@ -332,12 +333,35 @@ class AdminRepository {
           registeredAt: _date(row['registered_at']),
           registrationStatus: row['registration_status'] as String? ?? (row['verified'] == true ? 'approved' : 'pending'),
           declineReason: row['decline_reason'] as String?,
+          revokedAt: row['revoked_at'] == null ? null : DateTime.tryParse(row['revoked_at'] as String),
+          revokeReason: row['revoke_reason'] as String?,
+          reinstatedAt: row['reinstated_at'] == null ? null : DateTime.tryParse(row['reinstated_at'] as String),
+          reinstateReason: row['reinstate_reason'] as String?,
         ),
     ];
   }
 
   Future<void> setOrganisationVerified(String organisationId, bool verified) {
     return _client.from('organisations').update({'verified': verified}).eq('organisation_id', organisationId);
+  }
+
+  /// `registration_status = 'revoked'` -- blocks the organisation's staff
+  /// from data access (same `current_org_user_organisation_id()` choke
+  /// point pending/declined already use) and, going forward, from logging
+  /// in at all (see `RoleService.checkAccountActive`, checked right after
+  /// login in `app_router.dart`). Reversible via [reinstateOrganisation].
+  Future<void> revokeOrganisation({required String organisationId, required String reason}) {
+    return _client.rpc('admin_revoke_organisation', params: {
+      'p_organisation_id': organisationId,
+      'p_reason': reason,
+    });
+  }
+
+  Future<void> reinstateOrganisation({required String organisationId, required String reason}) {
+    return _client.rpc('admin_reinstate_organisation', params: {
+      'p_organisation_id': organisationId,
+      'p_reason': reason,
+    });
   }
 
   /// Approves or declines a pending (or previously declined) organisation
@@ -524,6 +548,44 @@ class AdminRepository {
     );
   }
 
+  /// Search by any combination of first name, last name and/or ID number
+  /// (partial, case-insensitive on the names) -- mirrors
+  /// `DepartmentRepository.searchCitizens`. No filters at all browses the
+  /// first 50 citizens ordered by surname (the "view all" case), gated by
+  /// the same `is_admin()` `citizens_select` grant as [searchCitizenByIdNumber].
+  Future<List<CitizenLookupResult>> searchCitizens({
+    String? idNumber,
+    String? firstName,
+    String? lastName,
+  }) async {
+    var query = _client
+        .from('citizens')
+        .select('citizen_id, first_name, last_name, id_number, date_of_birth, current_status, phone_number, email');
+    if (idNumber != null && idNumber.trim().isNotEmpty) {
+      query = query.eq('id_number', idNumber.trim());
+    }
+    if (firstName != null && firstName.trim().isNotEmpty) {
+      query = query.ilike('first_name', '%${firstName.trim()}%');
+    }
+    if (lastName != null && lastName.trim().isNotEmpty) {
+      query = query.ilike('last_name', '%${lastName.trim()}%');
+    }
+    final rows = await query.order('last_name').limit(50);
+    return [
+      for (final row in rows)
+        CitizenLookupResult(
+          citizenId: row['citizen_id'] as String,
+          firstName: row['first_name'] as String? ?? '',
+          lastName: row['last_name'] as String? ?? '',
+          idNumber: row['id_number'] as String? ?? '',
+          currentStatus: row['current_status'] as String? ?? 'unknown',
+          dateOfBirth: (row['date_of_birth'] as String?) == null ? null : DateTime.tryParse(row['date_of_birth'] as String),
+          phoneNumber: row['phone_number'] as String?,
+          email: row['email'] as String?,
+        ),
+    ];
+  }
+
   /// (actor_type, actor_id) -> resolved name, so a given official/admin/
   /// citizen/organisation user is only ever looked up once per session
   /// rather than re-queried on every stream emission.
@@ -546,9 +608,16 @@ class AdminRepository {
     for (final row in rows) {
       final actorId = row['actor_id'] as String?;
       final actorType = row['actor_type'] as String?;
-      if (actorId == null || actorType == null) continue;
-      if (_actorNameCache.containsKey('$actorType:$actorId')) continue;
-      idsByActorType.putIfAbsent(actorType, () => {}).add(actorId);
+      if (actorId != null && actorType != null && !_actorNameCache.containsKey('$actorType:$actorId')) {
+        idsByActorType.putIfAbsent(actorType, () => {}).add(actorId);
+      }
+      // target_citizen_id shares the same 'citizen:<id>' cache key as an
+      // actor_type='citizen' actor -- a citizen row resolves the same way
+      // either as who did something or who something was done to.
+      final targetCitizenId = row['target_citizen_id'] as String?;
+      if (targetCitizenId != null && !_actorNameCache.containsKey('citizen:$targetCitizenId')) {
+        idsByActorType.putIfAbsent('citizen', () => {}).add(targetCitizenId);
+      }
     }
     if (idsByActorType.isEmpty) return;
 
@@ -602,9 +671,57 @@ class AdminRepository {
                 relatedTable: row['related_table'] as String? ?? '',
                 occurredAt: _date(row['occurred_at']),
                 ipAddress: row['ip_address'] as String?,
+                targetCitizenId: row['target_citizen_id'] as String?,
+                targetCitizenName: row['target_citizen_id'] == null
+                    ? null
+                    : _actorNameCache['citizen:${row['target_citizen_id']}'],
+                metadata: row['metadata'] as Map<String, dynamic>?,
               ),
           ];
         });
+  }
+
+  Future<List<AppealItem>> getAppeals() async {
+    final rows = await _client
+        .from('appeals')
+        .select('appeal_id, citizen_id, related_table, appeal_reason, status, submitted_at, '
+            'decision, decision_date, decision_notes, '
+            'citizens(first_name, last_name), departments(department_name), '
+            'department_officials(full_name)')
+        .order('submitted_at', ascending: false);
+    return [
+      for (final row in rows)
+        AppealItem(
+          appealId: row['appeal_id'] as String,
+          citizenId: row['citizen_id'] as String,
+          citizenDisplayName: _citizenName(row['citizens'] as Map<String, dynamic>?),
+          departmentName: (row['departments']?['department_name'] as String?) ?? 'Unknown department',
+          relatedTable: row['related_table'] as String? ?? '',
+          appealReason: row['appeal_reason'] as String? ?? '',
+          status: row['status'] as String? ?? 'submitted',
+          submittedAt: _date(row['submitted_at']),
+          lodgedByName: row['department_officials']?['full_name'] as String?,
+          decision: row['decision'] as String?,
+          decisionDate: row['decision_date'] == null ? null : DateTime.tryParse(row['decision_date'] as String),
+          decisionNotes: row['decision_notes'] as String?,
+        ),
+    ];
+  }
+
+  Future<void> startAppealReview(String appealId) {
+    return _client.rpc('admin_start_appeal_review', params: {'p_appeal_id': appealId});
+  }
+
+  Future<void> decideAppeal({
+    required String appealId,
+    required bool uphold,
+    required String decisionNotes,
+  }) {
+    return _client.rpc('admin_decide_appeal', params: {
+      'p_appeal_id': appealId,
+      'p_decision': uphold ? 'upheld' : 'rejected',
+      'p_decision_notes': decisionNotes,
+    });
   }
 
   Future<List<FlaggedRecordItem>> getFlaggedRecords() async {
@@ -678,6 +795,10 @@ final adminAuditLogsProvider = StreamProvider.autoDispose<List<AuditLogItem>>((r
 
 final adminFlaggedRecordsProvider = FutureProvider.autoDispose<List<FlaggedRecordItem>>((ref) {
   return ref.watch(adminRepositoryProvider).getFlaggedRecords();
+});
+
+final adminAppealsProvider = FutureProvider.autoDispose<List<AppealItem>>((ref) {
+  return ref.watch(adminRepositoryProvider).getAppeals();
 });
 
 final adminComplianceAuditsProvider = FutureProvider.autoDispose<List<ComplianceAuditItem>>((ref) {

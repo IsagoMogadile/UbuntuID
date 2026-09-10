@@ -14,6 +14,9 @@ class AuditLogItem {
     this.actorId,
     this.actorName,
     this.ipAddress,
+    this.targetCitizenId,
+    this.targetCitizenName,
+    this.metadata,
   });
 
   final String logId;
@@ -29,4 +32,16 @@ class AuditLogItem {
   /// longer exists.
   final String? actorName;
   final String? ipAddress;
+
+  /// The citizen this event was about (`audit_logs.target_citizen_id`),
+  /// resolved to a name the same way [actorName] is -- null when the
+  /// affected row has no `citizen_id` column at all (most non-citizen
+  /// tables) or that citizen no longer exists.
+  final String? targetCitizenId;
+  final String? targetCitizenName;
+
+  /// The full row snapshot `fn_audit_log` captured (`to_jsonb(NEW/OLD)`) --
+  /// shown as "what changed" in the detail screen since the raw `action`
+  /// string alone (e.g. "update_organisations") doesn't say what happened.
+  final Map<String, dynamic>? metadata;
 }

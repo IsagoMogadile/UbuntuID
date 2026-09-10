@@ -218,28 +218,42 @@ class OrganisationRepository {
 
   /// Every citizen the organisation looks up must be resolved through this
   /// one search path -- there is no bulk/listing access to `citizens` for
-  /// organisations. Requires ID number AND first name AND last name to all
-  /// match (case-insensitive exact) -- an organisation can no longer look
-  /// someone up by ID number alone (spec: "they dont see everyone").
-  Future<OrganisationCitizenSearchResult?> searchCitizen({
+  /// organisations (spec: "they dont see everyone"), which is why, unlike
+  /// `DepartmentRepository.searchCitizens`/`AdminRepository.searchCitizens`,
+  /// this deliberately keeps ID number mandatory and never offers a "view
+  /// all" browse -- an organisation can only ever resolve a specific citizen
+  /// it already has the ID number for, not enumerate the citizen table by
+  /// name. Name matching is relaxed from "both first AND last, exact" to
+  /// "at least one of first/last name, partial" -- still requires the exact
+  /// ID number, just more forgiving of a typo'd or partially-known name.
+  /// Returns a list (in practice 0 or 1 row, since `id_number` is unique)
+  /// rather than a single guess, for the same result-list UI every other
+  /// search screen now uses.
+  Future<List<OrganisationCitizenSearchResult>> searchCitizens({
     required String idNumber,
-    required String firstName,
-    required String lastName,
+    String? firstName,
+    String? lastName,
   }) async {
-    final row = await _client
+    var query = _client
         .from('citizens')
         .select('citizen_id, first_name, last_name, id_number, current_status')
-        .eq('id_number', idNumber)
-        .ilike('first_name', firstName.trim())
-        .ilike('last_name', lastName.trim())
-        .maybeSingle();
-    if (row == null) return null;
-    return OrganisationCitizenSearchResult(
-      citizenId: row['citizen_id'] as String,
-      fullName: '${row['first_name'] ?? ''} ${row['last_name'] ?? ''}'.trim(),
-      idNumber: row['id_number'] as String? ?? idNumber,
-      currentStatus: row['current_status'] as String? ?? 'unknown',
-    );
+        .eq('id_number', idNumber.trim());
+    if (firstName != null && firstName.trim().isNotEmpty) {
+      query = query.ilike('first_name', '%${firstName.trim()}%');
+    }
+    if (lastName != null && lastName.trim().isNotEmpty) {
+      query = query.ilike('last_name', '%${lastName.trim()}%');
+    }
+    final rows = await query;
+    return [
+      for (final row in rows)
+        OrganisationCitizenSearchResult(
+          citizenId: row['citizen_id'] as String,
+          fullName: '${row['first_name'] ?? ''} ${row['last_name'] ?? ''}'.trim(),
+          idNumber: row['id_number'] as String? ?? idNumber,
+          currentStatus: row['current_status'] as String? ?? 'unknown',
+        ),
+    ];
   }
 
   /// Same `credentials -> credential_types -> departments` join
@@ -274,6 +288,7 @@ class OrganisationRepository {
       final typeCode = row['credential_types']?['type_code'] as String?;
       items.add(VerifiableCredential(
         credentialTypeId: row['credential_type_id'] as String,
+        typeCode: typeCode ?? '',
         typeName: (row['credential_types']?['display_name'] as String?) ?? 'Credential',
         issuingDepartment:
             (row['credential_types']?['departments']?['department_name'] as String?) ?? 'Unknown department',
@@ -308,13 +323,21 @@ class OrganisationRepository {
   /// these credential types -- required, `verification_requests.consent_id`
   /// is `NOT NULL` live, confirmed via a real end-to-end test against
   /// PostgREST, not assumed), then one `verification_requests` row plus one
-  /// `verification_results` row per selected credential type, both pending
-  /// until a department official decides (`VerificationRepository.decide`).
+  /// `verification_results` row per selected credential type.
+  ///
+  /// [claimsByCredentialTypeId] is what the organisation worker typed in
+  /// for each credential -- what the applicant's own paperwork/external
+  /// application says (see `claimFieldsForType`) -- written into
+  /// `verification_results.claimed_value` right here at request time. No
+  /// decision is made yet: `VerificationRepository.startVerification`/
+  /// `completeVerification` do the actual automated comparison against the
+  /// real department records later.
   /// Requires `consent_grants_insert_organisation`,
   /// `verification_requests_insert_org`, and `verification_results_insert_org`.
   Future<String> requestVerification({
     required String citizenId,
     required List<String> credentialTypeIds,
+    Map<String, Map<String, dynamic>> claimsByCredentialTypeId = const {},
   }) async {
     final row = await _orgUserRow();
     final organisation = row['organisations'] as Map<String, dynamic>?;
@@ -356,11 +379,60 @@ class OrganisationRepository {
             'request_id': requestId,
             'credential_type_id': credentialTypeId,
             'match_status': 'pending',
+            if (claimsByCredentialTypeId[credentialTypeId] != null)
+              'claimed_value': claimsByCredentialTypeId[credentialTypeId],
           },
       ]);
     }
 
     return requestId;
+  }
+
+  /// "Offer Employment" -- creates the organisation's own HR record for
+  /// this citizen (`organisation_employees`, entirely separate from the
+  /// government's `labour_employment_records`, which stays LABOUR-official
+  /// only). [sourceVerificationRequestId] just records which verification
+  /// led to the offer, for traceability -- not required.
+  Future<void> offerEmployment({
+    required String citizenId,
+    required String jobTitle,
+    String? departmentOrPosition,
+    num? salary,
+    required String salaryFrequency,
+    required DateTime startDate,
+    String? sourceVerificationRequestId,
+  }) async {
+    final row = await _orgUserRow();
+    final organisation = row['organisations'] as Map<String, dynamic>?;
+    final organisationId = organisation?['organisation_id'] as String?;
+    if (organisationId == null) {
+      throw const AppException('No organisation is linked to this account.');
+    }
+    await _client.from('organisation_employees').insert({
+      'citizen_id': citizenId,
+      'organisation_id': organisationId,
+      'offered_by_user_id': row['organisation_user_id'] as String,
+      'source_verification_request_id': sourceVerificationRequestId,
+      'job_title': jobTitle,
+      'department_or_position': departmentOrPosition,
+      'salary': salary,
+      'salary_frequency': salaryFrequency,
+      'start_date': startDate.toIso8601String().split('T').first,
+    });
+  }
+
+  Future<List<OrganisationEmployeeItem>> getEmployees() async {
+    final row = await _orgUserRow();
+    final organisation = row['organisations'] as Map<String, dynamic>?;
+    final organisationId = organisation?['organisation_id'] as String?;
+    if (organisationId == null) return [];
+    final rows = await _client
+        .from('organisation_employees')
+        .select('employee_id, job_title, department_or_position, salary, salary_frequency, '
+            'employment_status, start_date, citizens(first_name, last_name, id_number)')
+        .eq('organisation_id', organisationId)
+        .order('start_date', ascending: false);
+    return [for (final r in rows) OrganisationEmployeeItem.fromRow(r)];
   }
 
   Future<OrganisationDashboardStats> getDashboardStats() async {
@@ -433,6 +505,50 @@ class CredentialTypeOption {
   final String issuingDepartment;
 }
 
+/// Mirrors `public.organisation_employees` -- one row the organisation
+/// created via [OrganisationRepository.offerEmployment]. Also readable by
+/// the citizen the row is about, via `organisation_employees_select`'s
+/// `citizen_id = current_citizen_id()` branch.
+class OrganisationEmployeeItem {
+  const OrganisationEmployeeItem({
+    required this.employeeId,
+    required this.citizenFullName,
+    required this.citizenIdNumber,
+    required this.jobTitle,
+    this.departmentOrPosition,
+    this.salary,
+    required this.salaryFrequency,
+    required this.employmentStatus,
+    required this.startDate,
+  });
+
+  final String employeeId;
+  final String citizenFullName;
+  final String citizenIdNumber;
+  final String jobTitle;
+  final String? departmentOrPosition;
+  final num? salary;
+  final String salaryFrequency;
+  final String employmentStatus;
+  final DateTime startDate;
+
+  factory OrganisationEmployeeItem.fromRow(Map<String, dynamic> row) {
+    final citizen = row['citizens'] as Map<String, dynamic>?;
+    final name = '${citizen?['first_name'] ?? ''} ${citizen?['last_name'] ?? ''}'.trim();
+    return OrganisationEmployeeItem(
+      employeeId: row['employee_id'] as String,
+      citizenFullName: name.isEmpty ? 'Unknown citizen' : name,
+      citizenIdNumber: citizen?['id_number'] as String? ?? '',
+      jobTitle: row['job_title'] as String? ?? '',
+      departmentOrPosition: row['department_or_position'] as String?,
+      salary: row['salary'] as num?,
+      salaryFrequency: row['salary_frequency'] as String? ?? 'Monthly',
+      employmentStatus: row['employment_status'] as String? ?? 'Active',
+      startDate: DateTime.tryParse(row['start_date'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
 class OrganisationCitizenSearchResult {
   const OrganisationCitizenSearchResult({
     required this.citizenId,
@@ -454,6 +570,7 @@ class OrganisationCitizenSearchResult {
 class VerifiableCredential {
   const VerifiableCredential({
     required this.credentialTypeId,
+    required this.typeCode,
     required this.typeName,
     required this.issuingDepartment,
     required this.status,
@@ -461,6 +578,11 @@ class VerifiableCredential {
   });
 
   final String credentialTypeId;
+
+  /// e.g. 'NSC', 'DRIVERS_LICENCE' -- drives which claim fields
+  /// `claimFieldsForType` asks the organisation worker to fill in before
+  /// submitting a verification request for this credential.
+  final String typeCode;
   final String typeName;
   final String issuingDepartment;
   final String status;
@@ -479,11 +601,15 @@ final organisationDashboardStatsProvider = FutureProvider.autoDispose<Organisati
   return ref.watch(organisationRepositoryProvider).getDashboardStats();
 });
 
-typedef CitizenSearchQuery = ({String idNumber, String firstName, String lastName});
+final organisationEmployeesProvider = FutureProvider.autoDispose<List<OrganisationEmployeeItem>>((ref) {
+  return ref.watch(organisationRepositoryProvider).getEmployees();
+});
+
+typedef CitizenSearchQuery = ({String idNumber, String? firstName, String? lastName});
 
 final citizenSearchResultProvider =
-    FutureProvider.autoDispose.family<OrganisationCitizenSearchResult?, CitizenSearchQuery>((ref, query) {
-  return ref.watch(organisationRepositoryProvider).searchCitizen(
+    FutureProvider.autoDispose.family<List<OrganisationCitizenSearchResult>, CitizenSearchQuery>((ref, query) {
+  return ref.watch(organisationRepositoryProvider).searchCitizens(
         idNumber: query.idNumber,
         firstName: query.firstName,
         lastName: query.lastName,

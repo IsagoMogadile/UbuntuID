@@ -8,7 +8,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../data/admin_repository.dart';
-import 'audit_logs_list_screen.dart' show actorTypeLabel;
+import 'audit_logs_list_screen.dart' show actorTypeLabel, friendlyAuditAction;
 
 class AuditLogDetailScreen extends ConsumerWidget {
   const AuditLogDetailScreen({super.key, required this.logId});
@@ -38,18 +38,37 @@ class AuditLogDetailScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    DetailRow(label: 'Action', value: log.action),
+                    DetailRow(label: 'What happened', value: friendlyAuditAction(log)),
                     DetailRow(
                       label: 'Responsible',
                       value: log.actorName ?? actorTypeLabel(log.actorType),
                     ),
                     DetailRow(label: 'Actor type', value: log.actorType),
+                    if (log.targetCitizenName != null) DetailRow(label: 'About citizen', value: log.targetCitizenName!),
                     DetailRow(label: 'Related table', value: log.relatedTable),
                     DetailRow(label: 'Occurred', value: AppFormatters.dateTime(log.occurredAt)),
                     DetailRow(label: 'IP address', value: log.ipAddress ?? 'Unknown'),
+                    DetailRow(label: 'Raw action', value: log.action),
                   ],
                 ),
               ),
+              if (log.metadata != null && log.metadata!.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text('What changed', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final entry in log.metadata!.entries)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: DetailRow(label: entry.key, value: entry.value?.toString() ?? '—'),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           );
         },

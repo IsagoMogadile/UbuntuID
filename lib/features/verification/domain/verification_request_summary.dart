@@ -8,15 +8,35 @@ class VerificationRequestSummary {
     required this.organisationName,
     required this.overallStatus,
     required this.requestedAt,
+    this.organisationId,
+    this.citizenId,
     this.respondedAt,
+    this.processingStartedAt,
+    this.orgViewedAt,
   });
 
   final String requestId;
+  final String? organisationId;
+  final String? citizenId;
   final String citizenDisplayName;
   final String organisationName;
+
+  /// 'pending' | 'processing' | 'completed' | 'partially_verified' |
+  /// 'failed' | 'rejected' | 'cancelled'.
   final String overallStatus;
   final DateTime requestedAt;
   final DateTime? respondedAt;
+
+  /// Set when the organisation starts the automated check
+  /// (`start_verification`), cleared for nothing -- stays set even after
+  /// completion, as a record of when review began.
+  final DateTime? processingStartedAt;
+
+  /// Set once the requesting organisation has acknowledged a completed
+  /// result (`acknowledge_verification_result`) -- once non-null, the
+  /// organisation's own detail view stops showing the per-credential
+  /// claimed/verified comparison, only the final status.
+  final DateTime? orgViewedAt;
 }
 
 /// Mirrors `public.verification_results` for a single request.

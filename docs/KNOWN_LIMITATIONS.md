@@ -13,6 +13,164 @@ version of this file said about a 9-department roster, generic
 subtype tables, or a 4-table SASSA model is **no longer true** — those
 tables were dropped and replaced (see `docs/DATA_MODEL.md`).
 
+**`docs/database/` no longer exists.** Every migration file it held was
+confirmed applied live and deleted once confirmed (see `docs/DECISIONS.md`'s
+"Docs cleanup" entry) — mentions of "see docs/database/x.sql" below are
+kept as historical narrative (the surrounding sentence still explains what
+happened) rather than rewritten one by one.
+
+## New: live QA pass — 9 department officials, an organisation, a citizen, real RLS
+
+Tested end-to-end via real Supabase Auth accounts + PostgREST calls (same
+methodology as the organisation-registration verification in an earlier
+session — see `docs/DECISIONS.md`), not static review: one test department
+official per department (all 9), an admin, a self-registered organisation,
+and a self-activated citizen, all created, exercised, and deleted
+afterward. Found and fixed two real bugs this way (both detailed in
+`docs/DECISIONS.md`'s "QA pass" entry) — a NULL-comparison authorization
+bug in the three new verification RPCs that let *any* authenticated user
+start/complete/acknowledge another organisation's verification, and an
+`appeals.related_id` type mismatch (`uuid` vs. six record types' text
+primary keys) that would have thrown a raw Postgres error from the "Lodge
+appeal" button. Confirmed working: RLS blocks a pending/revoked
+organisation's data access, `admin_create_department_official`, citizen
+registration + department isolation, the full automated verification flow
+(matching and mismatched claims), appeals lodge/review/decide, employment
+offers, all 9 departments' record creation, several live age-floor
+triggers, and citizen self-activation (`claim_citizen_account`).
+
+**New finding, not fixed:** `fn_audit_log`'s `target_citizen_id` resolution
+only works for tables with a real `citizen_id` uuid column (`properties`,
+`credentials`, `verification_requests`, `appeals`, `flagged_records`,
+`organisation_employees`) — it stays `NULL` for the majority of department
+detail tables, which key by `national_id_number` (text) instead
+(`dha_passports`, `dot_driver_licences`, `dbe_nsc_results`,
+`sars_taxpayers`, `sassa_grants`, `labour_employment_records`,
+`saps_criminal_records`, the `dhet_*` tables). Confirmed live: an
+`insert_dbe_nsc_results` audit row genuinely has no resolvable target
+citizen. Pre-existing, not introduced this session — worth fixing next
+time audit clarity is touched (`fn_audit_log` would need to also try
+resolving `national_id_number` to a `citizen_id` when present).
+
+## New: automated verification, employment offers, organisation revocation, audit clarity
+
+Applied live via the Supabase MCP this session
+(`docs/database/automated_verification_and_org_revocation.sql`):
+
+- **Verification is no longer a manual rubber stamp.** Previously a
+  department official *or an administrator* could approve/reject any
+  verification request with one click -- nothing ever compared anything;
+  `claimed_value`/`verified_value` stayed null forever. Now: the
+  organisation worker types the applicant's claimed details straight into
+  the existing `claimed_value` column at request time (structured fields
+  per credential type -- `lib/features/organisation/domain/
+  verification_claim_config.dart` -- not a new "job application" table),
+  clicks **Start verification**, which flips the request to `processing`;
+  a client-side progress countdown (`_processingWait`, 18s -- this project
+  has no background job scheduler, see below) then calls
+  `complete_verification`, which pulls the real authoritative department
+  record for each credential and writes the actual `verified_value`/
+  `match_status`, then sets the terminal `overall_status`. Nobody decides
+  this by hand any more -- RLS was tightened so the only writers left to
+  `verification_requests.overall_status`/`verification_results.match_status`
+  are these two `SECURITY DEFINER` RPCs (`verification_requests_update_department`
+  and `vres_write`/`vr_write` were dropped entirely).
+  - Not a true async job: the "~2 minutes, show progress" ask became a
+    real ~18s client-side wait with a countdown UI, not a server-side
+    scheduled task -- functionally automated and un-skippable from the UI
+    either way, just not literally backgrounded.
+  - Once the requesting organisation acknowledges a completed result
+    (`acknowledge_verification_result` sets `org_viewed_at`), re-opening
+    that request shows only the final status, not the per-credential
+    comparison -- a fresh look needs a new request. Department officials,
+    administrators and the citizen themselves always see full detail;
+    only the requesting organisation's own re-view is restricted.
+  - Two new notification points were added (`notify_citizen_on_verification_submitted`,
+    and `notify_citizen_on_verification_decision` extended to also fire on
+    the `processing` transition) alongside the existing terminal-status
+    one -- submitted / being reviewed / done, all three now real.
+- **"Offer Employment"** -- a new `organisation_employees` table, the
+  organisation's own HR record (job title, salary, start date), entirely
+  separate from the government's `labour_employment_records` (still
+  LABOUR-official-only). Offered from a completed (fully matched)
+  verification result; the citizen sees it via a new "My Employment"
+  screen/service tile.
+- **Organisation revocation**, reversible. `organisations.registration_status`
+  gained a `revoked` value (alongside `pending`/`approved`/`declined`),
+  with `revoked_at`/`revoke_reason`/`revoked_by_admin_id` and matching
+  `reinstated_*` columns, both requiring a reason
+  (`admin_revoke_organisation`/`admin_reinstate_organisation` RPCs).
+  Login itself can't be blocked by RLS (Supabase Auth login succeeds
+  before any Postgres query runs), so the actual gate is app-side:
+  `RoleService.checkAccountActive` is checked right after role resolution
+  (`resolveDestinationRoute`, used at splash) and again on every
+  navigation within a role area (`app_router.dart`'s
+  `_resolveRoleAreaRedirect`, which already re-checked role on every nav
+  -- this just piggybacks on it) -- "block on next action", not a
+  real-time listener. Extended to `department_officials.active` too,
+  which already existed as a column but was never checked anywhere
+  either.
+- **Audit clarity.** `fn_audit_log`'s actual data capture was already
+  broader than expected (34 tables, actor type/id, full row snapshot,
+  timestamp) -- the real gap was the admin UI never surfacing
+  `target_citizen_id` or `metadata`, and showing the raw
+  `update_verification_requests`-style machine action as-is.
+  `friendlyAuditAction` (`audit_logs_list_screen.dart`) now turns the
+  handful of actions this session added deliberately readable handling
+  for into a sentence (organisation approved/declined/revoked/reinstated,
+  verification submitted/decided, employment offered); everything else
+  still falls back to the raw label rather than fabricating a sentence for
+  the other 30-ish tables this wasn't written to understand. The detail
+  screen now also shows the resolved target citizen name and the full
+  `metadata` payload, both already captured but never displayed.
+
+## New: cross-department eligibility checks + name/ID search
+
+Two real gaps closed this session, both requested directly rather than
+found by audit:
+
+- **Search was ID-number-only, exact match, single result, everywhere.**
+  `DepartmentRepository`/`AdminRepository` now also have `searchCitizens`
+  (any combination of first name, last name, ID number, `ilike` partial on
+  the names, returns a list, no filters = "view all" browsing the first 50
+  by surname) and `CitizenLookupScreen`/the new `CitizenSearchPanel` render
+  that as a selectable result list instead of one inline guess.
+  `OrganisationRepository.searchCitizen` (singular, all-three-exact) is now
+  `searchCitizens` (plural, list-returning) too, but deliberately keeps ID
+  number mandatory and never gets a "view all" — relaxing name matching to
+  partial/at-least-one is a UX improvement, dropping the ID requirement
+  would reopen the "no bulk/listing access to citizens for organisations"
+  boundary this repository's own comments call out (spec: "they dont see
+  everyone"). `DepartmentCitizenRecordsScreen`'s own bespoke ID-only search
+  box was replaced with the same `CitizenSearchPanel`.
+- **Three real-world cross-department rules had zero enforcement**: a
+  citizen could be enrolled at university with no matric on file, NSFAS
+  funding could be granted to someone with no active enrolment or while
+  employed, and a new employment record could be created regardless of
+  enrolment status. `docs/database/cross_department_eligibility_checks.sql`
+  adds `enrol_student`/`issue_nsfas_funding`/`record_employment` RPCs
+  (`SECURITY DEFINER`, same pattern as `register_marriage.sql`) enforcing:
+  DHET enrolment requires an existing `dbe_nsc_results` row unless an
+  official records an explicit mature-age exemption with a reason (which
+  also raises a `flagged_records` entry for admin review); NSFAS *approval*
+  requires an "Enrolled" enrolment and no active employment record;
+  full-time employment is refused while enrolled full-time (part-time
+  enrolment, or no active enrolment, is unaffected). None of these
+  auto-flip an existing row in the other department's table — each RPC
+  only blocks the *new* conflicting action and explains why; an official
+  resolves a real conflict by asking the other department to update their
+  own record first (e.g. DHET marks the enrolment Graduated), exactly like
+  `register_marriage`'s "already married" check already works. A new
+  `study_mode` (Full-time/Part-time) column on `dhet_student_enrollment`
+  backs the full-time/part-time distinction. The DBE matric age floor was
+  also corrected from an implausible 14-25 "plausibility window" to a real
+  17+ with no upper cap (DBE's private/adult-candidate route has no
+  ceiling). **Not yet applied to the live database** — the Supabase MCP
+  connection was unavailable this session (see below); the Flutter calls
+  to `enrol_student`/`issue_nsfas_funding`/`record_employment` will fail
+  with "function ... does not exist" until this SQL file's statements are
+  run via the Supabase SQL editor or the MCP once reconnected.
+
 ## New: dark mode, life timeline, admin analytics, CSV/PDF export
 
 - **Dark mode** was already fully designed (`AppTheme.dark` — same
