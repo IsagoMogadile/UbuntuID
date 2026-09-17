@@ -27,6 +27,7 @@ class UbuntuIdApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       routerConfig: router,
+      builder: (context, child) => SelectionArea(child: child!),
     );
   }
 }
