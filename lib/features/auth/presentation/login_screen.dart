@@ -76,7 +76,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Center(
                       child: SvgPicture.asset(
                         'assets/branding/coat_of_arms.svg',
-                        height: 44,
+                        height: 72,
                         semanticsLabel: 'Coat of arms of South Africa',
                       ),
                     ),

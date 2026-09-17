@@ -39,6 +39,7 @@ class DigitalIdentityScreen extends ConsumerWidget {
       filename: '${credential.typeName.replaceAll(' ', '_').toLowerCase()}.pdf',
       title: credential.typeName,
       subtitle: '${identity.fullName} • ID ${identity.idNumber}',
+      referenceId: credential.credentialId,
       headers: const ['Field', 'Value'],
       rows: [
         ['Issuing department', credential.issuingDepartment],
