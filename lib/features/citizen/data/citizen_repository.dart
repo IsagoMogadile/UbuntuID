@@ -69,7 +69,39 @@ class CitizenRepository {
       registeredAt: _parseDate(row['registered_at']) ?? DateTime.now(),
       phoneNumber: row['phone_number'] as String?,
       email: row['email'] as String?,
+      gender: row['gender'] as String?,
+      citizenshipStatus: row['citizenship_status'] as String?,
     );
+  }
+
+  /// The department record behind a credential (e.g. the `dot_driver_licences`
+  /// row behind DRIVERS_LICENCE), for that credential's downloadable
+  /// document -- the latest one for this citizen. `null` when there's none,
+  /// the type has no single backing table, or RLS doesn't let the citizen
+  /// read it; the document then says "Not on record" instead of guessing.
+  Future<Map<String, dynamic>?> getCredentialRecord(String typeCode) async {
+    final (table, orderColumn) = switch (typeCode) {
+      'PASSPORT' => ('dha_passports', 'issue_date'),
+      'DRIVERS_LICENCE' => ('dot_driver_licences', 'issue_date'),
+      'TAX_COMPLIANCE' => ('sars_taxpayers', 'registered_date'),
+      'CRIMINAL_CLEARANCE' => ('saps_clearance_certificates', 'issue_date'),
+      'NSC' => ('dbe_nsc_results', 'year'),
+      'LABOUR_STATUS' => ('labour_employment_records', 'start_date'),
+      'SASSA_STATUS' => ('sassa_grants', 'created_at'),
+      _ => (null, null),
+    };
+    if (table == null || orderColumn == null) return null;
+    try {
+      return await _client
+          .from(table)
+          .select()
+          .eq('national_id_number', await _citizenIdNumber())
+          .order(orderColumn, ascending: false)
+          .limit(1)
+          .maybeSingle();
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Every citizen has exactly one current address via household

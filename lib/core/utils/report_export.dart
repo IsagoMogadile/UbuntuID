@@ -6,6 +6,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'pdf_text.dart';
+
 /// CSV/PDF export for admin report screens (Users, Organisations, Audit
 /// Logs, Compliance Audits) and citizen credential downloads (Digital
 /// Identity screen) -- shares an in-memory file via the platform share
@@ -58,6 +60,12 @@ class ReportExport {
   }) async {
     final coatOfArmsSvg = await rootBundle.loadString(_coatOfArmsAsset);
     final refId = referenceId ?? _referenceId(filename);
+    title = pdfSafe(title);
+    subtitle = subtitle == null ? null : pdfSafe(subtitle);
+    headers = [for (final h in headers) pdfSafe(h)];
+    rows = [
+      for (final row in rows) [for (final cell in row) pdfSafe(cell)],
+    ];
 
     final doc = pw.Document();
     doc.addPage(
