@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/widgets/animated_count.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/horizontal_bar_list.dart';
+import '../../../core/widgets/overview_strip.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../routing/app_routes.dart';
@@ -52,18 +52,18 @@ class DepartmentDashboardScreen extends ConsumerWidget {
               Text(stats.departmentName, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
               const SectionHeader(title: 'Overview'),
-              _StatGrid(
-                children: [
-                  _StatCard(
+              OverviewStrip(
+                items: [
+                  OverviewItem(
                     label: 'Active officials',
                     value: stats.activeOfficials,
                     icon: Icons.groups_outlined,
                     onTap: () => context.push(AppRoutes.departmentColleagues),
                   ),
                   if (byService.isNotEmpty)
-                    _StatCard(label: 'Records on file', value: stats.totalRecords, icon: Icons.folder_open_outlined),
+                    OverviewItem(label: 'Records on file', value: stats.totalRecords, icon: Icons.folder_open_outlined),
                   for (final item in stats.categoryStats)
-                    _StatCard(label: item.label, value: item.value, icon: item.icon),
+                    OverviewItem(label: item.label, value: item.value, icon: item.icon),
                 ],
               ),
               if (byService.isNotEmpty) ...[
@@ -87,57 +87,6 @@ class DepartmentDashboardScreen extends ConsumerWidget {
           ),
         );
       },
-    );
-  }
-}
-
-/// Lays stat cards out 2/3/4 per row depending on available width, so the
-/// Overview stays readable on a phone and doesn't stretch on desktop.
-class _StatGrid extends StatelessWidget {
-  const _StatGrid({required this.children});
-
-  final List<Widget> children;
-
-  static const _spacing = 10.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final columns = width >= 900 ? 4 : (width >= 560 ? 3 : 2);
-        final itemWidth = (width - _spacing * (columns - 1)) / columns;
-        return Wrap(
-          spacing: _spacing,
-          runSpacing: _spacing,
-          children: [for (final child in children) SizedBox(width: itemWidth, child: child)],
-        );
-      },
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value, required this.icon, this.onTap});
-
-  final String label;
-  final int value;
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(height: 8),
-          AnimatedCount(value: value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
     );
   }
 }

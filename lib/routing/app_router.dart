@@ -59,7 +59,6 @@ import '../features/department_official/presentation/department_citizen_records_
 import '../features/department_official/presentation/department_citizen_search_screen.dart';
 import '../features/department_official/presentation/department_colleagues_screen.dart';
 import '../features/department_official/presentation/department_dashboard_screen.dart';
-import '../features/department_official/presentation/department_header_search.dart';
 import '../features/department_official/presentation/department_profile_screen.dart';
 import '../features/department_official/presentation/department_services_screen.dart';
 import '../features/department_official/presentation/edit_citizen_screen.dart';
@@ -81,6 +80,7 @@ import '../features/settings/presentation/privacy_settings_screen.dart';
 import '../features/settings/presentation/security_settings_screen.dart';
 import '../features/settings/presentation/settings_home_screen.dart';
 import '../features/shared/presentation/coming_soon_screen.dart';
+import '../features/shared/presentation/header_citizen_search.dart';
 import '../features/shared/presentation/no_internet_screen.dart';
 import '../features/shared/presentation/not_found_screen.dart';
 import '../features/shared/presentation/unauthorized_screen.dart';
@@ -169,6 +169,24 @@ Future<String?> _resolveRoleAreaRedirect(Ref ref, UserRole requiredRole) async {
   return null;
 }
 
+/// Every role's navigation ends Profile -> Settings -> Log Out. Settings is
+/// its own tab in each role's shell (the shared [SettingsHomeScreen], minus
+/// its own Log out row since the shell has one); Log Out is an action, not a
+/// branch, so it must stay the last destination.
+const _settingsDestination =
+    AppNavDestination(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Settings');
+
+AppNavDestination _logOutDestination(WidgetRef ref) => AppNavDestination(
+      icon: Icons.logout,
+      selectedIcon: Icons.logout,
+      label: 'Log Out',
+      onSelected: (context) => confirmAndLogOut(context, ref),
+    );
+
+StatefulShellBranch _settingsBranch(String path) => StatefulShellBranch(routes: [
+      GoRoute(path: path, builder: (c, s) => const SettingsHomeScreen(showLogout: false)),
+    ]);
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final client = ref.watch(supabaseClientProvider);
   final refreshStream = GoRouterRefreshStream(client.auth.onAuthStateChange);
@@ -256,6 +274,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   badgeCount: unread,
                 ),
                 const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
+                _settingsDestination,
+                _logOutDestination(ref),
               ],
             );
           },
@@ -273,6 +293,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.citizenProfile, builder: (c, s) => const ProfileOverviewScreen()),
           ]),
+          _settingsBranch(AppRoutes.citizenSettings),
         ],
       ),
 
@@ -330,16 +351,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               const AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
               const AppNavDestination(icon: Icons.apps_outlined, selectedIcon: Icons.apps, label: 'Services'),
               const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
-              const AppNavDestination(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Settings'),
-              // An action, not a branch -- must stay last (see AppNavDestination.onSelected).
-              AppNavDestination(
-                icon: Icons.logout,
-                selectedIcon: Icons.logout,
-                label: 'Log Out',
-                onSelected: (context) => confirmAndLogOut(context, ref),
-              ),
+              _settingsDestination,
+              _logOutDestination(ref),
             ],
-            appBarActions: const [DepartmentHeaderSearch()],
+            appBarActions: const [HeaderCitizenSearch(searchRoute: AppRoutes.departmentCitizenSearch)],
           ),
         ),
         branches: [
@@ -352,12 +367,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.departmentProfile, builder: (c, s) => const DepartmentProfileScreen()),
           ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: AppRoutes.departmentSettings,
-              builder: (c, s) => const SettingsHomeScreen(showLogout: false),
-            ),
-          ]),
+          _settingsBranch(AppRoutes.departmentSettings),
         ],
       ),
       // Reached from Services, not a bottom-nav tab --
@@ -385,15 +395,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // --- Organisation ---
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) => RoleNavigationShell(
-          navigationShell: navigationShell,
-          title: 'UbuntuID',
-          destinations: const [
-            AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
-            AppNavDestination(icon: Icons.person_add_alt_outlined, selectedIcon: Icons.person_add_alt, label: 'New Applicant'),
-            AppNavDestination(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Applicants'),
-            AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
-          ],
+        builder: (context, state, navigationShell) => Consumer(
+          builder: (context, ref, _) => RoleNavigationShell(
+            navigationShell: navigationShell,
+            title: 'UbuntuID',
+            destinations: [
+              const AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
+              const AppNavDestination(
+                icon: Icons.person_add_alt_outlined,
+                selectedIcon: Icons.person_add_alt,
+                label: 'New Applicant',
+              ),
+              const AppNavDestination(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Applicants'),
+              const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
+              _settingsDestination,
+              _logOutDestination(ref),
+            ],
+          ),
         ),
         branches: [
           StatefulShellBranch(routes: [
@@ -411,6 +429,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.organisationProfile, builder: (c, s) => const OrganisationProfileScreen()),
           ]),
+          _settingsBranch(AppRoutes.organisationSettings),
         ],
       ),
       GoRoute(
@@ -421,25 +440,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // --- Administrator ---
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) => RoleNavigationShell(
-          navigationShell: navigationShell,
-          title: 'UbuntuID',
-          destinations: const [
-            AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
-            AppNavDestination(icon: Icons.group_outlined, selectedIcon: Icons.group, label: 'Users'),
-            AppNavDestination(icon: Icons.apartment_outlined, selectedIcon: Icons.apartment, label: 'Organisations'),
-            AppNavDestination(icon: Icons.account_balance_outlined, selectedIcon: Icons.account_balance, label: 'Departments'),
-            AppNavDestination(icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Audit'),
-          ],
-          appBarActions: [
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.account_circle_outlined),
-                tooltip: 'Profile',
-                onPressed: () => GoRouter.of(context).push(AppRoutes.adminProfile),
+        builder: (context, state, navigationShell) => Consumer(
+          builder: (context, ref, _) => RoleNavigationShell(
+            navigationShell: navigationShell,
+            title: 'UbuntuID',
+            destinations: [
+              const AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
+              const AppNavDestination(icon: Icons.group_outlined, selectedIcon: Icons.group, label: 'Users'),
+              const AppNavDestination(icon: Icons.apartment_outlined, selectedIcon: Icons.apartment, label: 'Organisations'),
+              const AppNavDestination(
+                icon: Icons.account_balance_outlined,
+                selectedIcon: Icons.account_balance,
+                label: 'Departments',
               ),
-            ),
-          ],
+              const AppNavDestination(icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Audit'),
+              const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
+              _settingsDestination,
+              _logOutDestination(ref),
+            ],
+            appBarActions: const [HeaderCitizenSearch(searchRoute: AppRoutes.adminCitizenSearch)],
+          ),
         ),
         branches: [
           StatefulShellBranch(routes: [
@@ -460,6 +480,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.adminAudit, builder: (c, s) => const AuditLogsListScreen()),
           ]),
+          StatefulShellBranch(routes: [
+                ]),
+          _settingsBranch(AppRoutes.adminSettings),
         ],
       ),
       GoRoute(
@@ -491,13 +514,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (c, s) => AuditLogDetailScreen(logId: s.pathParameters['id']!),
       ),
 
-      // Reached from the admin dashboard / app bar, not a bottom-nav tab.
+      // Reached from the admin dashboard / header, not a navigation tab.
       GoRoute(path: AppRoutes.adminVerification, builder: (c, s) => const AdminVerificationQueueScreen()),
       GoRoute(
         path: '${AppRoutes.adminVerification}/:id',
         builder: (c, s) => VerificationRequestDetailScreen(requestId: s.pathParameters['id']!),
       ),
-      GoRoute(path: AppRoutes.adminCitizenSearch, builder: (c, s) => const AdminCitizenSearchScreen()),
+      // Reached from the admin header's search field; `?id=` pre-fills and runs the search.
+      GoRoute(
+        path: AppRoutes.adminCitizenSearch,
+        builder: (c, s) => AdminCitizenSearchScreen(initialIdNumber: s.uri.queryParameters['id']),
+      ),
       GoRoute(path: AppRoutes.adminComplianceAudits, builder: (c, s) => const ComplianceAuditsListScreen()),
       GoRoute(path: AppRoutes.adminHouseholdRecords, builder: (c, s) => const HouseholdRecordsListScreen()),
       GoRoute(path: AppRoutes.adminAnalytics, builder: (c, s) => const AdminAnalyticsScreen()),

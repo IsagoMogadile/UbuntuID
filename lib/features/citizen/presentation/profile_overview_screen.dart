@@ -73,13 +73,6 @@ class ProfileOverviewScreen extends ConsumerWidget {
               leadingIcon: Icons.privacy_tip_outlined,
               onTap: () => context.push(AppRoutes.citizenConsent),
             ),
-            const SizedBox(height: 10),
-            ListItemCard(
-              title: 'Settings',
-              subtitle: 'Account, security, notifications, privacy',
-              leadingIcon: Icons.settings_outlined,
-              onTap: () => context.push(AppRoutes.settings),
-            ),
           ],
         ),
       ),

@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/animated_count.dart';
 import '../../../core/widgets/app_button.dart';
-import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
+import '../../../core/widgets/overview_strip.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -67,53 +66,22 @@ class OrganisationDashboardScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          AppButton(
-            label: 'New applicant',
-            icon: Icons.person_add_alt_outlined,
-            expand: true,
-            onPressed: () => context.go(AppRoutes.organisationSearch),
-          ),
-          const SizedBox(height: 20),
           const SectionHeader(title: 'Overview'),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  label: 'Pending applicants',
-                  value: stats.pendingVerifications,
-                  icon: Icons.hourglass_top_outlined,
-                  onTap: () => context.go(AppRoutes.organisationVerification),
-                ),
+          OverviewStrip(
+            items: [
+              OverviewItem(
+                label: 'Pending applicants',
+                value: stats.pendingVerifications,
+                icon: Icons.hourglass_top_outlined,
+                onTap: () => context.go(AppRoutes.organisationVerification),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatCard(
-                  label: 'Reviewed (month)',
-                  value: stats.completedThisMonth,
-                  icon: Icons.task_alt_outlined,
-                  onTap: () => context.go(AppRoutes.organisationVerification),
-                ),
+              OverviewItem(
+                label: 'Reviewed this month',
+                value: stats.completedThisMonth,
+                icon: Icons.task_alt_outlined,
+                onTap: () => context.go(AppRoutes.organisationVerification),
               ),
             ],
-          ),
-          const SizedBox(height: 20),
-          SectionHeader(
-            title: 'Applicants',
-            action: TextButton(
-              onPressed: () => context.go(AppRoutes.organisationVerification),
-              child: const Text('View all'),
-            ),
-          ),
-          AppCard(
-            onTap: () => context.go(AppRoutes.organisationVerification),
-            child: Row(
-              children: [
-                const Icon(Icons.fact_check_outlined),
-                const SizedBox(width: 12),
-                Expanded(child: Text('${stats.pendingVerifications} applicants awaiting review')),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
           ),
         ],
     );
@@ -178,31 +146,6 @@ class _PendingOrDeclinedViewState extends ConsumerState<_PendingOrDeclinedView> 
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value, required this.icon, this.onTap});
-
-  final String label;
-  final int value;
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(height: 8),
-          AnimatedCount(value: value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
       ),
     );
   }

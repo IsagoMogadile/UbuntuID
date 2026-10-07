@@ -26,6 +26,7 @@ class AppRoutes {
   static const citizenServices = '/citizen/services';
   static const citizenNotifications = '/citizen/notifications';
   static const citizenProfile = '/citizen/profile';
+  static const citizenSettings = '/citizen/settings';
   static const citizenDigitalIdentity = '/citizen/digital-identity';
   static const citizenDocuments = '/citizen/documents';
   static const citizenSassa = '/citizen/services/sassa';
@@ -57,6 +58,7 @@ class AppRoutes {
   static const organisationSearch = '/organisation/search';
   static const organisationVerification = '/organisation/verification';
   static const organisationProfile = '/organisation/profile';
+  static const organisationSettings = '/organisation/settings';
   static const organisationColleagues = '/organisation/colleagues';
 
   // Administrator
@@ -70,6 +72,7 @@ class AppRoutes {
   static const adminFlaggedRecords = '/admin/flagged-records';
   static const adminAppeals = '/admin/appeals';
   static const adminProfile = '/admin/profile';
+  static const adminSettings = '/admin/settings';
   static const adminOfficialNew = '/admin/officials/new';
   static const adminOfficialEdit = '/admin/officials'; // + '/:id/edit'
   static const adminCitizenSearch = '/admin/citizen-search';

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/widgets/animated_count.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/overview_strip.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../routing/app_routes.dart';
@@ -23,7 +23,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(height: 200, child: ShimmerStatCardsPlaceholder(count: 2)),
+            SizedBox(height: 92, child: ShimmerStatCardsPlaceholder()),
             SizedBox(height: 20),
             Expanded(child: ShimmerListPlaceholder(itemCount: 3, padding: EdgeInsets.zero)),
           ],
@@ -37,52 +37,33 @@ class AdminDashboardScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           const SectionHeader(title: 'System overview'),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.5,
-            children: [
-              _StatCard(
+          OverviewStrip(
+            items: [
+              OverviewItem(
                 label: 'Citizens',
                 value: stats.totalCitizens,
                 icon: Icons.groups_outlined,
                 onTap: () => context.go('${AppRoutes.adminUsers}?role=citizen'),
               ),
-              _StatCard(
+              OverviewItem(
                 label: 'Department officials',
                 value: stats.departmentOfficials,
                 icon: Icons.badge_outlined,
                 onTap: () => context.go('${AppRoutes.adminUsers}?role=departmentOfficial'),
               ),
-              _StatCard(
+              OverviewItem(
                 label: 'Organisations',
                 value: stats.organisations,
                 icon: Icons.apartment_outlined,
                 onTap: () => context.go(AppRoutes.adminOrganisations),
               ),
-              _StatCard(
+              OverviewItem(
                 label: 'Pending verifications',
                 value: stats.pendingVerifications,
                 icon: Icons.fact_check_outlined,
                 onTap: () => context.push(AppRoutes.adminVerification),
               ),
             ],
-          ),
-          const SizedBox(height: 20),
-          const SectionHeader(title: 'Citizens'),
-          AppCard(
-            onTap: () => context.push(AppRoutes.adminCitizenSearch),
-            child: const Row(
-              children: [
-                Icon(Icons.person_search_outlined),
-                SizedBox(width: 12),
-                Expanded(child: Text('Search a citizen by ID number')),
-                Icon(Icons.chevron_right),
-              ],
-            ),
           ),
           const SizedBox(height: 20),
           const SectionHeader(title: 'Needs attention'),
@@ -157,31 +138,6 @@ class AdminDashboardScreen extends ConsumerWidget {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value, required this.icon, this.onTap});
-
-  final String label;
-  final int value;
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary),
-          const Spacer(),
-          AnimatedCount(value: value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );
