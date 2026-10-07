@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/report_export.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/horizontal_bar_list.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/section_header.dart';
 import '../data/admin_repository.dart';
@@ -65,11 +66,11 @@ class AdminAnalyticsScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             const SectionHeader(title: 'Active officials by department'),
             const SizedBox(height: 8),
-            AppCard(child: _HorizontalBars(data: analytics.officialsByDepartment)),
+            AppCard(child: HorizontalBarList(data: analytics.officialsByDepartment)),
             const SizedBox(height: 20),
             const SectionHeader(title: 'Properties by province'),
             const SizedBox(height: 8),
-            AppCard(child: _HorizontalBars(data: analytics.propertiesByProvince)),
+            AppCard(child: HorizontalBarList(data: analytics.propertiesByProvince)),
           ],
         ),
       ),
@@ -188,48 +189,6 @@ class _StatusDonut extends StatelessWidget {
             ],
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _HorizontalBars extends StatelessWidget {
-  const _HorizontalBars({required this.data});
-
-  final List<(String, int)> data;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    if (data.isEmpty) {
-      return const SizedBox(height: 60, child: Center(child: Text('No data yet.')));
-    }
-    final maxValue = data.map((e) => e.$2).fold(0, (a, b) => a > b ? a : b);
-
-    return Column(
-      children: [
-        for (final (label, value) in data)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(
-              children: [
-                SizedBox(width: 110, child: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: maxValue == 0 ? 0 : value / maxValue,
-                      minHeight: 14,
-                      backgroundColor: scheme.surfaceContainerHighest,
-                      valueColor: AlwaysStoppedAnimation(scheme.primary),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(width: 28, child: Text('$value', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-              ],
-            ),
-          ),
       ],
     );
   }

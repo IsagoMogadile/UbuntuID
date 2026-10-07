@@ -961,13 +961,35 @@ class DepartmentRepository {
         .eq('department_id', departmentId)
         .eq('active', true);
 
-    final categoryStats = await _categoryStats(category: category, departmentId: departmentId, typeIds: typeIds);
+    final departmentCode = department?['department_code'] as String? ?? '';
+    final (categoryStats, recordsByService) = await (
+      _categoryStats(category: category, departmentId: departmentId, typeIds: typeIds),
+      _recordsByService(departmentCode),
+    ).wait;
 
     return DepartmentDashboardStats(
       departmentName: departmentName,
       activeOfficials: activeOfficials,
       categoryStats: categoryStats,
+      recordsByService: recordsByService,
     );
+  }
+
+  /// One exact row count per record type in [recordTypesForDepartment] --
+  /// every one of those tables is owned by this department, so the count
+  /// is that department's own record volume, subject to the same RLS as the
+  /// record screens. A table that errors (no read access) is skipped rather
+  /// than reported as 0.
+  Future<List<(String, int)>> _recordsByService(String departmentCode) async {
+    final types = recordTypesForDepartment(departmentCode).where((t) => t.table != null).toList();
+    final counts = await Future.wait([
+      for (final type in types)
+        _client.from(type.table!).count(CountOption.exact).then<int?>((c) => c).catchError((Object _) => null),
+    ]);
+    return [
+      for (var i = 0; i < types.length; i++)
+        if (counts[i] != null) (types[i].label, counts[i]!),
+    ];
   }
 
   /// Department-category-specific extra stats (spec: "do not make every

@@ -15,12 +15,6 @@ class AppRoutes {
   static const accountNotConfigured = '/account-not-configured';
   static const accountRevoked = '/account-revoked';
 
-  /// Public (no login required) -- reachable from the login screen's "About
-  /// UbuntuID" button for a new/prospective user who hasn't signed up yet.
-  /// Same `AboutScreen` widget the logged-in Settings -> About screen uses
-  /// (`settingsAbout`).
-  static const about = '/about';
-
   // Shared
   static const unauthorized = '/unauthorized';
   static const noInternet = '/no-internet';
@@ -49,6 +43,7 @@ class AppRoutes {
   static const departmentDashboard = '/department-official';
   static const departmentServices = '/department-official/services';
   static const departmentProfile = '/department-official/profile';
+  static const departmentSettings = '/department-official/settings';
   static const departmentRegisterCitizen = '/department-official/register-citizen';
   static const departmentClearanceSearch = '/department-official/clearance-search';
   static const departmentCitizenSearch = '/department-official/citizen-search';
@@ -92,6 +87,9 @@ class AppRoutes {
   static const settingsNotifications = '/settings/notifications';
   static const settingsPrivacy = '/settings/privacy';
   static const settingsAppearance = '/settings/appearance';
+  /// Authenticated only (under the protected `/settings` prefix) -- About
+  /// lists the team behind UbuntuID, so it is deliberately not reachable
+  /// from the public login screen.
   static const settingsAbout = '/settings/about';
 
   static String dashboardForRole(UserRole role) => switch (role) {

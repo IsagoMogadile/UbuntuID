@@ -157,15 +157,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         label: const Text('Register your organisation'),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.center,
-                      child: TextButton.icon(
-                        onPressed: () => context.push(AppRoutes.about),
-                        icon: const Icon(Icons.info_outline, size: 16),
-                        label: const Text('About UbuntuID'),
-                      ),
-                    ),
                     const SizedBox(height: 16),
                     const Text(
                       'Secure digital access to public services',

@@ -28,6 +28,7 @@ import '../features/admin/presentation/organisation_detail_screen.dart';
 import '../features/admin/presentation/organisations_list_screen.dart';
 import '../features/admin/presentation/user_detail_screen.dart';
 import '../features/admin/presentation/users_list_screen.dart';
+import '../features/auth/application/logout.dart';
 import '../features/auth/presentation/account_not_configured_screen.dart';
 import '../features/auth/presentation/account_revoked_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
@@ -58,6 +59,7 @@ import '../features/department_official/presentation/department_citizen_records_
 import '../features/department_official/presentation/department_citizen_search_screen.dart';
 import '../features/department_official/presentation/department_colleagues_screen.dart';
 import '../features/department_official/presentation/department_dashboard_screen.dart';
+import '../features/department_official/presentation/department_header_search.dart';
 import '../features/department_official/presentation/department_profile_screen.dart';
 import '../features/department_official/presentation/department_services_screen.dart';
 import '../features/department_official/presentation/edit_citizen_screen.dart';
@@ -214,8 +216,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.accountRevoked,
         builder: (c, s) => AccountRevokedScreen(reason: s.uri.queryParameters['reason']),
       ),
-      // Public -- reachable from the login screen without signing in.
-      GoRoute(path: AppRoutes.about, builder: (c, s) => const AboutScreen()),
 
       // --- Shared ---
       GoRoute(path: AppRoutes.unauthorized, builder: (c, s) => const UnauthorizedScreen()),
@@ -322,14 +322,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // --- Department official ---
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) => RoleNavigationShell(
-          navigationShell: navigationShell,
-          title: 'UbuntuID',
-          destinations: const [
-            AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
-            AppNavDestination(icon: Icons.apps_outlined, selectedIcon: Icons.apps, label: 'Services'),
-            AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
-          ],
+        builder: (context, state, navigationShell) => Consumer(
+          builder: (context, ref, _) => RoleNavigationShell(
+            navigationShell: navigationShell,
+            title: 'UbuntuID',
+            destinations: [
+              const AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
+              const AppNavDestination(icon: Icons.apps_outlined, selectedIcon: Icons.apps, label: 'Services'),
+              const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
+              const AppNavDestination(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Settings'),
+              // An action, not a branch -- must stay last (see AppNavDestination.onSelected).
+              AppNavDestination(
+                icon: Icons.logout,
+                selectedIcon: Icons.logout,
+                label: 'Log Out',
+                onSelected: (context) => confirmAndLogOut(context, ref),
+              ),
+            ],
+            appBarActions: const [DepartmentHeaderSearch()],
+          ),
         ),
         branches: [
           StatefulShellBranch(routes: [
@@ -341,16 +352,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.departmentProfile, builder: (c, s) => const DepartmentProfileScreen()),
           ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: AppRoutes.departmentSettings,
+              builder: (c, s) => const SettingsHomeScreen(showLogout: false),
+            ),
+          ]),
         ],
       ),
-      // Reached from the department dashboard, not a bottom-nav tab --
+      // Reached from Services, not a bottom-nav tab --
       // visible only to Home Affairs officials (see
       // DepartmentDashboardScreen / RegisterCitizenScreen).
       GoRoute(path: AppRoutes.departmentRegisterCitizen, builder: (c, s) => const RegisterCitizenScreen()),
       // Visible only to SAPS officials.
       GoRoute(path: AppRoutes.departmentClearanceSearch, builder: (c, s) => const SapsClearanceSearchScreen()),
-      // Visible to every department official regardless of category.
-      GoRoute(path: AppRoutes.departmentCitizenSearch, builder: (c, s) => const DepartmentCitizenSearchScreen()),
+      // Reached from the header search field, for every department official
+      // regardless of category. `?id=` pre-fills and runs the search.
+      GoRoute(
+        path: AppRoutes.departmentCitizenSearch,
+        builder: (c, s) => DepartmentCitizenSearchScreen(initialIdNumber: s.uri.queryParameters['id']),
+      ),
       GoRoute(path: AppRoutes.departmentCitizenRecords, builder: (c, s) => const DepartmentCitizenRecordsScreen()),
       GoRoute(path: AppRoutes.departmentColleagues, builder: (c, s) => const DepartmentColleaguesScreen()),
       // Visible only to Home Affairs officials.

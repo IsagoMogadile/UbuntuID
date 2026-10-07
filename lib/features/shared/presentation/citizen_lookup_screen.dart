@@ -22,10 +22,14 @@ import '../domain/citizen_lookup_result.dart';
 /// since that screen already has its own `Scaffold`/app bar and its own
 /// "then show this department's records" step after a citizen is picked.
 class CitizenSearchPanel extends StatefulWidget {
-  const CitizenSearchPanel({super.key, required this.onSearch, required this.onSelect});
+  const CitizenSearchPanel({super.key, required this.onSearch, required this.onSelect, this.initialIdNumber});
 
   final Future<List<CitizenLookupResult>> Function({String? idNumber, String? firstName, String? lastName}) onSearch;
   final void Function(CitizenLookupResult citizen) onSelect;
+
+  /// Pre-fills the ID number field and runs the search immediately -- e.g.
+  /// an ID typed into the department header's search field.
+  final String? initialIdNumber;
 
   @override
   State<CitizenSearchPanel> createState() => _CitizenSearchPanelState();
@@ -39,6 +43,18 @@ class _CitizenSearchPanelState extends State<CitizenSearchPanel> {
   bool _loading = false;
   String? _error;
   List<CitizenLookupResult>? _results;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialId = widget.initialIdNumber?.trim() ?? '';
+    if (initialId.isNotEmpty) {
+      _idNumberController.text = initialId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _runSearch(browseAll: false);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -173,9 +189,10 @@ class _CitizenSearchPanelState extends State<CitizenSearchPanel> {
 /// defaulting to a detail bottom sheet on selection (the identity-only view
 /// this screen has always shown).
 class CitizenLookupScreen extends StatelessWidget {
-  const CitizenLookupScreen({super.key, required this.onSearch});
+  const CitizenLookupScreen({super.key, required this.onSearch, this.initialIdNumber});
 
   final Future<List<CitizenLookupResult>> Function({String? idNumber, String? firstName, String? lastName}) onSearch;
+  final String? initialIdNumber;
 
   void _showDetail(BuildContext context, CitizenLookupResult citizen) {
     showModalBottomSheet(
@@ -215,7 +232,11 @@ class CitizenLookupScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Search Citizen')),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: CitizenSearchPanel(onSearch: onSearch, onSelect: (citizen) => _showDetail(context, citizen)),
+        child: CitizenSearchPanel(
+          onSearch: onSearch,
+          initialIdNumber: initialIdNumber,
+          onSelect: (citizen) => _showDetail(context, citizen),
+        ),
       ),
     );
   }

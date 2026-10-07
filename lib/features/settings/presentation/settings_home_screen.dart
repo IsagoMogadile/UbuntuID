@@ -5,29 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../../../core/widgets/list_item_card.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../routing/app_routes.dart';
-import '../../../services/service_providers.dart';
+import '../../auth/application/logout.dart';
 
 class SettingsHomeScreen extends ConsumerWidget {
-  const SettingsHomeScreen({super.key});
+  const SettingsHomeScreen({super.key, this.showLogout = true});
 
-  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Log out'),
-        content: const Text('Are you sure you want to log out of UbuntuID?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Log out')),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    await ref.read(authServiceProvider).signOut();
-    if (context.mounted) context.go(AppRoutes.login);
-  }
+  /// False where the surrounding navigation already has its own "Log Out"
+  /// destination (the department official shell), so it isn't offered twice.
+  final bool showLogout;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -77,13 +62,15 @@ class SettingsHomeScreen extends ConsumerWidget {
             leadingIcon: Icons.info_outline,
             onTap: () => context.push(AppRoutes.settingsAbout),
           ),
-          const SizedBox(height: 24),
-          ListItemCard(
-            title: 'Log out',
-            leadingIcon: Icons.logout,
-            onTap: () => _confirmLogout(context, ref),
-            trailing: const SizedBox.shrink(),
-          ),
+          if (showLogout) ...[
+            const SizedBox(height: 24),
+            ListItemCard(
+              title: 'Log out',
+              leadingIcon: Icons.logout,
+              onTap: () => confirmAndLogOut(context, ref),
+              trailing: const SizedBox.shrink(),
+            ),
+          ],
           const SizedBox(height: 4),
         ],
       ),

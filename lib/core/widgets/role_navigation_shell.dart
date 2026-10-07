@@ -9,6 +9,7 @@ class AppNavDestination {
     required this.selectedIcon,
     required this.label,
     this.badgeCount = 0,
+    this.onSelected,
   });
 
   final IconData icon;
@@ -18,6 +19,12 @@ class AppNavDestination {
   /// Shown as a small red badge on this destination's icon when > 0 --
   /// e.g. an unread-notification count that updates live via Realtime.
   final int badgeCount;
+
+  /// When set, selecting this destination runs this action (e.g. "Log Out")
+  /// instead of switching to a branch. Action destinations must come after
+  /// every branch destination so the remaining indices still line up with
+  /// the shell's branches.
+  final void Function(BuildContext context)? onSelected;
 
   Widget _icon(IconData data) {
     if (badgeCount <= 0) return Icon(data);
@@ -72,7 +79,12 @@ class RoleNavigationShell extends StatelessWidget {
 
   static const _wideBreakpoint = 840.0;
 
-  void _onDestinationSelected(int index) {
+  void _onDestinationSelected(BuildContext context, int index) {
+    final action = destinations[index].onSelected;
+    if (action != null) {
+      action(context);
+      return;
+    }
     navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
   }
 
@@ -87,7 +99,7 @@ class RoleNavigationShell extends StatelessWidget {
           children: [
             NavigationRail(
               selectedIndex: navigationShell.currentIndex,
-              onDestinationSelected: _onDestinationSelected,
+              onDestinationSelected: (index) => _onDestinationSelected(context, index),
               labelType: NavigationRailLabelType.all,
               destinations: [
                 for (final d in destinations)
@@ -110,7 +122,7 @@ class RoleNavigationShell extends StatelessWidget {
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: _onDestinationSelected,
+        onDestinationSelected: (index) => _onDestinationSelected(context, index),
         destinations: [
           for (final d in destinations)
             NavigationDestination(icon: d._icon(d.icon), selectedIcon: d._icon(d.selectedIcon), label: d.label),
