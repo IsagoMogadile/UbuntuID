@@ -27,7 +27,9 @@ class UbuntuIdApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       routerConfig: router,
-      builder: (context, child) => SelectionArea(child: child!),
+      // SelectionArea sits above the router's Navigator, so it needs its own
+      // Overlay for the selection handles and context menu.
+      builder: (context, child) => Overlay.wrap(child: SelectionArea(child: child!)),
     );
   }
 }

@@ -500,7 +500,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(path: AppRoutes.adminAudit, builder: (c, s) => const AuditLogsListScreen()),
           ]),
           StatefulShellBranch(routes: [
-                ]),
+            GoRoute(path: AppRoutes.adminProfile, builder: (c, s) => const AdminProfileScreen()),
+          ]),
           _settingsBranch(AppRoutes.adminSettings),
           _reportsBranch(AppRoutes.adminReports, ReportKind.system),
         ],
@@ -558,7 +559,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (c, s) => AppealDetailScreen(appealId: s.pathParameters['id']!),
       ),
       GoRoute(path: AppRoutes.citizenAppeals, builder: (c, s) => const MyAppealsScreen()),
-      GoRoute(path: AppRoutes.adminProfile, builder: (c, s) => const AdminProfileScreen()),
     ],
   );
 });
