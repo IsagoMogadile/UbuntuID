@@ -14,7 +14,6 @@ import '../../../core/widgets/staggered_fade_in.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../routing/app_routes.dart';
 import '../data/citizen_repository.dart';
-import '../documents/credential_documents.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
 
@@ -32,56 +31,6 @@ class DigitalIdentityScreen extends ConsumerWidget {
   /// AppBar title when [filterTypeCode] is set (the Services tile's own
   /// name, e.g. "Driver's Licence"). Falls back to "Digital Identity".
   final String? title;
-
-  /// The holder for a downloaded document -- the citizen's own identity
-  /// plus their current address (only used on the ID document's reverse).
-  static Future<DocumentHolder> _holder(WidgetRef ref, DigitalIdentity identity) async {
-    String? address;
-    try {
-      final addresses = await ref.read(citizenRepositoryProvider).getAddresses();
-      if (addresses.isNotEmpty) address = addresses.first.formatted;
-    } catch (_) {
-      // Address is optional on the document; leave it out if unavailable.
-    }
-    return DocumentHolder.fromIdentity(identity, address: address);
-  }
-
-  static Future<void> _withFeedback(BuildContext context, Future<void> Function() action) async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('Preparing your document...'), duration: Duration(seconds: 2)));
-    try {
-      await action();
-    } catch (_) {
-      messenger.showSnackBar(const SnackBar(content: Text('Could not create the document. Please try again.')));
-    }
-  }
-
-  /// Prototype identity document -- page 1 front, page 2 back.
-  static Future<void> downloadIdentityDocument(BuildContext context, WidgetRef ref, DigitalIdentity identity) {
-    return _withFeedback(context, () async {
-      final bytes = await CredentialDocuments.identityDocument(await _holder(ref, identity));
-      await CredentialDocuments.share(bytes, 'ubuntuid_identity_document_prototype.pdf');
-    });
-  }
-
-  static Future<void> _downloadCredential(
-    BuildContext context,
-    WidgetRef ref,
-    DigitalIdentity identity,
-    CredentialItem credential,
-  ) {
-    return _withFeedback(context, () async {
-      final (holder, record) = await (
-        _holder(ref, identity),
-        ref.read(citizenRepositoryProvider).getCredentialRecord(credential.typeCode),
-      ).wait;
-      final bytes = await CredentialDocuments.credentialDocument(holder, credential, record);
-      await CredentialDocuments.share(
-        bytes,
-        '${credential.typeName.replaceAll(RegExp('[^A-Za-z0-9]+'), '_').toLowerCase()}_prototype.pdf',
-      );
-    });
-  }
 
   static String _credentialSubtitle(CredentialItem credential) {
     final qualification = credential.qualification;
@@ -118,7 +67,6 @@ class DigitalIdentityScreen extends ConsumerWidget {
                 credentialsAsync: credentialsAsync,
                 typeCode: filterTypeCode,
                 title: title ?? 'Digital Identity',
-                onDownload: (credential) => _downloadCredential(context, ref, identity, credential),
               )
             : ListView(
           padding: const EdgeInsets.all(16),
@@ -137,17 +85,6 @@ class DigitalIdentityScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text('ID ${identity.idNumber}'),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => downloadIdentityDocument(context, ref, identity),
-                    icon: const Icon(Icons.download_outlined, size: 18),
-                    label: const Text('Download ID document (front & back)'),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Prototype PDF for demonstration - not a real government document.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
                 ],
               ),
             ),
@@ -204,20 +141,7 @@ class DigitalIdentityScreen extends ConsumerWidget {
                             title: Text(credentials[i].typeName),
                             subtitle: Text(_credentialSubtitle(credentials[i])),
                             isThreeLine: credentials[i].qualification != null,
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                StatusBadge.fromStatus(credentials[i].status),
-                                IconButton(
-                                  icon: const Icon(Icons.download_outlined, size: 20),
-                                  tooltip: 'Download',
-                                  visualDensity: VisualDensity.compact,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                  onPressed: () => _downloadCredential(context, ref, identity, credentials[i]),
-                                ),
-                              ],
-                            ),
+                            trailing: StatusBadge.fromStatus(credentials[i].status),
                           ),
                         ),
                       ],
@@ -262,14 +186,12 @@ class _FilteredCredentialView extends StatelessWidget {
     required this.credentialsAsync,
     required this.typeCode,
     required this.title,
-    required this.onDownload,
   });
 
   final DigitalIdentity identity;
   final AsyncValue<List<CredentialItem>> credentialsAsync;
   final String typeCode;
   final String title;
-  final Future<void> Function(CredentialItem) onDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -298,20 +220,7 @@ class _FilteredCredentialView extends StatelessWidget {
                       title: Text(matches[i].typeName),
                       subtitle: Text(DigitalIdentityScreen._credentialSubtitle(matches[i])),
                       isThreeLine: matches[i].qualification != null,
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          StatusBadge.fromStatus(matches[i].status),
-                          IconButton(
-                            icon: const Icon(Icons.download_outlined, size: 20),
-                            tooltip: 'Download',
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                            onPressed: () => onDownload(matches[i]),
-                          ),
-                        ],
-                      ),
+                      trailing: StatusBadge.fromStatus(matches[i].status),
                     ),
                   ],
                 ],
