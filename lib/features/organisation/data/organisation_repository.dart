@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/utils/credential_status.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../services/service_providers.dart';
 import '../../citizen/domain/credential_item.dart';
@@ -310,13 +311,8 @@ class OrganisationRepository {
   /// column is never flipped to `expired` as time passes (no scheduled
   /// job for it), so an organisation verifying a citizen must not trust it
   /// blindly once `expiry_date` has passed.
-  static String _effectiveCredentialStatus(String? status, DateTime? expiryDate) {
-    final raw = status ?? 'pending';
-    if (raw == 'active' && expiryDate != null && expiryDate.isBefore(DateTime.now())) {
-      return 'expired';
-    }
-    return raw;
-  }
+  static String _effectiveCredentialStatus(String? status, DateTime? expiryDate) =>
+      effectiveCredentialStatus(status, expiryDate);
 
   /// Raises a verification request: one `consent_grants` row (recording
   /// that the organisation obtained the citizen's consent to check exactly

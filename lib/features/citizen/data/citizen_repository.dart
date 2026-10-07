@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/utils/credential_status.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../routing/app_routes.dart';
 import '../../../services/service_providers.dart';
@@ -136,13 +137,8 @@ class CitizenRepository {
   /// past (there's no scheduled job for it). Recompute it for display so
   /// an expired credential is never shown as active, regardless of how
   /// stale the stored column is.
-  static String _effectiveCredentialStatus(String? status, DateTime? expiryDate) {
-    final raw = status ?? 'pending';
-    if (raw == 'active' && expiryDate != null && expiryDate.isBefore(DateTime.now())) {
-      return 'expired';
-    }
-    return raw;
-  }
+  static String _effectiveCredentialStatus(String? status, DateTime? expiryDate) =>
+      effectiveCredentialStatus(status, expiryDate);
 
   /// A chronological "life events" feed for `CitizenTimelineScreen` --
   /// aggregated from `citizens.registered_at`/`date_of_birth`,

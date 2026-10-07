@@ -11,6 +11,8 @@ import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../routing/app_routes.dart';
+import '../../reports/domain/report_data.dart';
+import '../../reports/presentation/report_activity_card.dart';
 import '../data/organisation_repository.dart';
 import '../domain/organisation_dashboard_stats.dart';
 import 'resubmit_organisation_sheet.dart';
@@ -83,6 +85,8 @@ class OrganisationDashboardScreen extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 20),
+          const ReportActivityCard(kind: ReportKind.organisation, reportRoute: AppRoutes.organisationReports),
         ],
     );
   }

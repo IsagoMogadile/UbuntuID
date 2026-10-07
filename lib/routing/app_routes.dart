@@ -27,6 +27,7 @@ class AppRoutes {
   static const citizenNotifications = '/citizen/notifications';
   static const citizenProfile = '/citizen/profile';
   static const citizenSettings = '/citizen/settings';
+  static const citizenReports = '/citizen/reports';
   static const citizenDigitalIdentity = '/citizen/digital-identity';
   static const citizenDocuments = '/citizen/documents';
   static const citizenSassa = '/citizen/services/sassa';
@@ -45,6 +46,7 @@ class AppRoutes {
   static const departmentServices = '/department-official/services';
   static const departmentProfile = '/department-official/profile';
   static const departmentSettings = '/department-official/settings';
+  static const departmentReports = '/department-official/reports';
   static const departmentRegisterCitizen = '/department-official/register-citizen';
   static const departmentClearanceSearch = '/department-official/clearance-search';
   static const departmentCitizenSearch = '/department-official/citizen-search';
@@ -59,6 +61,7 @@ class AppRoutes {
   static const organisationVerification = '/organisation/verification';
   static const organisationProfile = '/organisation/profile';
   static const organisationSettings = '/organisation/settings';
+  static const organisationReports = '/organisation/reports';
   static const organisationColleagues = '/organisation/colleagues';
 
   // Administrator
@@ -73,12 +76,12 @@ class AppRoutes {
   static const adminAppeals = '/admin/appeals';
   static const adminProfile = '/admin/profile';
   static const adminSettings = '/admin/settings';
+  static const adminReports = '/admin/reports';
   static const adminOfficialNew = '/admin/officials/new';
   static const adminOfficialEdit = '/admin/officials'; // + '/:id/edit'
   static const adminCitizenSearch = '/admin/citizen-search';
   static const adminComplianceAudits = '/admin/compliance-audits';
   static const adminHouseholdRecords = '/admin/household-records';
-  static const adminAnalytics = '/admin/analytics';
 
   // Department official
   static const departmentColleagues = '/department-official/colleagues';

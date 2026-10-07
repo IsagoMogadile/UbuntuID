@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../services/service_providers.dart';
 import '../../shared/domain/citizen_lookup_result.dart';
-import '../domain/admin_analytics.dart';
 import '../domain/appeal_item.dart';
 import '../domain/admin_stats.dart';
 import '../domain/audit_log_item.dart';
@@ -68,66 +67,6 @@ class AdminRepository {
       recentAuditEvents: results[5],
     );
   }
-
-  /// Backs `AdminAnalyticsScreen`'s 4 charts. Row counts here are modest
-  /// (hundreds, not millions), so grouping is done client-side over a
-  /// narrow column selection rather than reaching for a Postgres view/RPC
-  /// just for this.
-  Future<AdminAnalytics> getAnalytics() async {
-    final results = await Future.wait([
-      _client.from('citizens').select('registered_at'),
-      _client.from('verification_requests').select('overall_status'),
-      _client.from('department_officials').select('active, departments(department_name)').eq('active', true),
-      _client.from('properties').select('province'),
-    ]);
-
-    final citizenRows = results[0];
-    final verificationRows = results[1];
-    final officialRows = results[2];
-    final propertyRows = results[3];
-
-    // Last 6 months, oldest first.
-    final now = DateTime.now();
-    final months = [for (var i = 5; i >= 0; i--) DateTime(now.year, now.month - i, 1)];
-    final monthCounts = {for (final m in months) _monthLabel(m): 0};
-    for (final row in citizenRows) {
-      final registeredAt = _date(row['registered_at']);
-      final key = months.any((m) => m.year == registeredAt.year && m.month == registeredAt.month)
-          ? _monthLabel(DateTime(registeredAt.year, registeredAt.month))
-          : null;
-      if (key != null) monthCounts[key] = (monthCounts[key] ?? 0) + 1;
-    }
-
-    final statusCounts = <String, int>{};
-    for (final row in verificationRows) {
-      final status = row['overall_status'] as String? ?? 'unknown';
-      statusCounts[status] = (statusCounts[status] ?? 0) + 1;
-    }
-
-    final departmentCounts = <String, int>{};
-    for (final row in officialRows) {
-      final name = (row['departments'] as Map<String, dynamic>?)?['department_name'] as String? ?? 'Unassigned';
-      departmentCounts[name] = (departmentCounts[name] ?? 0) + 1;
-    }
-
-    final provinceCounts = <String, int>{};
-    for (final row in propertyRows) {
-      final province = row['province'] as String? ?? 'Unknown';
-      provinceCounts[province] = (provinceCounts[province] ?? 0) + 1;
-    }
-    final sortedProvinces = provinceCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-
-    return AdminAnalytics(
-      registrationsByMonth: [for (final e in monthCounts.entries) (e.key, e.value)],
-      verificationsByStatus: statusCounts,
-      officialsByDepartment: [for (final e in departmentCounts.entries) (e.key, e.value)],
-      propertiesByProvince: [for (final e in sortedProvinces) (e.key, e.value)],
-    );
-  }
-
-  static String _monthLabel(DateTime month) => const [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-      ][month.month - 1];
 
   Future<List<ComplianceAuditItem>> getComplianceAudits() async {
     final rows = await _client
@@ -771,10 +710,6 @@ final adminRepositoryProvider = Provider<AdminRepository>((ref) {
 
 final adminStatsProvider = FutureProvider.autoDispose<AdminStats>((ref) {
   return ref.watch(adminRepositoryProvider).getStats();
-});
-
-final adminAnalyticsProvider = FutureProvider.autoDispose<AdminAnalytics>((ref) {
-  return ref.watch(adminRepositoryProvider).getAnalytics();
 });
 
 final adminUsersProvider = FutureProvider.autoDispose<List<UserListItem>>((ref) {

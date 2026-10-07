@@ -65,6 +65,14 @@ class CitizenDashboardScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 20),
+        const SectionHeader(title: 'My activity'),
+        ListItemCard(
+          title: 'My Activity Report',
+          subtitle: 'Your credentials, verification checks and history',
+          leadingIcon: Icons.assessment_outlined,
+          onTap: () => context.go(AppRoutes.citizenReports),
+        ),
+        const SizedBox(height: 20),
         const SectionHeader(title: 'Quick actions'),
         Wrap(
           spacing: 10,

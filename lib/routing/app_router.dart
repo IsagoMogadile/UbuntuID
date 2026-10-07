@@ -13,7 +13,6 @@ import '../features/admin/presentation/admin_verification_queue_screen.dart';
 import '../features/admin/presentation/audit_log_detail_screen.dart';
 import '../features/admin/presentation/audit_logs_list_screen.dart';
 import '../features/admin/presentation/compliance_audits_list_screen.dart';
-import '../features/admin/presentation/admin_analytics_screen.dart';
 import '../features/admin/presentation/household_records_list_screen.dart';
 import '../features/admin/domain/user_list_item.dart';
 import '../features/admin/presentation/department_detail_screen.dart';
@@ -72,6 +71,8 @@ import '../features/organisation/presentation/organisation_dashboard_screen.dart
 import '../features/organisation/presentation/organisation_profile_screen.dart';
 import '../features/organisation/presentation/organisation_registration_screen.dart';
 import '../features/organisation/presentation/organisation_verification_list_screen.dart';
+import '../features/reports/domain/report_data.dart';
+import '../features/reports/presentation/report_screen.dart';
 import '../features/settings/presentation/about_screen.dart';
 import '../features/settings/presentation/account_settings_screen.dart';
 import '../features/settings/presentation/notification_settings_screen.dart';
@@ -169,12 +170,16 @@ Future<String?> _resolveRoleAreaRedirect(Ref ref, UserRole requiredRole) async {
   return null;
 }
 
-/// Every role's navigation ends Profile -> Settings -> Log Out. Settings is
-/// its own tab in each role's shell (the shared [SettingsHomeScreen], minus
-/// its own Log out row since the shell has one); Log Out is an action, not a
+/// Every role's navigation ends Profile -> Settings -> Reports -> Log Out.
+/// Settings is its own tab in each role's shell (the shared
+/// [SettingsHomeScreen], minus its own Log out row since the shell has one);
+/// Reports is the role's own [ReportScreen]; Log Out is an action, not a
 /// branch, so it must stay the last destination.
 const _settingsDestination =
     AppNavDestination(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Settings');
+
+const _reportsDestination =
+    AppNavDestination(icon: Icons.assessment_outlined, selectedIcon: Icons.assessment, label: 'Reports');
 
 AppNavDestination _logOutDestination(WidgetRef ref) => AppNavDestination(
       icon: Icons.logout,
@@ -185,6 +190,13 @@ AppNavDestination _logOutDestination(WidgetRef ref) => AppNavDestination(
 
 StatefulShellBranch _settingsBranch(String path) => StatefulShellBranch(routes: [
       GoRoute(path: path, builder: (c, s) => const SettingsHomeScreen(showLogout: false)),
+    ]);
+
+/// Lives under the role's own path prefix, so the router's role-area guard
+/// keeps every other role out of it (on top of the RLS scoping inside
+/// `ReportsRepository`).
+StatefulShellBranch _reportsBranch(String path, ReportKind kind) => StatefulShellBranch(routes: [
+      GoRoute(path: path, builder: (c, s) => ReportScreen(kind: kind)),
     ]);
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -275,6 +287,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 ),
                 const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
                 _settingsDestination,
+                _reportsDestination,
                 _logOutDestination(ref),
               ],
             );
@@ -294,6 +307,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(path: AppRoutes.citizenProfile, builder: (c, s) => const ProfileOverviewScreen()),
           ]),
           _settingsBranch(AppRoutes.citizenSettings),
+          _reportsBranch(AppRoutes.citizenReports, ReportKind.citizen),
         ],
       ),
 
@@ -352,6 +366,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               const AppNavDestination(icon: Icons.apps_outlined, selectedIcon: Icons.apps, label: 'Services'),
               const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
               _settingsDestination,
+              _reportsDestination,
               _logOutDestination(ref),
             ],
             appBarActions: const [HeaderCitizenSearch(searchRoute: AppRoutes.departmentCitizenSearch)],
@@ -368,6 +383,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(path: AppRoutes.departmentProfile, builder: (c, s) => const DepartmentProfileScreen()),
           ]),
           _settingsBranch(AppRoutes.departmentSettings),
+          _reportsBranch(AppRoutes.departmentReports, ReportKind.department),
         ],
       ),
       // Reached from Services, not a bottom-nav tab --
@@ -409,6 +425,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               const AppNavDestination(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Applicants'),
               const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
               _settingsDestination,
+              _reportsDestination,
               _logOutDestination(ref),
             ],
           ),
@@ -430,6 +447,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(path: AppRoutes.organisationProfile, builder: (c, s) => const OrganisationProfileScreen()),
           ]),
           _settingsBranch(AppRoutes.organisationSettings),
+          _reportsBranch(AppRoutes.organisationReports, ReportKind.organisation),
         ],
       ),
       GoRoute(
@@ -456,6 +474,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               const AppNavDestination(icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Audit'),
               const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
               _settingsDestination,
+              _reportsDestination,
               _logOutDestination(ref),
             ],
             appBarActions: const [HeaderCitizenSearch(searchRoute: AppRoutes.adminCitizenSearch)],
@@ -483,6 +502,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
                 ]),
           _settingsBranch(AppRoutes.adminSettings),
+          _reportsBranch(AppRoutes.adminReports, ReportKind.system),
         ],
       ),
       GoRoute(
@@ -527,7 +547,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: AppRoutes.adminComplianceAudits, builder: (c, s) => const ComplianceAuditsListScreen()),
       GoRoute(path: AppRoutes.adminHouseholdRecords, builder: (c, s) => const HouseholdRecordsListScreen()),
-      GoRoute(path: AppRoutes.adminAnalytics, builder: (c, s) => const AdminAnalyticsScreen()),
       GoRoute(path: AppRoutes.adminFlaggedRecords, builder: (c, s) => const FlaggedRecordsListScreen()),
       GoRoute(
         path: '${AppRoutes.adminFlaggedRecords}/:id',

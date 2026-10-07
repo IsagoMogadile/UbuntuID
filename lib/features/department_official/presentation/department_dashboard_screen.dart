@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/horizontal_bar_list.dart';
 import '../../../core/widgets/overview_strip.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../routing/app_routes.dart';
+import '../../reports/domain/report_data.dart';
+import '../../reports/presentation/report_activity_card.dart';
 import '../data/department_repository.dart';
 
 /// A department official never sees or acts on verification here -- an
@@ -43,7 +43,6 @@ class DepartmentDashboardScreen extends ConsumerWidget {
         onRetry: () => ref.invalidate(departmentDashboardStatsProvider),
       ),
       data: (stats) {
-        final byService = [...stats.recordsByService]..sort((a, b) => b.$2.compareTo(a.$2));
         return RefreshIndicator(
           onRefresh: () => ref.refresh(departmentDashboardStatsProvider.future),
           child: ListView(
@@ -60,29 +59,14 @@ class DepartmentDashboardScreen extends ConsumerWidget {
                     icon: Icons.groups_outlined,
                     onTap: () => context.push(AppRoutes.departmentColleagues),
                   ),
-                  if (byService.isNotEmpty)
+                  if (stats.recordsByService.isNotEmpty)
                     OverviewItem(label: 'Records on file', value: stats.totalRecords, icon: Icons.folder_open_outlined),
                   for (final item in stats.categoryStats)
                     OverviewItem(label: item.label, value: item.value, icon: item.icon),
                 ],
               ),
-              if (byService.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                const SectionHeader(title: 'Records by service'),
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Records held for each service this department manages.',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 10),
-                      HorizontalBarList(data: byService, labelWidth: 150),
-                    ],
-                  ),
-                ),
-              ],
+              const SizedBox(height: 20),
+              const ReportActivityCard(kind: ReportKind.department, reportRoute: AppRoutes.departmentReports),
             ],
           ),
         );

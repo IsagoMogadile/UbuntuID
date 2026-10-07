@@ -36,7 +36,13 @@ class AdminDashboardScreen extends ConsumerWidget {
       data: (stats) => ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const SectionHeader(title: 'System overview'),
+          SectionHeader(
+            title: 'System overview',
+            action: TextButton(
+              onPressed: () => context.go(AppRoutes.adminReports),
+              child: const Text('View full report'),
+            ),
+          ),
           OverviewStrip(
             items: [
               OverviewItem(
@@ -103,18 +109,6 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           const SectionHeader(title: 'Oversight'),
-          AppCard(
-            onTap: () => context.push(AppRoutes.adminAnalytics),
-            child: const Row(
-              children: [
-                Icon(Icons.bar_chart_outlined),
-                SizedBox(width: 12),
-                Expanded(child: Text('Analytics')),
-                Icon(Icons.chevron_right),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
           AppCard(
             onTap: () => context.push(AppRoutes.adminComplianceAudits),
             child: const Row(
