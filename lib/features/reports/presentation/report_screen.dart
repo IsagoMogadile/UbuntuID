@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../core/utils/report_export.dart';
@@ -14,6 +15,7 @@ import '../data/reports_repository.dart';
 import '../domain/report_data.dart';
 import '../domain/report_range.dart';
 import 'report_charts.dart';
+import 'report_pdf.dart';
 
 /// The Reports tab for every role -- one layout, so all four reports read
 /// the same way: what it is, who it belongs to, the period, headline
@@ -48,19 +50,15 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   Future<void> _download(ReportData data, {required bool pdf}) async {
     final stamp = DateFormat('yyyyMMdd').format(DateTime.now());
     final base = 'ubuntuid_${data.kind.name}_report_$stamp';
-    const headers = ['Section', 'Item', 'Value'];
-    final rows = data.toExportRows();
     try {
       if (pdf) {
-        await ReportExport.exportPdf(
-          filename: '$base.pdf',
-          title: data.kind.title,
-          subtitle: '${data.ownerLabel}: ${data.ownerName}\nReporting period: ${data.range.label}',
-          headers: headers,
-          rows: rows,
-        );
+        await Printing.sharePdf(bytes: await ReportPdf.build(data), filename: '$base.pdf');
       } else {
-        await ReportExport.exportCsv(filename: '$base.csv', headers: headers, rows: rows);
+        await ReportExport.exportCsv(
+          filename: '$base.csv',
+          headers: const ['Section', 'Item', 'Value'],
+          rows: data.toExportRows(),
+        );
       }
     } catch (_) {
       if (!mounted) return;
@@ -119,7 +117,11 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                         message: error is AppException ? error.message : 'Could not load this report.',
                         onRetry: () => ref.invalidate(reportProvider(_key)),
                       ),
-                      data: (data) => _ReportBody(data: data),
+                      data: (data) => _ReportBody(
+                        data: data,
+                        onDownloadPdf: () => _download(data, pdf: true),
+                        onDownloadCsv: () => _download(data, pdf: false),
+                      ),
                     ),
                   ],
                 ),
@@ -158,9 +160,11 @@ class _PeriodSelector extends StatelessWidget {
 }
 
 class _ReportBody extends StatelessWidget {
-  const _ReportBody({required this.data});
+  const _ReportBody({required this.data, required this.onDownloadPdf, required this.onDownloadCsv});
 
   final ReportData data;
+  final VoidCallback onDownloadPdf;
+  final VoidCallback onDownloadCsv;
 
   @override
   Widget build(BuildContext context) {
@@ -177,6 +181,23 @@ class _ReportBody extends StatelessWidget {
               _HeaderLine(label: data.ownerLabel, value: data.ownerName),
               _HeaderLine(label: 'Reporting period', value: data.range.label),
               _HeaderLine(label: 'Generated', value: DateFormat('d MMMM y, HH:mm').format(DateTime.now())),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: onDownloadPdf,
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                    label: const Text('Download PDF'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: onDownloadCsv,
+                    icon: const Icon(Icons.table_chart_outlined, size: 18),
+                    label: const Text('Download CSV'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
