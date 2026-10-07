@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../routing/app_routes.dart';
+/// "Search citizen by ID number" in the top-right of a role's header (department
+/// officials and administrators) -- an inline field on wide layouts, a search
+/// icon on narrow ones. Either way it opens [searchRoute] (that role's own
+/// citizen search screen), with the typed ID (if any) passed as `?id=` and
+/// searched immediately.
+class HeaderCitizenSearch extends StatefulWidget {
+  const HeaderCitizenSearch({super.key, required this.searchRoute});
 
-/// "Search citizen by ID number" in the top-right of every department
-/// official's header -- an inline field on wide layouts, a search icon on
-/// narrow ones. Either way it opens [DepartmentCitizenSearchScreen], with
-/// the typed ID (if any) passed as `?id=` and searched immediately.
-class DepartmentHeaderSearch extends StatefulWidget {
-  const DepartmentHeaderSearch({super.key});
+  final String searchRoute;
 
   static const _inlineBreakpoint = 600.0;
 
   @override
-  State<DepartmentHeaderSearch> createState() => _DepartmentHeaderSearchState();
+  State<HeaderCitizenSearch> createState() => _HeaderCitizenSearchState();
 }
 
-class _DepartmentHeaderSearchState extends State<DepartmentHeaderSearch> {
+class _HeaderCitizenSearchState extends State<HeaderCitizenSearch> {
   final _controller = TextEditingController();
 
   @override
@@ -28,15 +29,15 @@ class _DepartmentHeaderSearchState extends State<DepartmentHeaderSearch> {
   void _openSearch([String? idNumber]) {
     final id = idNumber?.trim() ?? '';
     final location = id.isEmpty
-        ? AppRoutes.departmentCitizenSearch
-        : Uri(path: AppRoutes.departmentCitizenSearch, queryParameters: {'id': id}).toString();
+        ? widget.searchRoute
+        : Uri(path: widget.searchRoute, queryParameters: {'id': id}).toString();
     _controller.clear();
     context.push(location);
   }
 
   @override
   Widget build(BuildContext context) {
-    final isInline = MediaQuery.sizeOf(context).width >= DepartmentHeaderSearch._inlineBreakpoint;
+    final isInline = MediaQuery.sizeOf(context).width >= HeaderCitizenSearch._inlineBreakpoint;
 
     if (!isInline) {
       return IconButton(

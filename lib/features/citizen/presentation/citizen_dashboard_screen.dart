@@ -86,11 +86,6 @@ class CitizenDashboardScreen extends ConsumerWidget {
               onTap: () => context.push(AppRoutes.citizenDocuments),
             ),
             _QuickAction(
-              icon: Icons.apps_outlined,
-              label: 'Services',
-              onTap: () => context.go(AppRoutes.citizenServices),
-            ),
-            _QuickAction(
               icon: Icons.timeline_outlined,
               label: 'Timeline',
               onTap: () => context.push(AppRoutes.citizenTimeline),

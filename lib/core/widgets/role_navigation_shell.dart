@@ -63,6 +63,10 @@ class _PulsingBadge extends StatelessWidget {
 /// The shared role-scoped navigation frame: a [NavigationBar] on narrow
 /// (mobile) layouts and a [NavigationRail] on wide (desktop/tablet)
 /// layouts, wrapping a [StatefulNavigationShell] branch.
+///
+/// A bottom bar only fits [_maxBarItems] destinations, so on narrow layouts
+/// any beyond the first `_maxBarItems - 1` (typically Profile, Settings and
+/// Log Out) move behind a "More" item that opens them in a bottom sheet.
 class RoleNavigationShell extends StatelessWidget {
   const RoleNavigationShell({
     super.key,
@@ -78,6 +82,7 @@ class RoleNavigationShell extends StatelessWidget {
   final List<Widget>? appBarActions;
 
   static const _wideBreakpoint = 840.0;
+  static const _maxBarItems = 5;
 
   void _onDestinationSelected(BuildContext context, int index) {
     final action = destinations[index].onSelected;
@@ -86,6 +91,32 @@ class RoleNavigationShell extends StatelessWidget {
       return;
     }
     navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
+  }
+
+  Future<void> _showMore(BuildContext context, int firstOverflowIndex) async {
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = firstOverflowIndex; i < destinations.length; i++)
+              ListTile(
+                leading: destinations[i]._icon(
+                  i == navigationShell.currentIndex ? destinations[i].selectedIcon : destinations[i].icon,
+                ),
+                title: Text(destinations[i].label),
+                selected: i == navigationShell.currentIndex,
+                onTap: () => Navigator.pop(sheetContext, i),
+              ),
+          ],
+        ),
+      ),
+    );
+    // Run the choice with the shell's own context, after the sheet has
+    // closed, so an action like Log Out can show its own dialog.
+    if (selected != null && context.mounted) _onDestinationSelected(context, selected);
   }
 
   @override
@@ -97,18 +128,29 @@ class RoleNavigationShell extends StatelessWidget {
         appBar: _buildAppBar(context),
         body: Row(
           children: [
-            NavigationRail(
-              selectedIndex: navigationShell.currentIndex,
-              onDestinationSelected: (index) => _onDestinationSelected(context, index),
-              labelType: NavigationRailLabelType.all,
-              destinations: [
-                for (final d in destinations)
-                  NavigationRailDestination(
-                    icon: d._icon(d.icon),
-                    selectedIcon: d._icon(d.selectedIcon),
-                    label: Text(d.label),
+            // Scrollable so a role with many destinations (admin has 8)
+            // never overflows a short desktop window.
+            LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: NavigationRail(
+                      selectedIndex: navigationShell.currentIndex,
+                      onDestinationSelected: (index) => _onDestinationSelected(context, index),
+                      labelType: NavigationRailLabelType.all,
+                      destinations: [
+                        for (final d in destinations)
+                          NavigationRailDestination(
+                            icon: d._icon(d.icon),
+                            selectedIcon: d._icon(d.selectedIcon),
+                            label: Text(d.label),
+                          ),
+                      ],
+                    ),
                   ),
-              ],
+                ),
+              ),
             ),
             const VerticalDivider(width: 1),
             Expanded(child: navigationShell),
@@ -117,15 +159,29 @@ class RoleNavigationShell extends StatelessWidget {
       );
     }
 
+    final overflows = destinations.length > _maxBarItems;
+    final barDestinations = overflows ? destinations.sublist(0, _maxBarItems - 1) : destinations;
+    final moreIndex = barDestinations.length;
+    final currentIndex = navigationShell.currentIndex;
+    final moreSelected = overflows && currentIndex >= moreIndex;
+
     return Scaffold(
       appBar: _buildAppBar(context),
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) => _onDestinationSelected(context, index),
+        selectedIndex: moreSelected ? moreIndex : currentIndex,
+        onDestinationSelected: (index) {
+          if (overflows && index == moreIndex) {
+            _showMore(context, moreIndex);
+          } else {
+            _onDestinationSelected(context, index);
+          }
+        },
         destinations: [
-          for (final d in destinations)
+          for (final d in barDestinations)
             NavigationDestination(icon: d._icon(d.icon), selectedIcon: d._icon(d.selectedIcon), label: d.label),
+          if (overflows)
+            const NavigationDestination(icon: Icon(Icons.menu), selectedIcon: Icon(Icons.menu_open), label: 'More'),
         ],
       ),
     );
