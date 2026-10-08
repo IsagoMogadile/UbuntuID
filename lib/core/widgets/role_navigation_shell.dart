@@ -201,7 +201,7 @@ class RoleNavigationShell extends StatelessWidget {
     final brand = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const AppLogo(size: 28, showWordmark: false),
+        const AppLogo(size: 36, showWordmark: false),
         const SizedBox(width: 10),
         Text(title),
       ],

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -73,14 +72,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Center(
-                      child: SvgPicture.asset(
-                        'assets/branding/coat_of_arms.svg',
-                        height: 72,
-                        semanticsLabel: 'Coat of arms of South Africa',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
                     const Center(child: AppLogo(size: 56)),
                     const SizedBox(height: 8),
                     const Text(

@@ -1,44 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_colors.dart';
 
-/// UbuntuID's placeholder brand mark: an original identity-card motif in the
-/// UbuntuID green/gold palette. This is not the National Coat of Arms or any
-/// government department's logo. Swap this widget out for a final brand
-/// asset when one is commissioned -- every screen references it from here.
+/// UbuntuID's brand lockup: the coat of arms with the "UbuntuID" wordmark
+/// centred underneath. Every screen references it from here, so swapping the
+/// branding later is a one-file change.
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key, this.size = 36, this.showWordmark = true, this.onDark = false});
 
+  /// Height of the wordmark's line box; the coat of arms scales with it.
   final double size;
+
+  /// False shows just the coat of arms, at [size] tall (e.g. the app bar).
   final bool showWordmark;
   final bool onDark;
 
+  static const _coatOfArmsAsset = 'assets/branding/coat_of_arms.svg';
+
   @override
   Widget build(BuildContext context) {
-    final mark = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.green, AppColors.greenDark],
-        ),
-        borderRadius: BorderRadius.circular(size * 0.28),
-        border: Border.all(color: AppColors.gold, width: size * 0.06),
-      ),
-      child: Center(
-        child: Icon(Icons.badge_outlined, color: Colors.white, size: size * 0.56),
-      ),
-    );
+    if (!showWordmark) {
+      return SvgPicture.asset(_coatOfArmsAsset, height: size, semanticsLabel: 'Coat of arms of South Africa');
+    }
 
-    if (!showWordmark) return mark;
-
-    return Row(
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        mark,
-        const SizedBox(width: 10),
+        SvgPicture.asset(_coatOfArmsAsset, height: size * 1.7, semanticsLabel: 'Coat of arms of South Africa'),
+        SizedBox(height: size * 0.28),
         Text(
           'UbuntuID',
           style: TextStyle(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_card.dart';
@@ -7,6 +8,7 @@ import '../../../core/widgets/detail_row.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
+import '../../../routing/app_routes.dart';
 import '../data/citizen_repository.dart';
 
 class NotificationDetailScreen extends ConsumerStatefulWidget {
@@ -32,7 +34,16 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
     final notificationsAsync = ref.watch(notificationsControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Notification')),
+      appBar: AppBar(
+        // Opened with context.go from the dashboard, so there may be no route
+        // to pop back to -- always offer a way home.
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to home',
+          onPressed: () => context.go(AppRoutes.citizenDashboard),
+        ),
+        title: const Text('Notification'),
+      ),
       body: notificationsAsync.when(
         loading: () => const LoadingIndicator(),
         error: (error, _) => const ErrorView(message: 'Could not load this notification.'),
@@ -43,18 +54,26 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
             return const EmptyState(icon: Icons.search_off_outlined, title: 'Notification not found');
           }
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(notification.message, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 16),
-                  DetailRow(label: 'Channel', value: notification.channel.toUpperCase()),
-                  DetailRow(label: 'Delivery status', value: notification.deliveryStatus),
-                  DetailRow(label: 'Received', value: AppFormatters.dateTime(notification.createdAt)),
-                ],
+          // Sized to its content instead of filling the screen.
+          return Align(
+            alignment: Alignment.topCenter,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: AppCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(notification.message, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 16),
+                      DetailRow(label: 'Channel', value: notification.channel.toUpperCase()),
+                      DetailRow(label: 'Delivery status', value: notification.deliveryStatus),
+                      DetailRow(label: 'Received', value: AppFormatters.dateTime(notification.createdAt)),
+                    ],
+                  ),
+                ),
               ),
             ),
           );

@@ -144,18 +144,26 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
     return Scaffold(
       appBar: AppBar(title: const Text('Register your organisation')),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
+        // The scroll view spans the full width (so its scrollbar sits at the
+        // window's right edge) and centres the form inside it, rather than
+        // being centred itself and shrinking to the form's width.
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: _submitted
-                  ? _buildSubmitted(context)
-                  : _awaitingEmailConfirmation
-                      ? _buildCheckEmail(context)
-                      : _step == 0
-                          ? _buildDetailsStep(context)
-                          : _buildCredentialTypesStep(context),
+              constraints: BoxConstraints(minHeight: (constraints.maxHeight - 64).clamp(0, double.infinity)),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: _submitted
+                      ? _buildSubmitted(context)
+                      : _awaitingEmailConfirmation
+                          ? _buildCheckEmail(context)
+                          : _step == 0
+                              ? _buildDetailsStep(context)
+                              : _buildCredentialTypesStep(context),
+                ),
+              ),
             ),
           ),
         ),

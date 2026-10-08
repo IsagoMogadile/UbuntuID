@@ -19,7 +19,14 @@ class NotificationsListScreen extends ConsumerWidget {
     final notificationsAsync = ref.watch(notificationsControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to home',
+          onPressed: () => context.go(AppRoutes.citizenDashboard),
+        ),
+        title: const Text('Notifications'),
+      ),
       body: notificationsAsync.when(
         loading: () => const LoadingIndicator(),
         error: (error, _) => ErrorView(

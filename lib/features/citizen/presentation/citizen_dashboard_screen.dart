@@ -169,7 +169,18 @@ class _QuickAction extends StatelessWidget {
           children: [
             Icon(icon, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 8),
-            Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+            // Always reserve two lines so a one-line label ("Timeline") gives
+            // the same tile height as one that wraps ("Document Wallet").
+            SizedBox(
+              height: MediaQuery.textScalerOf(context).scale(32),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, height: 1.3),
+              ),
+            ),
           ],
         ),
       ),
