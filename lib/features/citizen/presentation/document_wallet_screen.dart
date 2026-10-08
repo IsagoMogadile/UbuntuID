@@ -7,6 +7,7 @@ import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/wallet_card.dart';
 import '../data/citizen_repository.dart';
+import '../documents/document_downloads.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
 
@@ -15,7 +16,8 @@ import '../domain/digital_identity.dart';
 /// extended to every credential (passport, driver's licence, tax
 /// compliance, police clearance, matric, tertiary qualification, labour
 /// status, SASSA status). One card per document, like a physical wallet;
-/// swipe or use the dots to move between them.
+/// swipe or use the dots to move between them. The download button saves
+/// the card currently in view as its prototype PDF.
 class DocumentWalletScreen extends ConsumerStatefulWidget {
   const DocumentWalletScreen({super.key});
 
@@ -57,6 +59,11 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
               _identityCard(identity),
               for (final c in credentials) _credentialCard(identity, c),
             ];
+            final downloads = <VoidCallback>[
+              () => DocumentDownloads.identityDocument(context, ref, identity),
+              for (final c in credentials) () => DocumentDownloads.credential(context, ref, identity, c),
+            ];
+            final page = _page.clamp(0, cards.length - 1);
             return Column(
               children: [
                 Expanded(
@@ -78,10 +85,10 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
                       for (var i = 0; i < cards.length; i++)
                         Container(
                           margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: i == _page ? 20 : 6,
+                          width: i == page ? 20 : 6,
                           height: 6,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: i == _page ? 0.9 : 0.35),
+                            color: Colors.white.withValues(alpha: i == page ? 0.9 : 0.35),
                             borderRadius: BorderRadius.circular(3),
                           ),
                         ),
@@ -91,8 +98,20 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
-                    '${_page + 1} of ${cards.length} • swipe to browse',
+                    '${page + 1} of ${cards.length} • swipe to browse',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: OutlinedButton.icon(
+                    onPressed: downloads[page],
+                    icon: const Icon(Icons.download_outlined),
+                    label: const Text('Download PDF'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white54),
+                    ),
                   ),
                 ),
               ],

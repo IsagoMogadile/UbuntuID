@@ -7,7 +7,8 @@ import '../domain/digital_identity.dart';
 import 'credential_documents.dart';
 
 /// Builds and shares a citizen's prototype PDFs -- the Documents screen's
-/// download actions. Everything comes from the citizen's own records.
+/// and Document Wallet's download actions. Everything comes from the
+/// citizen's own records.
 class DocumentDownloads {
   DocumentDownloads._();
 
