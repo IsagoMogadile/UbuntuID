@@ -335,53 +335,56 @@ class OrganisationRepository {
     required List<String> credentialTypeIds,
     Map<String, Map<String, dynamic>> claimsByCredentialTypeId = const {},
   }) async {
+    final result = await _client.rpc('org_submit_application', params: {
+      'p_citizen_id': citizenId,
+      'p_credential_type_ids': credentialTypeIds,
+      'p_claims': {
+        for (final id in credentialTypeIds)
+          if (claimsByCredentialTypeId[id] != null) id: claimsByCredentialTypeId[id],
+      },
+    }) as Map<String, dynamic>;
+    return result['request_id'] as String;
+  }
+
+  /// Bulk upload lookups: ID number -> citizen, for up to a few hundred IDs
+  /// at once (chunked). Same rule as [searchCitizens] -- only exact ID
+  /// numbers the organisation already holds, never a browse.
+  Future<Map<String, ({String citizenId, String firstName, String lastName})>> findCitizensByIdNumbers(
+    List<String> idNumbers,
+  ) async {
+    final found = <String, ({String citizenId, String firstName, String lastName})>{};
+    for (var i = 0; i < idNumbers.length; i += 100) {
+      final chunk = idNumbers.sublist(i, i + 100 > idNumbers.length ? idNumbers.length : i + 100);
+      final rows = await _client.from('citizens').select('citizen_id, id_number, first_name, last_name').inFilter('id_number', chunk);
+      for (final r in rows) {
+        found[r['id_number'] as String] = (
+          citizenId: r['citizen_id'] as String,
+          firstName: r['first_name'] as String? ?? '',
+          lastName: r['last_name'] as String? ?? '',
+        );
+      }
+    }
+    return found;
+  }
+
+  /// Citizens (of [citizenIds]) this organisation already has a live
+  /// application for -- a new one replaces it.
+  Future<Set<String>> citizensWithOpenApplications(List<String> citizenIds) async {
     final row = await _orgUserRow();
-    final organisation = row['organisations'] as Map<String, dynamic>?;
-    final organisationId = organisation?['organisation_id'] as String?;
-    if (organisationId == null) {
-      throw const AppException('No organisation is linked to this account.');
+    final organisationId = (row['organisations'] as Map<String, dynamic>?)?['organisation_id'] as String?;
+    if (organisationId == null || citizenIds.isEmpty) return {};
+    final result = <String>{};
+    for (var i = 0; i < citizenIds.length; i += 100) {
+      final chunk = citizenIds.sublist(i, i + 100 > citizenIds.length ? citizenIds.length : i + 100);
+      final rows = await _client
+          .from('verification_requests')
+          .select('citizen_id')
+          .eq('organisation_id', organisationId)
+          .neq('overall_status', 'cancelled')
+          .inFilter('citizen_id', chunk);
+      result.addAll(rows.map((r) => r['citizen_id'] as String));
     }
-    final requestedByUserId = row['organisation_user_id'] as String;
-
-    final consentRow = await _client
-        .from('consent_grants')
-        .insert({
-          'citizen_id': citizenId,
-          'organisation_id': organisationId,
-          'scope': {'credential_type_ids': credentialTypeIds},
-        })
-        .select('consent_id')
-        .single();
-    final consentId = consentRow['consent_id'] as String;
-
-    final requestRow = await _client
-        .from('verification_requests')
-        .insert({
-          'citizen_id': citizenId,
-          'organisation_id': organisationId,
-          'requested_by_user_id': requestedByUserId,
-          'consent_id': consentId,
-          'overall_status': 'pending',
-          'requested_at': DateTime.now().toIso8601String(),
-        })
-        .select('request_id')
-        .single();
-    final requestId = requestRow['request_id'] as String;
-
-    if (credentialTypeIds.isNotEmpty) {
-      await _client.from('verification_results').insert([
-        for (final credentialTypeId in credentialTypeIds)
-          {
-            'request_id': requestId,
-            'credential_type_id': credentialTypeId,
-            'match_status': 'pending',
-            if (claimsByCredentialTypeId[credentialTypeId] != null)
-              'claimed_value': claimsByCredentialTypeId[credentialTypeId],
-          },
-      ]);
-    }
-
-    return requestId;
+    return result;
   }
 
   /// "Offer Employment" -- via the `offer_employment` RPC (docs/database/
@@ -402,9 +405,13 @@ class OrganisationRepository {
     num? salary,
     required String salaryFrequency,
     required DateTime startDate,
+    String employmentType = 'Permanent',
+    DateTime? endDate,
     String? sourceVerificationRequestId,
   }) async {
-    final result = await _client.rpc('offer_employment', params: {
+    final result = await _client.rpc('offer_employment_with_terms', params: {
+      'p_employment_type': employmentType,
+      'p_end_date': endDate?.toIso8601String().split('T').first,
       'p_citizen_id': citizenId,
       'p_job_title': jobTitle,
       'p_department_or_position': departmentOrPosition,

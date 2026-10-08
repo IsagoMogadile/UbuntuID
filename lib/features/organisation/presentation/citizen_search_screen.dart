@@ -136,7 +136,16 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
     final resultAsync = _searchQuery == null ? null : ref.watch(citizenSearchResultProvider(_searchQuery!));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('New Applicant')),
+      appBar: AppBar(
+        title: const Text('New Applicant'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => context.push(AppRoutes.organisationBulkUpload),
+            icon: const Icon(Icons.upload_file_outlined),
+            label: const Text('Upload list'),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(

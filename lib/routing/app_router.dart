@@ -12,6 +12,7 @@ import '../features/admin/presentation/admin_profile_screen.dart';
 import '../features/feedback/presentation/admin_feedback_detail_screen.dart';
 import '../features/feedback/presentation/admin_feedback_list_screen.dart';
 import '../features/feedback/presentation/give_feedback_screen.dart';
+import '../features/organisation/presentation/bulk_upload_screen.dart';
 import '../features/admin/presentation/admin_verification_queue_screen.dart';
 import '../features/admin/presentation/audit_log_detail_screen.dart';
 import '../features/admin/presentation/audit_logs_list_screen.dart';
@@ -454,6 +455,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (c, s) => VerificationRequestDetailScreen(requestId: s.pathParameters['id']!),
       ),
       GoRoute(path: AppRoutes.organisationColleagues, builder: (c, s) => const OrganisationColleaguesScreen()),
+      GoRoute(path: AppRoutes.organisationBulkUpload, builder: (c, s) => const BulkUploadScreen()),
 
       // --- Administrator ---
       StatefulShellRoute.indexedStack(

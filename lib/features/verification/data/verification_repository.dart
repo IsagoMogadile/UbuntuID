@@ -97,6 +97,8 @@ class VerificationRepository {
             .from('verification_requests')
             .select(_requestSelect)
             .eq('organisation_id', organisationId)
+            // Replaced by a newer application for the same person.
+            .neq('overall_status', 'cancelled')
             .order('requested_at', ascending: false);
         return [for (final row in rows) _mapRequest(row)];
 

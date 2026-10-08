@@ -126,6 +126,8 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
     final salaryController = TextEditingController();
     var salaryFrequency = 'Monthly';
     var startDate = DateTime.now();
+    var employmentType = 'Permanent';
+    DateTime? endDate;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -169,6 +171,19 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
                   ],
                 ),
                 const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: employmentType,
+                  decoration: const InputDecoration(labelText: 'Employment type'),
+                  items: [
+                    for (final t in const ['Permanent', 'Fixed-term contract', 'Temporary', 'Internship'])
+                      DropdownMenuItem(value: t, child: Text(t)),
+                  ],
+                  onChanged: (v) => setDialogState(() {
+                    employmentType = v ?? 'Permanent';
+                    if (employmentType == 'Permanent') endDate = null;
+                  }),
+                ),
+                const SizedBox(height: 10),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text('Start date: ${AppFormatters.date(startDate)}'),
@@ -183,6 +198,22 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
                     if (picked != null) setDialogState(() => startDate = picked);
                   },
                 ),
+                if (employmentType != 'Permanent')
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(endDate == null ? 'End date: tap to choose' : 'End date: ${AppFormatters.date(endDate!)}'),
+                    subtitle: const Text('Required for contract, temporary and internship positions'),
+                    trailing: const Icon(Icons.event_outlined),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: endDate ?? startDate.add(const Duration(days: 365)),
+                        firstDate: startDate,
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) setDialogState(() => endDate = picked);
+                    },
+                  ),
               ],
             ),
           ),
@@ -193,9 +224,15 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
         ),
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
     if (titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('A job title is required.')));
+      return;
+    }
+    if (employmentType != 'Permanent' && endDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An end date is required for a ${employmentType.toLowerCase()} position.')),
+      );
       return;
     }
 
@@ -207,6 +244,8 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
             salary: num.tryParse(salaryController.text.trim()),
             salaryFrequency: salaryFrequency,
             startDate: startDate,
+            employmentType: employmentType,
+            endDate: endDate,
             sourceVerificationRequestId: widget.requestId,
           );
       if (mounted) {

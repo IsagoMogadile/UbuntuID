@@ -64,6 +64,7 @@ class AppRoutes {
   static const organisationSettings = '/organisation/settings';
   static const organisationReports = '/organisation/reports';
   static const organisationColleagues = '/organisation/colleagues';
+  static const organisationBulkUpload = '/organisation/bulk-upload';
 
   // Administrator
   static const adminDashboard = '/admin';
