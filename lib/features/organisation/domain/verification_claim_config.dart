@@ -22,14 +22,19 @@ class ClaimField {
 /// schema) so the automated comparison is an honest exact-field match, not
 /// a fuzzy free-text guess.
 List<ClaimField> claimFieldsForType(String typeCode) => switch (typeCode) {
-      'NSC' => const [
-          ClaimField(
+      'NSC' => [
+          const ClaimField(
             key: 'overall_pass_status',
             label: 'Claimed matric pass status',
             type: ClaimFieldType.dropdown,
             options: ['Bachelor Pass', 'Diploma', 'Higher Certificate'],
           ),
-          ClaimField(key: 'year', label: 'Claimed matric year', type: ClaimFieldType.number),
+          ClaimField(
+            key: 'year',
+            label: 'Claimed matric year',
+            type: ClaimFieldType.dropdown,
+            options: _matricYears(),
+          ),
         ],
       'TERTIARY_QUALIFICATION' => const [
           ClaimField(key: 'qualification_name', label: 'Claimed qualification', type: ClaimFieldType.text),
@@ -112,3 +117,7 @@ List<ClaimField> claimFieldsForType(String typeCode) => switch (typeCode) {
         ],
       _ => const [],
     };
+
+/// Most recent first, back to 1970 -- picked rather than typed so the claim
+/// is always a well-formed year.
+List<String> _matricYears() => [for (var y = DateTime.now().year; y >= 1970; y--) '$y'];
