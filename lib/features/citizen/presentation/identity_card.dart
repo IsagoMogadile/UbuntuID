@@ -15,8 +15,8 @@ import '../domain/digital_identity.dart';
 /// It keeps a real ID card's proportions (ID-1, 85.6 x 54 mm) at every
 /// width: drawn on a fixed [_cardWidth] x [_cardHeight] canvas and scaled
 /// to fit, never wider than [maxWidth]. It carries the coat of arms, like
-/// the downloadable documents, but is titled as an UbuntuID card rather
-/// than a "Republic of South Africa" one.
+/// the downloadable documents, and is titled simply "Identity Card" --
+/// never "Republic of South Africa".
 class IdentityCard extends StatelessWidget {
   const IdentityCard({
     super.key,
@@ -121,18 +121,8 @@ class IdentityCard extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           const Text(
-            'UBUNTUID',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1.6, fontSize: 14),
-          ),
-          const SizedBox(width: 10),
-          Text(
             'IDENTITY CARD',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.4,
-              fontSize: 11,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1.6, fontSize: 14),
           ),
           const Spacer(),
           Container(
