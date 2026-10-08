@@ -3,6 +3,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/app_logo.dart';
 import '../documents/credential_documents.dart';
 import '../domain/digital_identity.dart';
 
@@ -13,9 +14,9 @@ import '../domain/digital_identity.dart';
 ///
 /// It keeps a real ID card's proportions (ID-1, 85.6 x 54 mm) at every
 /// width: drawn on a fixed [_cardWidth] x [_cardHeight] canvas and scaled
-/// to fit, never wider than [maxWidth]. Like the downloadable documents it
-/// is UbuntuID-branded only -- no coat of arms or "Republic of South
-/// Africa" -- so it can't be mistaken for a real government ID.
+/// to fit, never wider than [maxWidth]. It carries the coat of arms, like
+/// the downloadable documents, but is titled as an UbuntuID card rather
+/// than a "Republic of South Africa" one.
 class IdentityCard extends StatelessWidget {
   const IdentityCard({
     super.key,
@@ -103,15 +104,22 @@ class IdentityCard extends StatelessWidget {
 
   Widget _header(bool active) {
     return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: 44,
+      padding: const EdgeInsets.fromLTRB(10, 0, 16, 0),
       decoration: const BoxDecoration(
         gradient: LinearGradient(colors: [AppColors.green, Color(0xFF2F7D4A)]),
       ),
       child: Row(
         children: [
-          const Icon(Icons.verified_user_outlined, color: Colors.white, size: 18),
-          const SizedBox(width: 8),
+          // On a white disc so the arms' colours read against the green band.
+          Container(
+            width: 36,
+            height: 36,
+            padding: const EdgeInsets.all(3),
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            child: const AppLogo(size: 30, showWordmark: false),
+          ),
+          const SizedBox(width: 10),
           const Text(
             'UBUNTUID',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1.6, fontSize: 14),
