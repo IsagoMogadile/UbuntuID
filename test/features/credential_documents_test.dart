@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Builds every prototype document from sample data. Set UBUNTUID_PDF_OUT
 /// to a folder to also write the PDFs there for visual review.
 void main() {
+  // The PDFs load the coat of arms from the asset bundle.
+  TestWidgetsFlutterBinding.ensureInitialized();
   final identity = DigitalIdentity(
     citizenId: 'c1',
     idNumber: '9006180123084',

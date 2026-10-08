@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/utils/pdf_branding.dart';
 import '../../../core/utils/pdf_text.dart';
 import '../domain/report_data.dart';
 
@@ -26,7 +27,8 @@ class ReportPdf {
   static pw.Widget _text(String text, {pw.TextStyle? style, pw.TextAlign? align, int? maxLines}) =>
       pw.Text(pdfSafe(text), style: style, textAlign: align, maxLines: maxLines);
 
-  static Future<Uint8List> build(ReportData data, {DateTime? generatedAt}) {
+  static Future<Uint8List> build(ReportData data, {DateTime? generatedAt}) async {
+    await PdfBranding.load();
     final generated = generatedAt ?? DateTime.now();
     final doc = pw.Document(title: 'UbuntuID - ${data.kind.title}', author: 'UbuntuID prototype');
 
@@ -101,18 +103,6 @@ class ReportPdf {
 
   // -- Page furniture ------------------------------------------------------
 
-  static pw.Widget _mark({double size = 34}) => pw.Container(
-        width: size,
-        height: size,
-        alignment: pw.Alignment.center,
-        decoration: pw.BoxDecoration(
-          color: _green,
-          borderRadius: pw.BorderRadius.circular(size * 0.2),
-          border: pw.Border.all(color: _gold, width: 1.5),
-        ),
-        child: _text('U', style: pw.TextStyle(fontSize: size * 0.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
-      );
-
   static pw.Widget _titleBlock(ReportData data, DateTime generated) {
     pw.Widget line(String label, String value) => pw.Padding(
           padding: const pw.EdgeInsets.only(top: 2),
@@ -130,7 +120,7 @@ class ReportPdf {
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          _mark(size: 44),
+          PdfBranding.coatOfArms(size: 50),
           pw.SizedBox(width: 12),
           pw.Expanded(
             child: pw.Column(

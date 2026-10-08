@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/utils/pdf_branding.dart';
 import '../../../core/utils/pdf_text.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
@@ -200,26 +201,13 @@ class CredentialDocuments {
     );
   }
 
-  /// Document title block: an UbuntuID mark (never a government emblem),
+  /// Document title block: the coat of arms,
   /// the document name and the simulated issuing department.
   static pw.Widget _docHeader({required String title, required String authority, String? subtitle}) {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Container(
-          width: 46,
-          height: 46,
-          alignment: pw.Alignment.center,
-          decoration: pw.BoxDecoration(
-            color: _green,
-            borderRadius: pw.BorderRadius.circular(8),
-            border: pw.Border.all(color: _gold, width: 2),
-          ),
-          child: _text(
-            'U',
-            style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
-          ),
-        ),
+        PdfBranding.coatOfArms(size: 50),
         pw.SizedBox(width: 12),
         pw.Expanded(
           child: pw.Column(
@@ -413,6 +401,7 @@ class CredentialDocuments {
   // ---------------------------------------------------------------------
 
   static Future<Uint8List> identityDocument(DocumentHolder holder) async {
+    await PdfBranding.load();
     const headline = 'DEMONSTRATION / PROTOTYPE DOCUMENT - NOT A REAL GOVERNMENT-ISSUED ID DOCUMENT';
     const watermark = 'UBUNTUID DEMONSTRATION\nNOT A REAL ID DOCUMENT';
     final idTail = holder.idNumber.length >= 4
@@ -636,6 +625,7 @@ class CredentialDocuments {
     CredentialItem credential,
     Map<String, dynamic>? record,
   ) async {
+    await PdfBranding.load();
     final doc = pw.Document(title: 'UbuntuID prototype - ${credential.typeName}', author: 'UbuntuID prototype');
     final reference =
         'UID-${credential.typeCode.isEmpty ? 'DOC' : credential.typeCode}-'

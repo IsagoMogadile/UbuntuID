@@ -9,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Builds report PDFs from sample data. Set UBUNTUID_PDF_OUT to a folder to
 /// also write them there for visual review.
 void main() {
+  // The PDFs load the coat of arms from the asset bundle.
+  TestWidgetsFlutterBinding.ensureInitialized();
   final range = ReportRange.preset(ReportPreset.last6Months, now: DateTime(2026, 9, 30));
   final outDir = Platform.environment['UBUNTUID_PDF_OUT'];
 
