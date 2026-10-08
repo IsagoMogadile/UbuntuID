@@ -19,8 +19,9 @@ class ClaimField {
 ///
 /// Fields deliberately mirror the columns the authoritative department
 /// table actually has (same enum values, confirmed against the live
-/// schema) so the automated comparison is an honest exact-field match, not
-/// a fuzzy free-text guess.
+/// schema). Everything except the qualification name is picked from a
+/// list; the comparison itself ignores case, spacing, punctuation and a
+/// "Code " prefix (docs/database/forgiving_claim_comparison.sql).
 List<ClaimField> claimFieldsForType(String typeCode) => switch (typeCode) {
       'NSC' => [
           const ClaimField(
@@ -37,7 +38,11 @@ List<ClaimField> claimFieldsForType(String typeCode) => switch (typeCode) {
           ),
         ],
       'TERTIARY_QUALIFICATION' => const [
-          ClaimField(key: 'qualification_name', label: 'Claimed qualification', type: ClaimFieldType.text),
+          ClaimField(
+            key: 'qualification_name',
+            label: 'Claimed qualification (e.g. Bachelor of Science)',
+            type: ClaimFieldType.text,
+          ),
           ClaimField(
             key: 'institution_code',
             label: 'Claimed institution',
@@ -56,12 +61,18 @@ List<ClaimField> claimFieldsForType(String typeCode) => switch (typeCode) {
           ),
           ClaimField(
             key: 'result_status',
-            label: 'Claimed result/status (e.g. Pass, Graduated, Enrolled)',
-            type: ClaimFieldType.text,
+            label: 'Claimed result/status',
+            type: ClaimFieldType.dropdown,
+            options: ['Graduated', 'Enrolled', 'Dropped', 'Distinction', 'Merit', 'Pass', 'Fail'],
           ),
         ],
       'DRIVERS_LICENCE' => const [
-          ClaimField(key: 'licence_code', label: 'Claimed licence code (e.g. B)', type: ClaimFieldType.text),
+          ClaimField(
+            key: 'licence_code',
+            label: 'Claimed licence code',
+            type: ClaimFieldType.dropdown,
+            options: ['Code A1', 'Code A', 'Code B', 'Code EB', 'Code C1', 'Code EC1', 'Code C', 'Code EC'],
+          ),
           ClaimField(
             key: 'status',
             label: 'Claimed status',
