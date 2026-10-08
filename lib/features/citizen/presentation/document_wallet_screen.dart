@@ -12,9 +12,9 @@ import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
 import 'identity_card.dart';
 
-/// A swipeable wallet of every real document this citizen holds -- the
-/// same QR-card presentation `DigitalIdCardScreen` established for identity,
-/// extended to every credential (passport, driver's licence, tax
+/// A swipeable wallet of every real document this citizen holds, each drawn
+/// as a card-sized [WalletCard] like the identity card -- extended to every
+/// credential (passport, driver's licence, tax
 /// compliance, police clearance, matric, tertiary qualification, labour
 /// status, SASSA status). One card per document, like a physical wallet;
 /// swipe or use the dots to move between them. The download button saves
@@ -128,51 +128,48 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
   }
 
   Widget _credentialCard(DigitalIdentity identity, CredentialItem credential) {
-    final theme = _credentialTheme(credential.typeName);
     final qualification = credential.qualification;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 380),
-      child: WalletCard(
-        headerLabel: credential.typeName,
-        icon: theme.icon,
-        qrData: 'UBUNTUID:CRED:${credential.credentialId}',
-        primaryLine: qualification?.qualificationName ?? credential.typeName,
-        secondaryLines: [
-          identity.fullName,
-          credential.issuingDepartment,
-          if (qualification?.institutionName != null) qualification!.institutionName!,
-          if (qualification?.result != null) 'Result: ${qualification!.result}',
-          'Issued ${AppFormatters.date(credential.issuedDate)}',
-          if (credential.expiryDate != null) 'Expires ${AppFormatters.date(credential.expiryDate!)}',
+    final expiry = credential.expiryDate;
+    return WalletCard(
+      title: credential.typeName,
+      status: credential.status,
+      headerColors: _credentialColours(credential.typeName),
+      qrData: 'UBUNTUID:CRED:${credential.credentialId}',
+      rows: [
+        [WalletCardField('Holder', identity.fullName.toUpperCase())],
+        if (qualification != null) [WalletCardField('Qualification', qualification.qualificationName.toUpperCase())],
+        if (qualification?.institutionName != null)
+          [WalletCardField('Institution', qualification!.institutionName!.toUpperCase())],
+        if (qualification?.result != null) [WalletCardField('Result', qualification!.result!.toUpperCase())],
+        // A qualification's issuer is already in the footer's "Verified by";
+        // leaving it out here keeps room for the qualification itself.
+        if (qualification == null) [WalletCardField('Issued by', credential.issuingDepartment.toUpperCase())],
+        [
+          WalletCardField('Date of Issue', AppFormatters.date(credential.issuedDate).toUpperCase()),
+          WalletCardField('Valid Until', expiry == null ? 'NO EXPIRY' : AppFormatters.date(expiry).toUpperCase()),
         ],
-        status: credential.status,
-        gradientColors: theme.gradient,
-        footerNote: 'Verified by ${credential.issuingDepartment}.',
-      ),
+      ],
+      footerNote: 'Verified by ${credential.issuingDepartment}.',
+      maxWidth: 380,
+      alignment: Alignment.center,
     );
   }
-}
-
-class _CredentialTheme {
-  const _CredentialTheme(this.icon, this.gradient);
-  final IconData icon;
-  final List<Color> gradient;
 }
 
 /// One distinct colour identity per credential type -- like the way real
 /// ID documents (green ID book, maroon passport, blue licence) each read
 /// differently at a glance, rather than every card in the wallet looking
 /// the same.
-_CredentialTheme _credentialTheme(String typeName) {
+List<Color> _credentialColours(String typeName) {
   return switch (typeName) {
-    'South African Passport' => const _CredentialTheme(Icons.menu_book_outlined, [Color(0xFF7A1F2B), Color(0xFFB0464F)]),
-    "Driver's Licence" => const _CredentialTheme(Icons.directions_car_outlined, [Color(0xFF1B4B8A), Color(0xFF3E7CB1)]),
-    'Tax Compliance Status' => const _CredentialTheme(Icons.receipt_long_outlined, [Color(0xFF1F5C4C), Color(0xFF3E8E75)]),
-    'Police Clearance Certificate' => const _CredentialTheme(Icons.gavel_outlined, [Color(0xFF2B2B2B), Color(0xFF555555)]),
-    'National Senior Certificate' => const _CredentialTheme(Icons.school_outlined, [Color(0xFF6A3FA0), Color(0xFF9A6FCB)]),
-    'Tertiary Qualification' => const _CredentialTheme(Icons.workspace_premium_outlined, [Color(0xFF8A5A00), Color(0xFFC98A1F)]),
-    'UIF / Employment Status' => const _CredentialTheme(Icons.work_outline, [Color(0xFF2A5D6B), Color(0xFF4E8F9E)]),
-    'SASSA Grant Status' => const _CredentialTheme(Icons.volunteer_activism_outlined, [Color(0xFF7A4B1E), Color(0xFFAF7A3E)]),
-    _ => const _CredentialTheme(Icons.badge_outlined, [AppColors.green, AppColors.gold]),
+    'South African Passport' => const [Color(0xFF7A1F2B), Color(0xFFB0464F)],
+    "Driver's Licence" => const [Color(0xFF1B4B8A), Color(0xFF3E7CB1)],
+    'Tax Compliance Status' => const [Color(0xFF1F5C4C), Color(0xFF3E8E75)],
+    'Police Clearance Certificate' => const [Color(0xFF2B2B2B), Color(0xFF555555)],
+    'National Senior Certificate' => const [Color(0xFF6A3FA0), Color(0xFF9A6FCB)],
+    'Tertiary Qualification' => const [Color(0xFF8A5A00), Color(0xFFC98A1F)],
+    'UIF / Employment Status' => const [Color(0xFF2A5D6B), Color(0xFF4E8F9E)],
+    'SASSA Grant Status' => const [Color(0xFF7A4B1E), Color(0xFFAF7A3E)],
+    _ => const [AppColors.green, AppColors.gold],
   };
 }
