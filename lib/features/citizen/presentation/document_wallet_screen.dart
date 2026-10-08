@@ -10,6 +10,7 @@ import '../data/citizen_repository.dart';
 import '../documents/document_downloads.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
+import 'identity_card.dart';
 
 /// A swipeable wallet of every real document this citizen holds -- the
 /// same QR-card presentation `DigitalIdCardScreen` established for identity,
@@ -123,22 +124,7 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
   }
 
   Widget _identityCard(DigitalIdentity identity) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 380),
-      child: WalletCard(
-        headerLabel: 'UbuntuID Digital Identity',
-        icon: Icons.verified_user_outlined,
-        qrData: 'UBUNTUID:${identity.idNumber}',
-        primaryLine: identity.fullName.isEmpty ? 'Unknown' : identity.fullName,
-        secondaryLines: [
-          identity.idNumber,
-          'DOB: ${AppFormatters.date(identity.dateOfBirth)}',
-        ],
-        status: identity.currentStatus,
-        gradientColors: const [AppColors.green, AppColors.gold],
-        footerNote: 'Present this QR code to a department official or approved organisation for identity verification.',
-      ),
-    );
+    return IdentityCard(identity: identity, maxWidth: 380, alignment: Alignment.center);
   }
 
   Widget _credentialCard(DigitalIdentity identity, CredentialItem credential) {

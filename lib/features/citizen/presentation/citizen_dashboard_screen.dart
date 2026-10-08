@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/list_item_card.dart';
@@ -12,9 +11,9 @@ import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/staggered_fade_in.dart';
 import '../../../core/widgets/status_badge.dart';
-import '../../../core/widgets/wallet_card.dart';
 import '../../../routing/app_routes.dart';
 import '../data/citizen_repository.dart';
+import 'identity_card.dart';
 
 class CitizenDashboardScreen extends ConsumerWidget {
   const CitizenDashboardScreen({super.key});
@@ -29,7 +28,7 @@ class CitizenDashboardScreen extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // The digital ID card, QR code and all, front and centre the
+        // The ID card, QR code and all, front and centre the
         // moment a citizen lands here after logging in -- not buried a
         // couple of taps deep. Tapping it opens the full Document Wallet
         // (every credential, same card treatment, swipeable).
@@ -38,19 +37,7 @@ class CitizenDashboardScreen extends ConsumerWidget {
           error: (error, _) => const ErrorView(message: 'Could not load your digital identity.'),
           data: (identity) => GestureDetector(
             onTap: () => context.push(AppRoutes.citizenDocumentWallet),
-            child: WalletCard(
-              headerLabel: 'UbuntuID Digital Identity',
-              icon: Icons.verified_user_outlined,
-              qrData: 'UBUNTUID:${identity.idNumber}',
-              primaryLine: identity.fullName.isEmpty ? 'Unknown' : identity.fullName,
-              secondaryLines: [
-                identity.idNumber,
-                'DOB: ${AppFormatters.date(identity.dateOfBirth)}',
-              ],
-              status: identity.currentStatus,
-              gradientColors: const [AppColors.green, AppColors.gold],
-              footerNote: 'Tap to open your Document Wallet.',
-            ),
+            child: IdentityCard(identity: identity, footerNote: 'Tap to open your Document Wallet.'),
           ),
         ),
         const SizedBox(height: 20),
