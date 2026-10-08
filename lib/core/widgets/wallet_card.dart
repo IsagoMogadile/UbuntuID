@@ -19,9 +19,9 @@ class WalletCardField {
 }
 
 /// A document in the citizen's wallet drawn as a physical card: the coat of
-/// arms and the document's name in a coloured header band, a portrait
-/// silhouette with the document's details beside it, and its verification
-/// QR code on the right-hand side.
+/// arms and the document's name in a coloured header band, the document's
+/// details (beside a portrait silhouette on photo cards, see
+/// [showPortrait]), and its verification QR code on the right-hand side.
 ///
 /// Every card keeps a real ID card's proportions (ID-1, 85.6 x 54 mm) at
 /// every width: drawn on a fixed [_cardWidth] x [_cardHeight] canvas and
@@ -39,6 +39,7 @@ class WalletCard extends StatelessWidget {
     this.bodyColors,
     this.footerNote,
     this.footerBrand = 'UBUNTUID DOCUMENT WALLET',
+    this.showPortrait = true,
     this.maxWidth = 460,
     this.alignment = Alignment.center,
   });
@@ -60,6 +61,10 @@ class WalletCard extends StatelessWidget {
   /// e.g. "Tap to open your Document Wallet." -- shown along the bottom.
   final String? footerNote;
   final String footerBrand;
+
+  /// Only documents that carry a photo in real life (the identity card,
+  /// the driver's licence) show the portrait silhouette.
+  final bool showPortrait;
   final double maxWidth;
   final AlignmentGeometry alignment;
 
@@ -114,8 +119,10 @@ class WalletCard extends StatelessWidget {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _portrait(accent),
-                                const SizedBox(width: 14),
+                                if (showPortrait) ...[
+                                  _portrait(accent),
+                                  const SizedBox(width: 14),
+                                ],
                                 Expanded(child: _details()),
                                 const SizedBox(width: 10),
                                 _qr(accent),
