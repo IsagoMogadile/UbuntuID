@@ -137,6 +137,7 @@ class CitizenDashboardScreen extends ConsumerWidget {
     );
   }
 }
+/// Authored by Buhle Ndlovu, Kopano Mogadile, Keamogetswe Molefane  : A quick action tile on the citizen dashboard, with an icon and a label. Tapping it performs the given action.
 
 class _QuickAction extends StatelessWidget {
   const _QuickAction({required this.icon, required this.label, required this.onTap});

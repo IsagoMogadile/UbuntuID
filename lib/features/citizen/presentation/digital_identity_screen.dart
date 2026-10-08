@@ -31,7 +31,7 @@ class DigitalIdentityScreen extends ConsumerWidget {
   /// AppBar title when [filterTypeCode] is set (the Services tile's own
   /// name, e.g. "Driver's Licence"). Falls back to "Digital Identity".
   final String? title;
-
+/// technical Author: TechMinions : A citizen's own digital identity -- their personal information, Home Affairs verification status, and all credentials issued to them by any department. Tapping a credential opens its own screen with the full document and any attached files.
   static String _credentialSubtitle(CredentialItem credential) {
     final qualification = credential.qualification;
     if (qualification != null) {

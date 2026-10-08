@@ -14,7 +14,7 @@ import '../data/citizen_repository.dart';
 import '../documents/document_downloads.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
-
+/// Authored by Buhle Ndlovu, Kopano Mogadile, Keamogetswe Molefane  : The citizen's one place for documents: every downloadable prototype PDF (identity document front & back, plus one per credential they hold), then the documents on file in UbuntuID.
 /// The citizen's one place for documents: every downloadable prototype PDF
 /// (identity document front & back, plus one per credential they hold),
 /// then the documents on file in UbuntuID.

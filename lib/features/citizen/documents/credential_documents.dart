@@ -9,9 +9,9 @@ import '../../../core/utils/pdf_branding.dart';
 import '../../../core/utils/pdf_text.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
-import 'document_avatar.dart';
+import 'document_avatar.dart'; 
 
-/// The citizen a prototype document is generated for -- built only from
+/// implemented by Buhle Ndlovu : The citizen a prototype document is generated for -- built only from
 /// their own UbuntuID record ([DigitalIdentity] plus current address).
 class DocumentHolder {
   DocumentHolder({

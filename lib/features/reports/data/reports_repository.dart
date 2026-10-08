@@ -9,7 +9,7 @@ import '../../../services/service_providers.dart';
 import '../../department_official/data/department_repository.dart';
 import '../domain/report_data.dart';
 import '../domain/report_range.dart';
-
+/// authored by Buhle Ndlovu with Claude as assistant
 /// Builds each role's report from live data only.
 ///
 /// Access control is layered, never UI-only:
