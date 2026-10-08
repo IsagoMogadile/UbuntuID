@@ -18,7 +18,7 @@ class IdentityCard extends StatelessWidget {
     required this.identity,
     this.footerNote,
     this.maxWidth = 460,
-    this.alignment = Alignment.centerLeft,
+    this.alignment = Alignment.center,
   });
 
   final DigitalIdentity identity;

@@ -38,7 +38,7 @@ class DigitalIdCardScreen extends ConsumerWidget {
               constraints: const BoxConstraints(maxWidth: 460),
               child: Hero(
                 tag: 'digital-id-card-hero',
-                child: IdentityCard(identity: identity, alignment: Alignment.center),
+                child: IdentityCard(identity: identity),
               ),
             ),
           ),

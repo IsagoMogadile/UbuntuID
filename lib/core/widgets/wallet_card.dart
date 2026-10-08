@@ -40,7 +40,7 @@ class WalletCard extends StatelessWidget {
     this.footerNote,
     this.footerBrand = 'UBUNTUID DOCUMENT WALLET',
     this.maxWidth = 460,
-    this.alignment = Alignment.centerLeft,
+    this.alignment = Alignment.center,
   });
 
   /// The document's own name, e.g. "IDENTITY CARD", "DRIVER'S LICENCE".

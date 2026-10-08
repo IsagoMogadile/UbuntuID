@@ -124,7 +124,7 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
   }
 
   Widget _identityCard(DigitalIdentity identity) {
-    return IdentityCard(identity: identity, maxWidth: 380, alignment: Alignment.center);
+    return IdentityCard(identity: identity, maxWidth: 380);
   }
 
   Widget _credentialCard(DigitalIdentity identity, CredentialItem credential) {
@@ -151,7 +151,6 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
       ],
       footerNote: 'Verified by ${credential.issuingDepartment}.',
       maxWidth: 380,
-      alignment: Alignment.center,
     );
   }
 }
