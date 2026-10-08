@@ -25,13 +25,13 @@ class StatusBadge extends StatelessWidget {
   };
   static const _warningStatuses = {
     'pending', 'submitted', 'in_review', 'under_review', 'processing',
-    'awaiting_review', 'flagged', 'unread', 'open', 'requested',
+    'awaiting_review', 'flagged', 'unread', 'open', 'requested', 'under_investigation',
   };
   static const _errorStatuses = {
     'rejected', 'declined', 'expired', 'revoked', 'inactive', 'failed', 'denied',
     'suspended', 'mismatch', 'closed',
   };
-  static const _infoStatuses = {'draft', 'not_started', 'info', 'new'};
+  static const _infoStatuses = {'draft', 'not_started', 'info', 'new', 'acknowledged'};
 
   static String _titleCase(String value) {
     final words = value.replaceAll('_', ' ').split(' ').where((w) => w.isNotEmpty);

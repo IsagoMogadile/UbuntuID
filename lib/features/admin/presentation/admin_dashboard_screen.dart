@@ -96,6 +96,18 @@ class AdminDashboardScreen extends ConsumerWidget {
               ],
             ),
           ),
+          const SizedBox(height: 10),
+          AppCard(
+            onTap: () => context.push(AppRoutes.adminFeedback),
+            child: const Row(
+              children: [
+                Icon(Icons.feedback_outlined),
+                SizedBox(width: 12),
+                Expanded(child: Text('Citizen feedback')),
+                Icon(Icons.chevron_right),
+              ],
+            ),
+          ),
           const SizedBox(height: 20),
           SectionHeader(
             title: 'System activity',

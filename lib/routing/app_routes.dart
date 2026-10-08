@@ -40,6 +40,7 @@ class AppRoutes {
   static const citizenTimeline = '/citizen/timeline';
   static const citizenEmployment = '/citizen/employment';
   static const citizenAppeals = '/citizen/appeals';
+  static const citizenFeedback = '/citizen/feedback';
 
   // Department official
   static const departmentDashboard = '/department-official';
@@ -74,6 +75,7 @@ class AppRoutes {
   static const adminVerification = '/admin/verification';
   static const adminFlaggedRecords = '/admin/flagged-records';
   static const adminAppeals = '/admin/appeals';
+  static const adminFeedback = '/admin/feedback';
   static const adminProfile = '/admin/profile';
   static const adminSettings = '/admin/settings';
   static const adminReports = '/admin/reports';

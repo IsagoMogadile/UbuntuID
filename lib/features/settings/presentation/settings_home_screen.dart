@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/list_item_card.dart';
 import '../../../core/widgets/section_header.dart';
+import '../../../models/user_role.dart';
 import '../../../routing/app_routes.dart';
+import '../../../services/service_providers.dart';
 import '../../auth/application/logout.dart';
 
 class SettingsHomeScreen extends ConsumerWidget {
@@ -16,6 +18,8 @@ class SettingsHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isCitizen = ref.watch(currentRoleProvider).value?.role == UserRole.citizen;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
@@ -57,6 +61,15 @@ class SettingsHomeScreen extends ConsumerWidget {
             onTap: () => context.push(AppRoutes.settingsAppearance),
           ),
           const SizedBox(height: 10),
+          if (isCitizen) ...[
+            ListItemCard(
+              title: 'Feedback',
+              subtitle: 'Complaints, compliments and suggestions',
+              leadingIcon: Icons.feedback_outlined,
+              onTap: () => context.push(AppRoutes.citizenFeedback),
+            ),
+            const SizedBox(height: 10),
+          ],
           ListItemCard(
             title: 'About UbuntuID',
             leadingIcon: Icons.info_outline,

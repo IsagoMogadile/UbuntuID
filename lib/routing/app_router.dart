@@ -9,6 +9,9 @@ import '../models/user_role.dart';
 import '../features/admin/presentation/admin_citizen_search_screen.dart';
 import '../features/admin/presentation/admin_dashboard_screen.dart';
 import '../features/admin/presentation/admin_profile_screen.dart';
+import '../features/feedback/presentation/admin_feedback_detail_screen.dart';
+import '../features/feedback/presentation/admin_feedback_list_screen.dart';
+import '../features/feedback/presentation/give_feedback_screen.dart';
 import '../features/admin/presentation/admin_verification_queue_screen.dart';
 import '../features/admin/presentation/audit_log_detail_screen.dart';
 import '../features/admin/presentation/audit_logs_list_screen.dart';
@@ -553,6 +556,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (c, s) => AppealDetailScreen(appealId: s.pathParameters['id']!),
       ),
       GoRoute(path: AppRoutes.citizenAppeals, builder: (c, s) => const MyAppealsScreen()),
+      GoRoute(path: AppRoutes.citizenFeedback, builder: (c, s) => const GiveFeedbackScreen()),
+      GoRoute(path: AppRoutes.adminFeedback, builder: (c, s) => const AdminFeedbackListScreen()),
+      GoRoute(
+        path: '${AppRoutes.adminFeedback}/:id',
+        builder: (c, s) => AdminFeedbackDetailScreen(feedbackId: s.pathParameters['id']!),
+      ),
     ],
   );
 });
