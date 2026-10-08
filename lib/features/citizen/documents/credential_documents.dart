@@ -1198,4 +1198,9 @@ class CredentialDocuments {
   }
 
   static Future<void> share(Uint8List bytes, String filename) => Printing.sharePdf(bytes: bytes, filename: filename);
+
+  static const identityFileName = 'ubuntuid_identity_document_prototype.pdf';
+
+  static String credentialFileName(String typeName) =>
+      '${typeName.replaceAll(RegExp('[^A-Za-z0-9]+'), '_').toLowerCase()}_prototype.pdf';
 }

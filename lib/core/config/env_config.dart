@@ -10,4 +10,10 @@ class EnvConfig {
   static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 
   static const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+
+  /// Optional. The address QR codes link to, e.g. `https://ubuntuid.vercel.app`
+  /// or `http://192.168.1.20:8080` to test scanning with a phone on the same
+  /// network. Empty means "wherever the app is currently being served from",
+  /// which is right once the app is hosted.
+  static const String publicAppUrl = String.fromEnvironment('PUBLIC_APP_URL');
 }

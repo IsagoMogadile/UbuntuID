@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/wallet_card.dart';
+import '../../../core/utils/public_links.dart';
 import '../data/citizen_repository.dart';
 import '../documents/document_downloads.dart';
 import '../domain/credential_item.dart';
@@ -68,29 +70,45 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
             return Column(
               children: [
                 Expanded(
-                  child: PageView.builder(
-                    controller: _controller,
-                    itemCount: cards.length,
-                    onPageChanged: (i) => setState(() => _page = i),
-                    itemBuilder: (context, i) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
-                      child: Center(child: SingleChildScrollView(child: cards[i])),
+                  // Click-and-drag with a mouse swipes too (Flutter only
+                  // drags on touch by default). The app-wide SelectionArea
+                  // is switched off here, or a mouse drag would select the
+                  // card's text instead of swiping.
+                  child: SelectionContainer.disabled(
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context).copyWith(
+                        dragDevices: {
+                          PointerDeviceKind.touch,
+                          PointerDeviceKind.mouse,
+                          PointerDeviceKind.trackpad,
+                          PointerDeviceKind.stylus,
+                        },
+                      ),
+                      child: PageView.builder(
+                        controller: _controller,
+                        itemCount: cards.length,
+                        onPageChanged: (i) => setState(() => _page = i),
+                        itemBuilder: (context, i) => Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
+                          child: Center(child: SingleChildScrollView(child: cards[i])),
+                        ),
+                      ),
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
                     children: [
                       for (var i = 0; i < cards.length; i++)
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: i == page ? 20 : 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: i == page ? 0.9 : 0.35),
-                            borderRadius: BorderRadius.circular(3),
+                        _PageDot(
+                          active: i == page,
+                          label: 'Card ${i + 1} of ${cards.length}',
+                          onTap: () => _controller.animateToPage(
+                            i,
+                            duration: const Duration(milliseconds: 350),
+                            curve: Curves.easeOutCubic,
                           ),
                         ),
                     ],
@@ -99,7 +117,7 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
-                    '${page + 1} of ${cards.length} • swipe to browse',
+                    '${page + 1} of ${cards.length} • swipe or tap a dot',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ),
@@ -134,7 +152,7 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
       title: credential.typeName,
       status: credential.status,
       headerColors: _credentialColours(credential.typeName),
-      qrData: 'UBUNTUID:CRED:${credential.credentialId}',
+      qrData: PublicLinks.verify(credential.credentialId),
       rows: [
         [WalletCardField('Holder', identity.fullName.toUpperCase())],
         if (qualification != null) [WalletCardField('Qualification', qualification.qualificationName.toUpperCase())],
@@ -172,4 +190,42 @@ List<Color> _credentialColours(String typeName) {
     'SASSA Grant Status' => const [Color(0xFF7A4B1E), Color(0xFFAF7A3E)],
     _ => const [AppColors.green, AppColors.gold],
   };
+}
+
+/// A page indicator dot that jumps to its card. The visible dot is tiny, so
+/// the tap target around it is padded out to a comfortable 24px.
+class _PageDot extends StatelessWidget {
+  const _PageDot({required this.active, required this.label, required this.onTap});
+
+  final bool active;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        selected: active,
+        label: label,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 14,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: active ? 20 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: active ? 0.9 : 0.35),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

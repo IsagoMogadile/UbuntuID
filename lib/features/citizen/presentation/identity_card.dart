@@ -5,6 +5,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/wallet_card.dart';
 import '../documents/credential_documents.dart';
 import '../domain/digital_identity.dart';
+import '../../../core/utils/public_links.dart';
 
 /// The citizen's identity as an ID card -- a [WalletCard] laid out like a
 /// South African smart ID card front (portrait on the left, Surname /
@@ -36,7 +37,7 @@ class IdentityCard extends StatelessWidget {
       status: identity.currentStatus,
       headerColors: const [AppColors.green, Color(0xFF2F7D4A)],
       bodyColors: const [Color(0xFFE4F1E3), Color(0xFFF3F1DC), Color(0xFFF7E7C2)],
-      qrData: 'UBUNTUID:${identity.idNumber}',
+      qrData: PublicLinks.verify(identity.citizenId),
       rows: [
         [WalletCardField('Surname', holder.surname.toUpperCase())],
         [WalletCardField('Names', holder.firstNames.toUpperCase())],

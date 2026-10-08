@@ -21,6 +21,9 @@ class AppRoutes {
   static const notFound = '/not-found';
   static const comingSoon = '/coming-soon';
 
+  /// Public -- where QR codes lead. Takes the document ref: `/verify/<ref>`.
+  static const publicVerify = '/verify';
+
   // Citizen
   static const citizenDashboard = '/citizen';
   static const citizenServices = '/citizen/services';

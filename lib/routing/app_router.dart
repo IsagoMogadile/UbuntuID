@@ -89,6 +89,7 @@ import '../features/shared/presentation/header_citizen_search.dart';
 import '../features/shared/presentation/no_internet_screen.dart';
 import '../features/shared/presentation/not_found_screen.dart';
 import '../features/shared/presentation/unauthorized_screen.dart';
+import '../features/verification/presentation/public_verification_screen.dart';
 import '../features/verification/presentation/verification_request_detail_screen.dart';
 import '../services/service_providers.dart';
 import 'app_routes.dart';
@@ -260,6 +261,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.comingSoon,
         builder: (c, s) => ComingSoonScreen(featureName: s.uri.queryParameters['feature']),
+      ),
+      // Public: QR codes on the identity card and wallet cards land here,
+      // usually on a phone that isn't signed in. Not in _protectedPrefixes.
+      GoRoute(
+        path: '${AppRoutes.publicVerify}/:ref',
+        builder: (c, s) => PublicVerificationScreen(docRef: s.pathParameters['ref']!),
       ),
 
       // --- Settings (shared across roles) ---

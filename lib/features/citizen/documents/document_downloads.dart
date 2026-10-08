@@ -39,7 +39,7 @@ class DocumentDownloads {
   static Future<void> identityDocument(BuildContext context, WidgetRef ref, DigitalIdentity identity) {
     return _withFeedback(context, () async {
       final bytes = await CredentialDocuments.identityDocument(await _holder(ref, identity));
-      await CredentialDocuments.share(bytes, 'ubuntuid_identity_document_prototype.pdf');
+      await CredentialDocuments.share(bytes, CredentialDocuments.identityFileName);
     });
   }
 
@@ -55,10 +55,7 @@ class DocumentDownloads {
         ref.read(citizenRepositoryProvider).getCredentialRecord(credential.typeCode),
       ).wait;
       final bytes = await CredentialDocuments.credentialDocument(holder, credential, record);
-      await CredentialDocuments.share(
-        bytes,
-        '${credential.typeName.replaceAll(RegExp('[^A-Za-z0-9]+'), '_').toLowerCase()}_prototype.pdf',
-      );
+      await CredentialDocuments.share(bytes, CredentialDocuments.credentialFileName(credential.typeName));
     });
   }
 }
