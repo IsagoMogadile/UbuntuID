@@ -6,9 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import '../core/widgets/role_navigation_shell.dart';
 import '../models/user_role.dart';
-import '../features/admin/presentation/admin_citizen_search_screen.dart';
 import '../features/admin/presentation/admin_dashboard_screen.dart';
 import '../features/admin/presentation/admin_profile_screen.dart';
+import '../features/admin/presentation/admin_search_screen.dart';
 import '../features/feedback/presentation/admin_feedback_detail_screen.dart';
 import '../features/feedback/presentation/admin_feedback_list_screen.dart';
 import '../features/feedback/presentation/give_feedback_screen.dart';
@@ -85,7 +85,7 @@ import '../features/settings/presentation/privacy_settings_screen.dart';
 import '../features/settings/presentation/security_settings_screen.dart';
 import '../features/settings/presentation/settings_home_screen.dart';
 import '../features/shared/presentation/coming_soon_screen.dart';
-import '../features/shared/presentation/header_citizen_search.dart';
+import '../features/shared/presentation/header_search.dart';
 import '../features/shared/presentation/no_internet_screen.dart';
 import '../features/shared/presentation/not_found_screen.dart';
 import '../features/shared/presentation/unauthorized_screen.dart';
@@ -380,7 +380,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               _logOutDestination(ref),
             ],
             profileRoute: AppRoutes.departmentProfile,
-            headerSearch: const HeaderCitizenSearch(searchRoute: AppRoutes.departmentCitizenSearch),
+            headerSearch: const HeaderSearch(
+              searchRoute: AppRoutes.departmentCitizenSearch,
+              hintText: 'Search citizen by ID number',
+              queryParameter: 'id',
+              icon: Icons.person_search_outlined,
+              keyboardType: TextInputType.number,
+            ),
           ),
         ),
         branches: [
@@ -485,7 +491,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               _logOutDestination(ref),
             ],
             profileRoute: AppRoutes.adminProfile,
-            headerSearch: const HeaderCitizenSearch(searchRoute: AppRoutes.adminCitizenSearch),
+            headerSearch: const HeaderSearch(
+              searchRoute: AppRoutes.adminSearch,
+              hintText: 'Search people, organisations, departments',
+              queryParameter: 'q',
+            ),
           ),
         ),
         branches: [
@@ -547,10 +557,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '${AppRoutes.adminVerification}/:id',
         builder: (c, s) => VerificationRequestDetailScreen(requestId: s.pathParameters['id']!),
       ),
-      // Reached from the admin header's search field; `?id=` pre-fills and runs the search.
+      // Reached from the admin header's search field; `?q=` pre-fills and runs the search.
       GoRoute(
-        path: AppRoutes.adminCitizenSearch,
-        builder: (c, s) => AdminCitizenSearchScreen(initialIdNumber: s.uri.queryParameters['id']),
+        path: AppRoutes.adminSearch,
+        builder: (c, s) => AdminSearchScreen(initialQuery: s.uri.queryParameters['q']),
       ),
       GoRoute(path: AppRoutes.adminComplianceAudits, builder: (c, s) => const ComplianceAuditsListScreen()),
       GoRoute(path: AppRoutes.adminHouseholdRecords, builder: (c, s) => const HouseholdRecordsListScreen()),

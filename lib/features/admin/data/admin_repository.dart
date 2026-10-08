@@ -3,8 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../services/service_providers.dart';
-import '../../shared/domain/citizen_lookup_result.dart';
 import '../domain/appeal_item.dart';
+import '../domain/admin_search_hit.dart';
 import '../domain/admin_stats.dart';
 import '../domain/audit_log_item.dart';
 import '../domain/compliance_audit_item.dart';
@@ -464,65 +464,124 @@ class AdminRepository {
     return _client.rpc('admin_delete_department_official', params: {'p_official_id': officialId});
   }
 
-  /// Generic "search citizen by ID number" for platform-wide oversight
-  /// (spec §3.4) -- gated by the live `citizens_select` RLS policy, which
-  /// already grants `is_admin()` read access to any citizen row.
-  Future<CitizenLookupResult?> searchCitizenByIdNumber(String idNumber) async {
-    final row = await _client
-        .from('citizens')
-        .select('citizen_id, first_name, last_name, id_number, date_of_birth, current_status, phone_number, email')
-        .eq('id_number', idNumber)
-        .maybeSingle();
-    if (row == null) return null;
-    final dob = row['date_of_birth'] as String?;
-    return CitizenLookupResult(
-      citizenId: row['citizen_id'] as String,
-      firstName: row['first_name'] as String? ?? '',
-      lastName: row['last_name'] as String? ?? '',
-      idNumber: row['id_number'] as String? ?? idNumber,
-      currentStatus: row['current_status'] as String? ?? 'unknown',
-      dateOfBirth: dob == null ? null : DateTime.tryParse(dob),
-      phoneNumber: row['phone_number'] as String?,
-      email: row['email'] as String?,
-    );
-  }
+  static const _searchLimitPerKind = 25;
 
-  /// Search by any combination of first name, last name and/or ID number
-  /// (partial, case-insensitive on the names) -- mirrors
-  /// `DepartmentRepository.searchCitizens`. No filters at all browses the
-  /// first 50 citizens ordered by surname (the "view all" case), gated by
-  /// the same `is_admin()` `citizens_select` grant as [searchCitizenByIdNumber].
-  Future<List<CitizenLookupResult>> searchCitizens({
-    String? idNumber,
-    String? firstName,
-    String? lastName,
-  }) async {
-    var query = _client
-        .from('citizens')
-        .select('citizen_id, first_name, last_name, id_number, date_of_birth, current_status, phone_number, email');
-    if (idNumber != null && idNumber.trim().isNotEmpty) {
-      query = query.eq('id_number', idNumber.trim());
+  /// The admin header's universal search -- every actor an administrator
+  /// oversees (citizens, department officials, organisation users,
+  /// administrators, organisations, departments) by name, ID number,
+  /// registration number/department code or email, all in one go.
+  ///
+  /// Each word typed must appear somewhere in the row, in any order ("Thabo
+  /// Mokoena" and "mokoena thabo" both match). The longest word is matched
+  /// server-side to keep each query small; the rest are checked here.
+  /// Characters that would break a PostgREST `or=` filter are dropped.
+  Future<List<AdminSearchHit>> searchEverything(String rawQuery) async {
+    final words = rawQuery
+        .replaceAll(RegExp(r'[,()*%\\."\x27:]'), ' ')
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return const [];
+    final lead = words.reduce((a, b) => b.length > a.length ? b : a);
+    bool matchesAll(List<Object?> fields) {
+      final haystack = fields.whereType<String>().join(' ').toLowerCase();
+      return words.every(haystack.contains);
     }
-    if (firstName != null && firstName.trim().isNotEmpty) {
-      query = query.ilike('first_name', '%${firstName.trim()}%');
+
+    Future<List<AdminSearchHit>> staff({
+      required String table,
+      required String idColumn,
+      required AdminSearchKind kind,
+    }) async {
+      final rows = await _client
+          .from(table)
+          .select('$idColumn, full_name, id_number, email, active')
+          .or('full_name.ilike.*$lead*,id_number.ilike.$lead*,email.ilike.*$lead*')
+          .order('full_name')
+          .limit(_searchLimitPerKind);
+      return [
+        for (final row in rows)
+          if (matchesAll([row['full_name'], row['id_number'], row['email']]))
+            AdminSearchHit(
+              kind: kind,
+              id: row[idColumn] as String,
+              title: row['full_name'] as String? ?? kind.label,
+              subtitle: [row['id_number'], row['email']].whereType<String>().join(' · '),
+              status: row['active'] == false ? 'inactive' : 'active',
+            ),
+      ];
     }
-    if (lastName != null && lastName.trim().isNotEmpty) {
-      query = query.ilike('last_name', '%${lastName.trim()}%');
+
+    Future<List<AdminSearchHit>> citizens() async {
+      final rows = await _client
+          .from('citizens')
+          .select('citizen_id, first_name, last_name, id_number, email, current_status')
+          .or('first_name.ilike.*$lead*,last_name.ilike.*$lead*,id_number.ilike.$lead*,email.ilike.*$lead*')
+          .order('last_name')
+          .limit(_searchLimitPerKind);
+      return [
+        for (final row in rows)
+          if (matchesAll([row['first_name'], row['last_name'], row['id_number'], row['email']]))
+            AdminSearchHit(
+              kind: AdminSearchKind.citizen,
+              id: row['citizen_id'] as String,
+              title: '${row['first_name'] ?? ''} ${row['last_name'] ?? ''}'.trim(),
+              subtitle: row['id_number'] as String? ?? '',
+              status: row['current_status'] as String? ?? 'unknown',
+            ),
+      ];
     }
-    final rows = await query.order('last_name').limit(50);
-    return [
-      for (final row in rows)
-        CitizenLookupResult(
-          citizenId: row['citizen_id'] as String,
-          firstName: row['first_name'] as String? ?? '',
-          lastName: row['last_name'] as String? ?? '',
-          idNumber: row['id_number'] as String? ?? '',
-          currentStatus: row['current_status'] as String? ?? 'unknown',
-          dateOfBirth: (row['date_of_birth'] as String?) == null ? null : DateTime.tryParse(row['date_of_birth'] as String),
-          phoneNumber: row['phone_number'] as String?,
-          email: row['email'] as String?,
-        ),
-    ];
+
+    Future<List<AdminSearchHit>> organisations() async {
+      final rows = await _client
+          .from('organisations')
+          .select('organisation_id, legal_name, registration_number, organisation_type, registration_status')
+          .or('legal_name.ilike.*$lead*,registration_number.ilike.*$lead*')
+          .order('legal_name')
+          .limit(_searchLimitPerKind);
+      return [
+        for (final row in rows)
+          if (matchesAll([row['legal_name'], row['registration_number']]))
+            AdminSearchHit(
+              kind: AdminSearchKind.organisation,
+              id: row['organisation_id'] as String,
+              title: row['legal_name'] as String? ?? 'Organisation',
+              subtitle: [row['registration_number'], row['organisation_type']].whereType<String>().join(' · '),
+              status: row['registration_status'] as String? ?? 'pending',
+            ),
+      ];
+    }
+
+    Future<List<AdminSearchHit>> departments() async {
+      final rows = await _client
+          .from('departments')
+          .select('department_id, department_name, department_code, category, active')
+          .or('department_name.ilike.*$lead*,department_code.ilike.*$lead*')
+          .order('department_name')
+          .limit(_searchLimitPerKind);
+      return [
+        for (final row in rows)
+          if (matchesAll([row['department_name'], row['department_code']]))
+            AdminSearchHit(
+              kind: AdminSearchKind.department,
+              id: row['department_id'] as String,
+              title: row['department_name'] as String? ?? 'Department',
+              subtitle: [row['department_code'], row['category']].whereType<String>().join(' · '),
+              status: row['active'] == false ? 'inactive' : 'active',
+            ),
+      ];
+    }
+
+    final results = await Future.wait([
+      citizens(),
+      staff(table: 'department_officials', idColumn: 'official_id', kind: AdminSearchKind.departmentOfficial),
+      staff(table: 'organisation_users', idColumn: 'organisation_user_id', kind: AdminSearchKind.organisationUser),
+      staff(table: 'ubuntuid_administrators', idColumn: 'admin_id', kind: AdminSearchKind.administrator),
+      organisations(),
+      departments(),
+    ]);
+    return [for (final list in results) ...list];
   }
 
   /// (actor_type, actor_id) -> resolved name, so a given official/admin/

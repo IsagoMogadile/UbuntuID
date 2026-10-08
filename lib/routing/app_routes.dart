@@ -85,7 +85,7 @@ class AppRoutes {
   static const adminReports = '/admin/reports';
   static const adminOfficialNew = '/admin/officials/new';
   static const adminOfficialEdit = '/admin/officials'; // + '/:id/edit'
-  static const adminCitizenSearch = '/admin/citizen-search';
+  static const adminSearch = '/admin/search';
   static const adminComplianceAudits = '/admin/compliance-audits';
   static const adminHouseholdRecords = '/admin/household-records';
 

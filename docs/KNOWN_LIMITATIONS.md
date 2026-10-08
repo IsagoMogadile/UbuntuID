@@ -143,6 +143,15 @@ found by audit:
   boundary this repository's own comments call out (spec: "they dont see
   everyone"). `DepartmentCitizenRecordsScreen`'s own bespoke ID-only search
   box was replaced with the same `CitizenSearchPanel`.
+- **The administrator's header search is universal, not citizen-only.**
+  An administrator oversees every actor, so `AdminRepository.searchEverything`
+  (replacing the admin's `searchCitizens`) matches citizens, department
+  officials, organisation users and administrators by name, ID number or
+  email, organisations by legal name or registration number, and departments
+  by name or code — each typed word must appear, in any order, capped at 25
+  rows per kind. `AdminSearchScreen` (`/admin/search?q=`) groups the results
+  by kind with filter chips and opens the matching admin detail screen.
+  Department officials keep their citizen-by-ID header search.
 - **Three real-world cross-department rules had zero enforcement**: a
   citizen could be enrolled at university with no matric on file, NSFAS
   funding could be granted to someone with no active enrolment or while
