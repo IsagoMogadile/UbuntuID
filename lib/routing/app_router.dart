@@ -170,11 +170,13 @@ Future<String?> _resolveRoleAreaRedirect(Ref ref, UserRole requiredRole) async {
   return null;
 }
 
-/// Every role's navigation ends Profile -> Settings -> Reports -> Log Out.
-/// Settings is its own tab in each role's shell (the shared
-/// [SettingsHomeScreen], minus its own Log out row since the shell has one);
-/// Reports is the role's own [ReportScreen]; Log Out is an action, not a
-/// branch, so it must stay the last destination.
+/// Every role's navigation starts with Dashboard and ends Reports -> Settings
+/// -> Log Out. Reports is the role's own [ReportScreen]; Settings is its own
+/// tab in each role's shell (the shared [SettingsHomeScreen], minus its own
+/// Log out row since the shell has one); Log Out is an action, not a branch,
+/// so it must stay the last destination. Profile isn't in the navigation --
+/// it's the header's top-right button, opening the role's profile screen
+/// full-screen (a top-level route beside the shell).
 const _settingsDestination =
     AppNavDestination(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Settings');
 
@@ -285,11 +287,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   label: 'Notifications',
                   badgeCount: unread,
                 ),
-                const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
-                _settingsDestination,
                 _reportsDestination,
+                _settingsDestination,
                 _logOutDestination(ref),
               ],
+              profileRoute: AppRoutes.citizenProfile,
             );
           },
         ),
@@ -303,13 +305,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.citizenNotifications, builder: (c, s) => const NotificationsListScreen()),
           ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: AppRoutes.citizenProfile, builder: (c, s) => const ProfileOverviewScreen()),
-          ]),
-          _settingsBranch(AppRoutes.citizenSettings),
           _reportsBranch(AppRoutes.citizenReports, ReportKind.citizen),
+          _settingsBranch(AppRoutes.citizenSettings),
         ],
       ),
+      GoRoute(path: AppRoutes.citizenProfile, builder: (c, s) => const ProfileOverviewScreen()),
 
       // Citizen detail/sub screens: deliberately top-level (siblings of the
       // shell above, not nested branch routes) so they push full-screen on
@@ -364,12 +364,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             destinations: [
               const AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
               const AppNavDestination(icon: Icons.apps_outlined, selectedIcon: Icons.apps, label: 'Services'),
-              const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
-              _settingsDestination,
               _reportsDestination,
+              _settingsDestination,
               _logOutDestination(ref),
             ],
-            appBarActions: const [HeaderCitizenSearch(searchRoute: AppRoutes.departmentCitizenSearch)],
+            profileRoute: AppRoutes.departmentProfile,
+            headerSearch: const HeaderCitizenSearch(searchRoute: AppRoutes.departmentCitizenSearch),
           ),
         ),
         branches: [
@@ -379,13 +379,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.departmentServices, builder: (c, s) => const DepartmentServicesScreen()),
           ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: AppRoutes.departmentProfile, builder: (c, s) => const DepartmentProfileScreen()),
-          ]),
-          _settingsBranch(AppRoutes.departmentSettings),
           _reportsBranch(AppRoutes.departmentReports, ReportKind.department),
+          _settingsBranch(AppRoutes.departmentSettings),
         ],
       ),
+      GoRoute(path: AppRoutes.departmentProfile, builder: (c, s) => const DepartmentProfileScreen()),
       // Reached from Services, not a bottom-nav tab --
       // visible only to Home Affairs officials (see
       // DepartmentDashboardScreen / RegisterCitizenScreen).
@@ -423,11 +421,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 label: 'New Applicant',
               ),
               const AppNavDestination(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Applicants'),
-              const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
-              _settingsDestination,
               _reportsDestination,
+              _settingsDestination,
               _logOutDestination(ref),
             ],
+            profileRoute: AppRoutes.organisationProfile,
           ),
         ),
         branches: [
@@ -443,13 +441,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               builder: (c, s) => const OrganisationVerificationListScreen(),
             ),
           ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: AppRoutes.organisationProfile, builder: (c, s) => const OrganisationProfileScreen()),
-          ]),
-          _settingsBranch(AppRoutes.organisationSettings),
           _reportsBranch(AppRoutes.organisationReports, ReportKind.organisation),
+          _settingsBranch(AppRoutes.organisationSettings),
         ],
       ),
+      GoRoute(path: AppRoutes.organisationProfile, builder: (c, s) => const OrganisationProfileScreen()),
       GoRoute(
         path: '${AppRoutes.organisationVerification}/:id',
         builder: (c, s) => VerificationRequestDetailScreen(requestId: s.pathParameters['id']!),
@@ -472,12 +468,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 label: 'Departments',
               ),
               const AppNavDestination(icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Audit'),
-              const AppNavDestination(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile'),
-              _settingsDestination,
               _reportsDestination,
+              _settingsDestination,
               _logOutDestination(ref),
             ],
-            appBarActions: const [HeaderCitizenSearch(searchRoute: AppRoutes.adminCitizenSearch)],
+            profileRoute: AppRoutes.adminProfile,
+            headerSearch: const HeaderCitizenSearch(searchRoute: AppRoutes.adminCitizenSearch),
           ),
         ),
         branches: [
@@ -499,13 +495,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: AppRoutes.adminAudit, builder: (c, s) => const AuditLogsListScreen()),
           ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: AppRoutes.adminProfile, builder: (c, s) => const AdminProfileScreen()),
-          ]),
-          _settingsBranch(AppRoutes.adminSettings),
           _reportsBranch(AppRoutes.adminReports, ReportKind.system),
+          _settingsBranch(AppRoutes.adminSettings),
         ],
       ),
+      GoRoute(path: AppRoutes.adminProfile, builder: (c, s) => const AdminProfileScreen()),
       GoRoute(
         path: '${AppRoutes.adminUsers}/:id',
         builder: (c, s) => UserDetailScreen(userId: s.pathParameters['id']!),

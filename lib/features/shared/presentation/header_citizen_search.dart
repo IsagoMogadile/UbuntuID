@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// "Search citizen by ID number" in the top-right of a role's header (department
+/// "Search citizen by ID number" in the middle of a role's header (department
 /// officials and administrators) -- an inline field on wide layouts, a search
-/// icon on narrow ones. Either way it opens [searchRoute] (that role's own
+/// icon beside Profile on narrow ones. Either way it opens [searchRoute] (that role's own
 /// citizen search screen), with the typed ID (if any) passed as `?id=` and
 /// searched immediately.
 class HeaderCitizenSearch extends StatefulWidget {
@@ -48,7 +48,7 @@ class _HeaderCitizenSearchState extends State<HeaderCitizenSearch> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: SizedBox(
         width: 300,
         height: 40,

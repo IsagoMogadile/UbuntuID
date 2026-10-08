@@ -65,23 +65,31 @@ class _PulsingBadge extends StatelessWidget {
 /// layouts, wrapping a [StatefulNavigationShell] branch.
 ///
 /// A bottom bar only fits [_maxBarItems] destinations, so on narrow layouts
-/// any beyond the first `_maxBarItems - 1` (typically Profile, Settings and
-/// Log Out) move behind a "More" item that opens them in a bottom sheet.
+/// any beyond the first `_maxBarItems - 1` (typically Settings and Log Out)
+/// move behind a "More" item that opens them in a bottom sheet.
+///
+/// Profile isn't a destination: it's the button in the far top-right of the
+/// header, opening [profileRoute]. A role with a [headerSearch] gets it in
+/// the middle of the header on wide layouts, and as an icon just before
+/// Profile on narrow ones.
 class RoleNavigationShell extends StatelessWidget {
   const RoleNavigationShell({
     super.key,
     required this.navigationShell,
     required this.title,
     required this.destinations,
-    this.appBarActions,
+    required this.profileRoute,
+    this.headerSearch,
   });
 
   final StatefulNavigationShell navigationShell;
   final String title;
   final List<AppNavDestination> destinations;
-  final List<Widget>? appBarActions;
+  final String profileRoute;
+  final Widget? headerSearch;
 
   static const _wideBreakpoint = 840.0;
+  static const _centredSearchBreakpoint = 600.0;
   static const _maxBarItems = 5;
 
   void _onDestinationSelected(BuildContext context, int index) {
@@ -188,16 +196,40 @@ class RoleNavigationShell extends StatelessWidget {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final search = headerSearch;
+    final centreSearch = search != null && MediaQuery.sizeOf(context).width >= _centredSearchBreakpoint;
+    final brand = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const AppLogo(size: 28, showWordmark: false),
+        const SizedBox(width: 10),
+        Text(title),
+      ],
+    );
+
     return AppBar(
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const AppLogo(size: 28, showWordmark: false),
-          const SizedBox(width: 10),
-          Text(title),
-        ],
-      ),
-      actions: appBarActions,
+      // With a centred search, equal flexible space either side keeps it in
+      // the middle of the header, between the brand and Profile.
+      title: centreSearch
+          ? Row(
+              children: [
+                Expanded(child: Align(alignment: Alignment.centerLeft, child: brand)),
+                search,
+                const Expanded(child: SizedBox()),
+              ],
+            )
+          : brand,
+      actions: [
+        if (search != null && !centreSearch) search,
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: IconButton(
+            icon: const Icon(Icons.account_circle_outlined, size: 28),
+            tooltip: 'Profile',
+            onPressed: () => context.push(profileRoute),
+          ),
+        ),
+      ],
     );
   }
 }

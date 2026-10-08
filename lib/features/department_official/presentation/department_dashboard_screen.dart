@@ -16,7 +16,7 @@ import '../data/department_repository.dart';
 /// (`start_verification`/`complete_verification`), and a department
 /// official's own involvement is none at all (see `docs/DECISIONS.md`).
 /// This dashboard is analytics only: navigation lives in the shell (Services,
-/// Profile, Settings in the sidebar; citizen search in the header), so no
+/// Reports, Settings in the sidebar; citizen search and Profile in the header), so no
 /// action here duplicates it. Every number comes from
 /// `DepartmentRepository.getDashboardStats` -- nothing is estimated.
 class DepartmentDashboardScreen extends ConsumerWidget {
