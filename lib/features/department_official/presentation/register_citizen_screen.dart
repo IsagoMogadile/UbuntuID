@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/errors/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/sa_id_generator.dart';
@@ -101,25 +103,60 @@ class _RegisterCitizenScreenState extends ConsumerState<RegisterCitizenScreen> {
     });
 
     try {
+      final email = _emailController.text.trim().toLowerCase();
       await ref.read(departmentRepositoryProvider).registerCitizen(
             idNumber: _idNumberController.text.trim(),
             firstName: _firstNameController.text.trim(),
             lastName: _lastNameController.text.trim(),
             dateOfBirth: _dateOfBirth!,
             phoneNumber: _phoneController.text.trim(),
-            email: _emailController.text.trim(),
+            email: email,
           );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Citizen registered.')),
-        );
-        context.pop();
-      }
+      if (!mounted) return;
+      await _showNextSteps(email);
+      if (mounted) context.pop();
+    } on AppException catch (e) {
+      setState(() => _error = e.message);
     } catch (e) {
       setState(() => _error = 'Could not register this citizen: $e');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  // Tells the official exactly what to hand the citizen, so they know which
+  // email to sign up with -- the only way their login reaches this record.
+  Future<void> _showNextSteps(String email) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.check_circle_outline, color: AppColors.green),
+        title: const Text('Citizen registered'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Tell the citizen to go to UbuntuID, tap "Create account" and sign up with this email:'),
+            const SizedBox(height: 12),
+            SelectableText(email, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            const Text('Their account links to this record automatically the first time they log in.'),
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text('Copy email'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: email));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email copied.')));
+            },
+          ),
+          FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Done')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -181,10 +218,22 @@ class _RegisterCitizenScreenState extends ConsumerState<RegisterCitizenScreen> {
                 ),
                 const SizedBox(height: 14),
                 AppTextField(
-                  label: 'Email (optional)',
+                  label: 'Email',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   prefixIcon: Icons.mail_outline,
+                  validator: (value) {
+                    final email = value?.trim() ?? '';
+                    if (email.isEmpty) return 'Enter the citizen\'s own email address';
+                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) return 'Enter a valid email address';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'The citizen signs up for UbuntuID with this exact email to reach their record, '
+                  'so use an address they can actually receive mail at.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.charcoalMuted),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
-import '../../../core/utils/email_generator.dart';
 import '../../../routing/app_routes.dart';
 import '../../../services/service_providers.dart';
 import '../../shared/domain/citizen_lookup_result.dart';
@@ -1077,17 +1076,30 @@ class DepartmentRepository {
   /// 'HOME_AFFAIRS'`), confirmed working end-to-end. Uses only `citizens`
   /// columns already confirmed in docs/SCREEN_DATABASE_MAP.md; no field is
   /// invented.
+  ///
+  /// [email] is required and must be the citizen's own, real address: it's
+  /// how they later claim this record by signing up (`claim_citizen_account`
+  /// matches on it, case-insensitively), so a made-up address would leave
+  /// them unable to ever log in. Refused if another citizen already has it,
+  /// since the claim couldn't tell the two records apart.
   Future<void> registerCitizen({
     required String idNumber,
     required String firstName,
     required String lastName,
     required DateTime dateOfBirth,
+    required String email,
     String? phoneNumber,
-    String? email,
   }) async {
-    final resolvedEmail = (email != null && email.isNotEmpty)
-        ? email
-        : await _generateUniqueCitizenEmail(firstName, lastName);
+    final normalisedEmail = email.trim().toLowerCase();
+    final existing = await _client
+        .from('citizens')
+        .select('citizen_id')
+        // Escape LIKE wildcards -- `_` is common in real addresses.
+        .ilike('email', normalisedEmail.replaceAllMapped(RegExp(r'[\\%_]'), (m) => '\\${m[0]}'))
+        .limit(1);
+    if (existing.isNotEmpty) {
+      throw const AppException('Another citizen is already registered with this email address.');
+    }
 
     await _client.from('citizens').insert({
       'id_number': idNumber,
@@ -1096,27 +1108,9 @@ class DepartmentRepository {
       'date_of_birth': dateOfBirth.toIso8601String().split('T').first,
       'current_status': 'active',
       if (phoneNumber != null && phoneNumber.isNotEmpty) 'phone_number': phoneNumber,
-      'email': resolvedEmail,
+      'email': normalisedEmail,
     });
   }
-
-  /// Auto-generates a `firstname.lastname@<domain>` email for a newly
-  /// registered citizen (spec: email must be auto-generated as part of the
-  /// creation path, not just the seed script), retrying with a numeric
-  /// disambiguator if the base form is already taken.
-  Future<String> _generateUniqueCitizenEmail(String firstName, String lastName) async {
-    for (var attempt = 0; attempt < 20; attempt++) {
-      final candidate = withDisambiguator(
-        generateCitizenEmail(firstName: firstName, lastName: lastName, seed: attempt),
-        attempt ~/ _citizenEmailDomainCount,
-      );
-      final existing = await _client.from('citizens').select('citizen_id').eq('email', candidate).maybeSingle();
-      if (existing == null) return candidate;
-    }
-    throw const AppException('Could not generate a unique email for this citizen.');
-  }
-
-  static const _citizenEmailDomainCount = 4;
 
   /// SAPS-only. Looks a citizen up by ID number, then their most recent
   /// `saps_clearance_certificates` row via `national_id_number`.

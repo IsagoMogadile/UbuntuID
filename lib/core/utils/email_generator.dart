@@ -1,8 +1,8 @@
 /// Auto-generates an email address for a newly created profile, following
 /// the same `firstname.lastname@<domain>` convention across every role.
-/// Called from the actual "create profile" code paths (e.g.
-/// `DepartmentRepository.registerCitizen`), not just the seed script, so
-/// every real registration gets one too.
+/// Citizens registered by Home Affairs are the exception: they must give
+/// their own real email (`DepartmentRepository.registerCitizen`), since it's
+/// what they sign up with to claim their record.
 library;
 
 const _citizenDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'webmail.co.za'];
