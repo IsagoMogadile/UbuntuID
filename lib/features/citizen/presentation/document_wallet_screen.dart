@@ -150,7 +150,7 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
         ],
       ],
       footerNote: 'Verified by ${credential.issuingDepartment}.',
-      showPortrait: credential.typeCode == 'DRIVERS_LICENCE',
+      showPortrait: const {'DRIVERS_LICENCE', 'PASSPORT'}.contains(credential.typeCode),
       maxWidth: 380,
     );
   }

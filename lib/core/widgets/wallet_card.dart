@@ -63,7 +63,7 @@ class WalletCard extends StatelessWidget {
   final String footerBrand;
 
   /// Only documents that carry a photo in real life (the identity card,
-  /// the driver's licence) show the portrait silhouette.
+  /// driver's licence, passport) show the portrait silhouette.
   final bool showPortrait;
   final double maxWidth;
   final AlignmentGeometry alignment;
