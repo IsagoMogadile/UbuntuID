@@ -35,12 +35,12 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
 
     return Scaffold(
       appBar: AppBar(
-        // Opened with context.go from the dashboard, so there may be no route
-        // to pop back to -- always offer a way home.
+        // Opened with context.go from the dashboard too, so there may be no
+        // route to pop back to -- always go to the notifications list.
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          tooltip: 'Back to home',
-          onPressed: () => context.go(AppRoutes.citizenDashboard),
+          tooltip: 'Back to notifications',
+          onPressed: () => context.go(AppRoutes.citizenNotifications),
         ),
         title: const Text('Notification'),
       ),
