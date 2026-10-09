@@ -32,7 +32,7 @@ class AdminProfileScreen extends ConsumerWidget {
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(3),
+                  padding: const EdgeInsets.all(1.5),
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppColors.gold,
@@ -41,7 +41,7 @@ class AdminProfileScreen extends ConsumerWidget {
                     radius: 56,
                     backgroundColor: scheme.primaryContainer,
                     foregroundColor: scheme.onPrimaryContainer,
-                    child: const Icon(Icons.admin_panel_settings_outlined, size: 56),
+                    child: const Icon(Icons.person, size: 64),
                   ),
                 ),
                 const SizedBox(height: 20),
