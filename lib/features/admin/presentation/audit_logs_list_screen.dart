@@ -68,10 +68,12 @@ class AuditLogsListScreen extends ConsumerWidget {
   // idea) -- exporting exactly what's loaded means a large audit trail
   // silently only gets you the newest 200 rows, so say so explicitly
   // rather than let an admin assume this is the complete history.
-  Future<void> _exportCsv(WidgetRef ref) async {
+  Future<void> _exportExcel(WidgetRef ref) async {
     final logs = ref.read(adminAuditLogsProvider).value ?? const [];
-    await ReportExport.exportCsv(
-      filename: 'ubuntuid_audit_logs_last_200.csv',
+    await ReportExport.exportExcel(
+      filename: 'ubuntuid_audit_logs_last_200.xlsx',
+      title: 'Audit logs',
+      subtitle: 'Most recent 200 events',
       headers: const ['Action', 'Responsible', 'Related table', 'Occurred', 'IP address'],
       rows: [
         for (final log in logs)
@@ -96,8 +98,8 @@ class AuditLogsListScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.download_outlined),
-            tooltip: 'Export last 200 events as CSV',
-            onPressed: () => _exportCsv(ref),
+            tooltip: 'Export last 200 events as Excel',
+            onPressed: () => _exportExcel(ref),
           ),
         ],
       ),

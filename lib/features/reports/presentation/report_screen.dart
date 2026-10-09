@@ -54,8 +54,10 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       if (pdf) {
         await Printing.sharePdf(bytes: await ReportPdf.build(data), filename: '$base.pdf');
       } else {
-        await ReportExport.exportCsv(
-          filename: '$base.csv',
+        await ReportExport.exportExcel(
+          filename: '$base.xlsx',
+          title: data.kind.title,
+          subtitle: data.range.label,
           headers: const ['Section', 'Item', 'Value'],
           rows: data.toExportRows(),
         );
@@ -87,7 +89,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
             onSelected: (pdf) => _download(data!, pdf: pdf),
             itemBuilder: (context) => const [
               PopupMenuItem(value: true, child: Text('Download PDF')),
-              PopupMenuItem(value: false, child: Text('Download CSV')),
+              PopupMenuItem(value: false, child: Text('Download Excel')),
             ],
           ),
         ],
@@ -120,7 +122,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                       data: (data) => _ReportBody(
                         data: data,
                         onDownloadPdf: () => _download(data, pdf: true),
-                        onDownloadCsv: () => _download(data, pdf: false),
+                        onDownloadExcel: () => _download(data, pdf: false),
                       ),
                     ),
                   ],
@@ -160,11 +162,11 @@ class _PeriodSelector extends StatelessWidget {
 }
 
 class _ReportBody extends StatelessWidget {
-  const _ReportBody({required this.data, required this.onDownloadPdf, required this.onDownloadCsv});
+  const _ReportBody({required this.data, required this.onDownloadPdf, required this.onDownloadExcel});
 
   final ReportData data;
   final VoidCallback onDownloadPdf;
-  final VoidCallback onDownloadCsv;
+  final VoidCallback onDownloadExcel;
 
   @override
   Widget build(BuildContext context) {
@@ -192,9 +194,9 @@ class _ReportBody extends StatelessWidget {
                     label: const Text('Download PDF'),
                   ),
                   OutlinedButton.icon(
-                    onPressed: onDownloadCsv,
+                    onPressed: onDownloadExcel,
                     icon: const Icon(Icons.table_chart_outlined, size: 18),
-                    label: const Text('Download CSV'),
+                    label: const Text('Download Excel'),
                   ),
                 ],
               ),

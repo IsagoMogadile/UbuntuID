@@ -54,10 +54,11 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     }).toList();
   }
 
-  Future<void> _exportCsv() async {
+  Future<void> _exportExcel() async {
     final users = _visibleUsers();
-    await ReportExport.exportCsv(
-      filename: 'ubuntuid_users.csv',
+    await ReportExport.exportExcel(
+      filename: 'ubuntuid_users.xlsx',
+      title: 'Users',
       headers: const ['Name', 'Email', 'Role', 'Status', 'Created'],
       rows: [
         for (final u in users)
@@ -83,7 +84,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       appBar: AppBar(
         title: const Text('Users'),
         actions: [
-          IconButton(icon: const Icon(Icons.download_outlined), tooltip: 'Export CSV', onPressed: _exportCsv),
+          IconButton(icon: const Icon(Icons.download_outlined), tooltip: 'Export Excel', onPressed: _exportExcel),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

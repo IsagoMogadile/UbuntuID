@@ -96,7 +96,7 @@ class ReportData {
   /// report instead of inventing numbers for it.
   final List<String> notes;
 
-  /// Flat (section, item, value) rows for CSV/PDF download.
+  /// Flat (section, item, value) rows for Excel/PDF download.
   List<List<String>> toExportRows() {
     return [
       ['Report', 'Title', kind.title],

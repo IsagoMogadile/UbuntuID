@@ -184,8 +184,9 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
 
   Future<void> _exportResults() async {
     final outcomes = _outcomes!;
-    await ReportExport.exportCsv(
-      filename: 'ubuntuid_bulk_results.csv',
+    await ReportExport.exportExcel(
+      filename: 'ubuntuid_bulk_results.xlsx',
+      title: 'Bulk verification results',
       headers: const ['Row', 'Name', 'ID number', 'Result'],
       rows: [
         for (final e in outcomes.entries)
