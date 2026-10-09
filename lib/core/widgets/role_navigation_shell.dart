@@ -147,12 +147,20 @@ class RoleNavigationShell extends StatelessWidget {
                       selectedIndex: navigationShell.currentIndex,
                       onDestinationSelected: (index) => _onDestinationSelected(context, index),
                       labelType: NavigationRailLabelType.all,
+                      // Centred with roomy spacing rather than packed into
+                      // the top-left corner; still scrolls when the window
+                      // is too short for them all.
+                      groupAlignment: 0,
+                      minWidth: 104,
+                      leading: const SizedBox(height: 16),
+                      trailing: const SizedBox(height: 16),
                       destinations: [
                         for (final d in destinations)
                           NavigationRailDestination(
                             icon: d._icon(d.icon),
                             selectedIcon: d._icon(d.selectedIcon),
                             label: Text(d.label),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                           ),
                       ],
                     ),
