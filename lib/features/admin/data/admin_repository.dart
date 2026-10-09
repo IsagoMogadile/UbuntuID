@@ -68,6 +68,20 @@ class AdminRepository {
     );
   }
 
+  /// The signed-in administrator's own `full_name`, or `null` if the
+  /// `ubuntuid_administrators` row has none.
+  Future<String?> getCurrentAdminName() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw const AppException('You are not signed in.');
+    final row = await _client
+        .from('ubuntuid_administrators')
+        .select('full_name')
+        .eq('auth_user_id', userId)
+        .maybeSingle();
+    final name = (row?['full_name'] as String?)?.trim();
+    return (name == null || name.isEmpty) ? null : name;
+  }
+
   Future<List<ComplianceAuditItem>> getComplianceAudits() async {
     final rows = await _client
         .from('compliance_audits')
@@ -771,7 +785,11 @@ final adminStatsProvider = FutureProvider.autoDispose<AdminStats>((ref) {
   return ref.watch(adminRepositoryProvider).getStats();
 });
 
-final adminUsersProvider = FutureProvider.autoDispose<List<UserListItem>>((ref) {
+final currentAdminNameProvider = FutureProvider.autoDispose<String?>((ref) {
+  return ref.watch(adminRepositoryProvider).getCurrentAdminName();
+});
+
+final adminUsersProvider =FutureProvider.autoDispose<List<UserListItem>>((ref) {
   return ref.watch(adminRepositoryProvider).getUsers();
 });
 
