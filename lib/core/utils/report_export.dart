@@ -184,58 +184,76 @@ class ReportExport {
     const relNs = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
     const pkgRelNs = 'http://schemas.openxmlformats.org/package/2006/relationships';
     const xmlDecl = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
-    const drawingPath = 'xl/drawings/drawing1.xml';
-    const sheetRelId = 'rIdUbuntuIdLogo';
-    const sheetRel = '<Relationship Id="$sheetRelId" Type="$relNs/drawing" Target="../drawings/drawing1.xml"/>';
     final cx = (size.width * emuPerPx).round();
     final cy = (size.height * emuPerPx).round();
 
     final source = ZipDecoder().decodeBytes(xlsx);
+    String read(ArchiveFile f) => utf8.decode(f.content as List<int>);
     final sheetPath = source.files
         .map((f) => f.name)
         .firstWhere((n) => RegExp(r'^xl/worksheets/sheet\d+\.xml$').hasMatch(n));
     final sheetRelsPath = 'xl/worksheets/_rels/${sheetPath.split('/').last}.rels';
+    final sheetRelsFile = source.findFile(sheetRelsPath);
+    final sheetRelsXml = sheetRelsFile == null ? null : read(sheetRelsFile);
 
-    String read(ArchiveFile f) => utf8.decode(f.content as List<int>);
+    // The `excel` package's blank template already links the sheet to an
+    // (empty) drawings/drawing1.xml. Reuse that slot -- adding a second
+    // relationship/content-type entry for the same part makes Excel report
+    // the file as corrupt and offer to repair it.
+    final existing = sheetRelsXml == null
+        ? null
+        : RegExp(r'<Relationship [^>]*Id="([^"]+)"[^>]*Type="[^"]*/drawing"[^>]*Target="\.\./drawings/([^"]+)"')
+            .firstMatch(sheetRelsXml);
+    final sheetRelId = existing?.group(1) ?? 'rIdUbuntuIdLogo';
+    final drawingName = existing?.group(2) ?? 'drawing1.xml';
+    final drawingPath = 'xl/drawings/$drawingName';
+    final sheetRel = '<Relationship Id="$sheetRelId" Type="$relNs/drawing" Target="../drawings/$drawingName"/>';
+
     final out = Archive();
     void add(String name, List<int> bytes) => out.addFile(ArchiveFile(name, bytes.length, bytes));
 
-    var hadSheetRels = false;
     for (final file in source.files) {
       if (!file.isFile) continue;
       if (file.name == sheetPath) {
         var xml = read(file);
-        if (!xml.contains('xmlns:r=')) xml = xml.replaceFirst('<worksheet ', '<worksheet xmlns:r="$relNs" ');
-        // <drawing> must come before these worksheet elements, if present.
-        final later = RegExp(r'<(legacyDrawing|legacyDrawingHF|picture|oleObjects|controls|'
-                r'webPublishItems|tableParts|extLst)[\s/>]')
-            .firstMatch(xml);
-        final at = later?.start ?? xml.lastIndexOf('</worksheet>');
-        add(file.name, utf8.encode('${xml.substring(0, at)}<drawing r:id="$sheetRelId"/>${xml.substring(at)}'));
+        if (!xml.contains('<drawing ')) {
+          if (!xml.contains('xmlns:r=')) xml = xml.replaceFirst('<worksheet ', '<worksheet xmlns:r="$relNs" ');
+          // <drawing> must come before these worksheet elements, if present.
+          final later = RegExp(r'<(legacyDrawing|legacyDrawingHF|picture|oleObjects|controls|'
+                  r'webPublishItems|tableParts|extLst)[\s/>]')
+              .firstMatch(xml);
+          final at = later?.start ?? xml.lastIndexOf('</worksheet>');
+          xml = '${xml.substring(0, at)}<drawing r:id="$sheetRelId"/>${xml.substring(at)}';
+        }
+        add(file.name, utf8.encode(xml));
       } else if (file.name == sheetRelsPath) {
-        hadSheetRels = true;
-        add(file.name, utf8.encode(read(file).replaceFirst('</Relationships>', '$sheetRel</Relationships>')));
+        add(
+          file.name,
+          utf8.encode(existing != null ? sheetRelsXml! : sheetRelsXml!.replaceFirst('</Relationships>', '$sheetRel</Relationships>')),
+        );
       } else if (file.name == '[Content_Types].xml') {
         var xml = read(file);
         if (!xml.contains('Extension="png"')) {
           xml = xml.replaceFirst('</Types>', '<Default Extension="png" ContentType="image/png"/></Types>');
         }
-        xml = xml.replaceFirst(
-          '</Types>',
-          '<Override PartName="/$drawingPath" '
-              'ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>',
-        );
+        if (!xml.contains('PartName="/$drawingPath"')) {
+          xml = xml.replaceFirst(
+            '</Types>',
+            '<Override PartName="/$drawingPath" '
+                'ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>',
+          );
+        }
         add(file.name, utf8.encode(xml));
-      } else {
+      } else if (file.name != drawingPath) {
         add(file.name, file.content as List<int>);
       }
     }
-    if (!hadSheetRels) {
+    if (sheetRelsXml == null) {
       add(sheetRelsPath, utf8.encode('$xmlDecl<Relationships xmlns="$pkgRelNs">$sheetRel</Relationships>'));
     }
     add('xl/media/ubuntuid_coat_of_arms.png', png);
     add(
-      'xl/drawings/_rels/drawing1.xml.rels',
+      'xl/drawings/_rels/$drawingName.rels',
       utf8.encode('$xmlDecl<Relationships xmlns="$pkgRelNs">'
           '<Relationship Id="rId1" Type="$relNs/image" Target="../media/ubuntuid_coat_of_arms.png"/>'
           '</Relationships>'),
