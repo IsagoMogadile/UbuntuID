@@ -8,6 +8,8 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../services/service_providers.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class AccountSettingsScreen extends ConsumerStatefulWidget {
   const AccountSettingsScreen({super.key});
@@ -41,13 +43,11 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
       await ref.read(authServiceProvider).updatePassword(_passwordController.text);
       _passwordController.clear();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated.')),
-      );
+      AppToast.success(context, 'Password updated.');
     } on AuthException catch (e) {
-      setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = 'Something went wrong. Please try again.');
+      setState(() => _error = friendlyAuthMessage(e.message));
+    } catch (e) {
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -82,11 +82,12 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
                 children: [
                   AppTextField(
                     label: 'New password',
+                    helperText: 'At least 8 characters.',
                     controller: _passwordController,
                     obscureText: true,
                     prefixIcon: Icons.lock_outline,
                     validator: (value) {
-                      if (value == null || value.length < 8) return 'At least 8 characters';
+                      if (value == null || value.length < 8) return 'Use at least 8 characters.';
                       return null;
                     },
                   ),

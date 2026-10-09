@@ -28,7 +28,7 @@ class UnauthorizedScreen extends StatelessWidget {
                 style: TextStyle(color: AppColors.charcoalMuted),
               ),
               const SizedBox(height: 20),
-              AppButton(label: 'Go to login', onPressed: () => context.go(AppRoutes.login)),
+              AppButton(label: 'Go to sign in', onPressed: () => context.go(AppRoutes.login)),
             ],
           ),
         ),

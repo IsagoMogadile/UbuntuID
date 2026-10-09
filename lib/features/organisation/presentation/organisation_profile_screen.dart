@@ -27,7 +27,7 @@ class OrganisationProfileScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Profile')),
       body: statsAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load organisation profile.'),
+        error: (error, _) => ErrorView(message: 'Could not load organisation profile.', onRetry: () => ref.invalidate(organisationDashboardStatsProvider)),
         data: (stats) => ListView(
           padding: const EdgeInsets.all(16),
           children: [

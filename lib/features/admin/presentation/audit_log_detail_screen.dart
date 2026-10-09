@@ -23,12 +23,12 @@ class AuditLogDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Audit event')),
       body: logsAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load this audit event.'),
+        error: (error, _) => ErrorView(message: 'Could not load this audit event.', onRetry: () => ref.invalidate(adminAuditLogsProvider)),
         data: (logs) {
           final matches = logs.where((l) => l.logId == logId);
           final log = matches.isEmpty ? null : matches.first;
           if (log == null) {
-            return const EmptyState(icon: Icons.search_off_outlined, title: 'Audit event not found');
+            return const EmptyState(icon: Icons.search_off_outlined, title: 'Audit event not found', message: 'It may have been removed, or the link is out of date. Go back and try again.');
           }
 
           return ListView(

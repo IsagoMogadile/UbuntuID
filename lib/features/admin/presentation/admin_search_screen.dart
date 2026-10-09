@@ -12,6 +12,7 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../routing/app_routes.dart';
 import '../data/admin_repository.dart';
 import '../domain/admin_search_hit.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// The administrator's universal search, reached from the admin header's
 /// search field: one box that finds any actor UbuntuID knows about --
@@ -88,7 +89,7 @@ class _AdminSearchScreenState extends ConsumerState<AdminSearchScreen> {
       final results = await ref.read(adminRepositoryProvider).searchEverything(query);
       if (mounted && generation == _searchGeneration) setState(() => _results = results);
     } catch (e) {
-      if (mounted && generation == _searchGeneration) setState(() => _error = 'Could not complete this search: $e');
+      if (mounted && generation == _searchGeneration) setState(() => _error = 'Could not complete this search. ${friendlyError(e)}');
     } finally {
       if (mounted && generation == _searchGeneration) setState(() => _loading = false);
     }

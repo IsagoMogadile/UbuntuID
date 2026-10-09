@@ -8,7 +8,6 @@ import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/list_item_card.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/section_header.dart';
-import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/staggered_fade_in.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../routing/app_routes.dart';
@@ -21,7 +20,6 @@ class CitizenDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final identityAsync = ref.watch(digitalIdentityProvider);
-    final documentsAsync = ref.watch(documentsProvider);
     final notifications = ref.watch(notificationsControllerProvider).value ?? const [];
     final unreadCount = notifications.where((n) => !n.isRead).length;
 
@@ -34,30 +32,17 @@ class CitizenDashboardScreen extends ConsumerWidget {
         // (every credential, same card treatment, swipeable).
         identityAsync.when(
           loading: () => const SizedBox(height: 260, child: LoadingIndicator()),
-          error: (error, _) => const ErrorView(message: 'Could not load your digital identity.'),
+          error: (error, _) => ErrorView(message: 'Could not load your digital identity.', onRetry: () => ref.invalidate(digitalIdentityProvider)),
           data: (identity) => GestureDetector(
             onTap: () => context.push(AppRoutes.citizenDocumentWallet),
             child: IdentityCard(identity: identity, footerNote: 'Tap to open your Document Wallet.'),
           ),
         ),
         const SizedBox(height: 20),
-        const SectionHeader(title: 'Verification status'),
-        AppCard(
-          child: const Row(
-            children: [
-              Icon(Icons.verified_user_outlined, color: AppColors.success),
-              SizedBox(width: 12),
-              Expanded(child: Text('Your identity has been verified with Home Affairs.')),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        const SectionHeader(title: 'My activity'),
-        ListItemCard(
-          title: 'My Activity Report',
-          subtitle: 'Your credentials, verification checks and history',
-          leadingIcon: Icons.assessment_outlined,
-          onTap: () => context.go(AppRoutes.citizenReports),
+        const SectionHeader(title: 'Identity status'),
+        identityAsync.maybeWhen(
+          data: (identity) => _IdentityStatusCard(status: identity.currentStatus),
+          orElse: () => const SizedBox.shrink(),
         ),
         const SizedBox(height: 20),
         const SectionHeader(title: 'Quick actions'),
@@ -66,19 +51,14 @@ class CitizenDashboardScreen extends ConsumerWidget {
           runSpacing: 10,
           children: [
             _QuickAction(
-              icon: Icons.qr_code_2_outlined,
-              label: 'Document Wallet',
-              onTap: () => context.push(AppRoutes.citizenDocumentWallet),
-            ),
-            _QuickAction(
-              icon: Icons.badge_outlined,
-              label: 'Digital ID',
-              onTap: () => context.push(AppRoutes.citizenDigitalIdentity),
-            ),
-            _QuickAction(
               icon: Icons.description_outlined,
               label: 'Documents',
               onTap: () => context.push(AppRoutes.citizenDocuments),
+            ),
+            _QuickAction(
+              icon: Icons.fact_check_outlined,
+              label: 'Who checked my details',
+              onTap: () => context.push(AppRoutes.citizenVerification),
             ),
             _QuickAction(
               icon: Icons.timeline_outlined,
@@ -109,30 +89,6 @@ class CitizenDashboardScreen extends ConsumerWidget {
               ),
             ),
           ),
-        const SizedBox(height: 20),
-        const SectionHeader(title: 'Recent activity'),
-        documentsAsync.when(
-          loading: () => const ShimmerListPlaceholder(itemCount: 2, padding: EdgeInsets.zero),
-          error: (error, _) => const ErrorView(message: 'Could not load recent activity.'),
-          data: (documents) => Column(
-            children: [
-              for (final (i, d) in documents.take(2).indexed)
-                StaggeredFadeIn(
-                  index: i,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: ListItemCard(
-                      title: d.documentType,
-                      subtitle: d.fileName,
-                      leadingIcon: Icons.description_outlined,
-                      trailing: StatusBadge.fromStatus(d.status),
-                      onTap: () => context.push('${AppRoutes.citizenDocuments}/${d.documentId}'),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -185,6 +141,39 @@ class _UnreadDot extends StatelessWidget {
       width: 10,
       height: 10,
       decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
+    );
+  }
+}
+
+/// The citizen's identity status in words, with what to do when it isn't
+/// active -- rather than always claiming the identity is verified.
+class _IdentityStatusCard extends StatelessWidget {
+  const _IdentityStatusCard({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData icon, Color color, String message) = switch (status) {
+      'active' => (Icons.verified_user_outlined, AppColors.success, 'Your identity is verified with Home Affairs.'),
+      'suspended' => (
+          Icons.pause_circle_outline,
+          AppColors.warning,
+          'Your identity is suspended. Organisations cannot verify your details until Home Affairs reactivates it. '
+              'Visit a Home Affairs office to resolve this.',
+        ),
+      _ => (Icons.info_outline, AppColors.info, 'Your identity status is "$status". Contact Home Affairs if this is wrong.'),
+    };
+    return AppCard(
+      child: Row(
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 12),
+          Expanded(child: Text(message)),
+          const SizedBox(width: 8),
+          StatusBadge.fromStatus(status),
+        ],
+      ),
     );
   }
 }

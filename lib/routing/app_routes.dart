@@ -40,7 +40,6 @@ class AppRoutes {
   static const citizenPersonalInformation = '/citizen/profile/personal-information';
   static const citizenVerification = '/citizen/verification';
   static const citizenConsent = '/citizen/profile/consent';
-  static const citizenDigitalIdCard = '/citizen/profile/id-card';
   static const citizenDocumentWallet = '/citizen/wallet';
   static const citizenTimeline = '/citizen/timeline';
   static const citizenEmployment = '/citizen/employment';
@@ -55,7 +54,6 @@ class AppRoutes {
   static const departmentReports = '/department-official/reports';
   static const departmentRegisterCitizen = '/department-official/register-citizen';
   static const departmentClearanceSearch = '/department-official/clearance-search';
-  static const departmentCitizenSearch = '/department-official/citizen-search';
   static const departmentCitizenRecords = '/department-official/citizen-records';
   static const departmentEditCitizen = '/department-official/citizens'; // + '/:id/edit'
   static const departmentSapsWanted = '/department-official/saps/wanted';

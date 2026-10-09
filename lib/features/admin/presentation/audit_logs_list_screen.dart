@@ -7,6 +7,7 @@ import '../../../core/utils/report_export.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/list_item_card.dart';
+import '../../../core/widgets/list_search_field.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../routing/app_routes.dart';
 import '../data/admin_repository.dart';
@@ -60,8 +61,15 @@ String friendlyAuditAction(AuditLogItem log) {
   }
 }
 
-class AuditLogsListScreen extends ConsumerWidget {
+class AuditLogsListScreen extends ConsumerStatefulWidget {
   const AuditLogsListScreen({super.key});
+
+  @override
+  ConsumerState<AuditLogsListScreen> createState() => _AuditLogsListScreenState();
+}
+
+class _AuditLogsListScreenState extends ConsumerState<AuditLogsListScreen> {
+  String _query = '';
 
   // The live feed this reads from (streamAuditLogs) caps at the 200 most
   // recent events by design (an unbounded realtime stream isn't a good
@@ -89,7 +97,7 @@ class AuditLogsListScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final logsAsync = ref.watch(adminAuditLogsProvider);
 
     return Scaffold(
@@ -111,23 +119,59 @@ class AuditLogsListScreen extends ConsumerWidget {
         ),
         data: (logs) {
           if (logs.isEmpty) {
-            return const EmptyState(icon: Icons.receipt_long_outlined, title: 'No audit events yet');
+            return const EmptyState(icon: Icons.receipt_long_outlined, title: 'No audit events yet', message: 'Every sign-in, verification and change to a record will be listed here.');
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: logs.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final log = logs[index];
-              final responsible = log.actorName ?? actorTypeLabel(log.actorType);
-              return ListItemCard(
-                title: friendlyAuditAction(log),
-                subtitle: '$responsible • ${AppFormatters.dateTime(log.occurredAt)}',
-                leadingIcon: Icons.receipt_long_outlined,
-                onTap: () => context.push('${AppRoutes.adminAudit}/${log.logId}'),
-              );
-            },
+          final shown = _query.isEmpty
+              ? logs
+              : logs.where((log) {
+                  final responsible = log.actorName ?? actorTypeLabel(log.actorType);
+                  return '${friendlyAuditAction(log)} $responsible ${log.relatedTable}'.toLowerCase().contains(_query);
+                }).toList();
+
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                child: ListSearchField(
+                  hintText: 'Search by action, person or record type',
+                  onChanged: (q) => setState(() => _query = q),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Showing ${shown.length} of the ${logs.length} most recent events',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: shown.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.search_off_outlined,
+                        title: 'No events match',
+                        message: 'Try a different search.',
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        itemCount: shown.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final log = shown[index];
+                          final responsible = log.actorName ?? actorTypeLabel(log.actorType);
+                          return ListItemCard(
+                            title: friendlyAuditAction(log),
+                            subtitle: '$responsible • ${AppFormatters.dateTime(log.occurredAt)}',
+                            leadingIcon: Icons.receipt_long_outlined,
+                            onTap: () => context.push('${AppRoutes.adminAudit}/${log.logId}'),
+                          );
+                        },
+                      ),
+              ),
+            ],
           );
         },
       ),

@@ -121,12 +121,12 @@ class DigitalIdentityScreen extends ConsumerWidget {
             const SectionHeader(title: 'Identity credentials'),
             credentialsAsync.when(
               loading: () => const SizedBox(height: 180, child: ShimmerListPlaceholder(itemCount: 3, padding: EdgeInsets.zero)),
-              error: (error, _) => const ErrorView(message: 'Could not load credentials.'),
+              error: (error, _) => ErrorView(message: 'Could not load credentials.', onRetry: () => ref.invalidate(credentialsProvider)),
               data: (credentials) {
                 if (credentials.isEmpty) {
                   return const EmptyState(
                     icon: Icons.badge_outlined,
-                    title: 'No credentials or records available from this department.',
+                    title: 'No credentials or records available from this department.', message: 'If you think something is missing, contact the department that issues it.',
                   );
                 }
                 return AppCard(
@@ -180,7 +180,7 @@ class DigitalIdentityScreen extends ConsumerWidget {
 /// department's own credential is left out entirely, and "No data" is
 /// shown plainly rather than an empty generic list when the citizen
 /// doesn't have one.
-class _FilteredCredentialView extends StatelessWidget {
+class _FilteredCredentialView extends ConsumerWidget {
   const _FilteredCredentialView({
     required this.identity,
     required this.credentialsAsync,
@@ -194,10 +194,10 @@ class _FilteredCredentialView extends StatelessWidget {
   final String title;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return credentialsAsync.when(
       loading: () => const LoadingIndicator(),
-      error: (error, _) => const ErrorView(message: 'Could not load this record.'),
+      error: (error, _) => ErrorView(message: 'Could not load this record.', onRetry: () => ref.invalidate(credentialsProvider)),
       data: (credentials) {
         final matches = credentials.where((c) => c.typeCode == typeCode).toList();
         if (matches.isEmpty) {

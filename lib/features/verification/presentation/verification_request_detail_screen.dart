@@ -15,6 +15,9 @@ import '../../../core/widgets/status_badge.dart';
 import '../../organisation/data/organisation_repository.dart';
 import '../data/verification_repository.dart';
 import '../domain/verification_request_summary.dart';
+import 'offer_employment_dialog.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/app_form_dialog.dart';
 
 /// How long the simulated automated check runs for, with a progress UI,
 /// before `complete_verification` is called. This project has no
@@ -82,7 +85,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
       _invalidateAll();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not start this check: $e')));
+        AppToast.error(context, 'Could not start this check.', error: e);
       }
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -116,151 +119,37 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
       await ref.read(verificationRepositoryProvider).completeVerification(widget.requestId);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not complete this check: $e')));
+        AppToast.error(context, 'Could not complete this check.', error: e);
       }
     }
     if (mounted) _invalidateAll();
   }
 
-  Future<void> _offerEmployment(String citizenId) async {
-    final titleController = TextEditingController();
-    final positionController = TextEditingController();
-    final salaryController = TextEditingController();
-    var salaryFrequency = 'Monthly';
-    var startDate = DateTime.now();
-    var employmentType = 'Permanent';
-    DateTime? endDate;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Offer employment'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(labelText: 'Job title'),
-                  autofocus: true,
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: positionController,
-                  decoration: const InputDecoration(labelText: 'Department/position (optional)'),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: salaryController,
-                        decoration: const InputDecoration(labelText: 'Salary (R, optional)'),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    DropdownButton<String>(
-                      value: salaryFrequency,
-                      items: const [
-                        DropdownMenuItem(value: 'Monthly', child: Text('Monthly')),
-                        DropdownMenuItem(value: 'Annual', child: Text('Annual')),
-                      ],
-                      onChanged: (v) => setDialogState(() => salaryFrequency = v ?? 'Monthly'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  initialValue: employmentType,
-                  decoration: const InputDecoration(labelText: 'Employment type'),
-                  items: [
-                    for (final t in const ['Permanent', 'Fixed-term contract', 'Temporary', 'Internship'])
-                      DropdownMenuItem(value: t, child: Text(t)),
-                  ],
-                  onChanged: (v) => setDialogState(() {
-                    employmentType = v ?? 'Permanent';
-                    if (employmentType == 'Permanent') endDate = null;
-                  }),
-                ),
-                const SizedBox(height: 10),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Start date: ${AppFormatters.date(startDate)}'),
-                  trailing: const Icon(Icons.calendar_today_outlined),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: startDate,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) setDialogState(() => startDate = picked);
-                  },
-                ),
-                if (employmentType != 'Permanent')
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(endDate == null ? 'End date: tap to choose' : 'End date: ${AppFormatters.date(endDate!)}'),
-                    subtitle: const Text('Required for contract, temporary and internship positions'),
-                    trailing: const Icon(Icons.event_outlined),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: endDate ?? startDate.add(const Duration(days: 365)),
-                        firstDate: startDate,
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) setDialogState(() => endDate = picked);
-                    },
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Offer')),
-          ],
-        ),
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    if (titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('A job title is required.')));
-      return;
-    }
-    if (employmentType != 'Permanent' && endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An end date is required for a ${employmentType.toLowerCase()} position.')),
-      );
-      return;
-    }
+  Future<void> _offerEmployment(String citizenId, String applicantName) async {
+    final terms = await showOfferEmploymentDialog(context, applicantName: applicantName);
+    if (terms == null || !mounted) return;
 
     try {
       await ref.read(organisationRepositoryProvider).offerEmployment(
             citizenId: citizenId,
-            jobTitle: titleController.text.trim(),
-            departmentOrPosition: positionController.text.trim().isEmpty ? null : positionController.text.trim(),
-            salary: num.tryParse(salaryController.text.trim()),
-            salaryFrequency: salaryFrequency,
-            startDate: startDate,
-            employmentType: employmentType,
-            endDate: endDate,
+            jobTitle: terms.jobTitle,
+            departmentOrPosition: terms.departmentOrPosition,
+            salary: terms.salary,
+            salaryFrequency: terms.salaryFrequency,
+            startDate: terms.startDate,
+            employmentType: terms.employmentType,
+            endDate: terms.endDate,
             sourceVerificationRequestId: widget.requestId,
           );
       _invalidateAll();
       if (mounted) {
         // Records held by other departments update on their own; the
         // organisation only needs to know the person is now on its staff.
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Done. This applicant is now part of your staff and has been notified.'),
-        ));
+        AppToast.success(context, 'Done. This applicant is now part of your staff and has been notified.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not create this offer: $e')));
+        AppToast.error(context, 'Could not create this offer.', error: e);
       }
     }
   }
@@ -283,7 +172,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
         label: 'Offer employment',
         icon: Icons.business_center_outlined,
         expand: true,
-        onPressed: _deciding ? null : () => _offerEmployment(request.citizenId!),
+        onPressed: _deciding ? null : () => _offerEmployment(request.citizenId!, request.citizenDisplayName),
       ),
       const SizedBox(height: 10),
       AppButton(
@@ -301,9 +190,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
     final controller = TextEditingController();
     final reason = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reject applicant'),
-        content: Column(
+      builder: (context) => AppFormDialog(title: 'Reject applicant', submitLabel: 'Reject applicant', onSubmit: () => Navigator.pop(context, controller.text.trim()), destructive: true, child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -317,17 +204,12 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
               decoration: const InputDecoration(labelText: 'Reason (required)'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Reject')),
-        ],
-      ),
+        ),),
     );
     controller.dispose();
     if (reason == null || !mounted) return;
     if (reason.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('A reason is required.')));
+      AppToast.warning(context, 'A reason is required.');
       return;
     }
 
@@ -336,11 +218,11 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
       await ref.read(organisationRepositoryProvider).rejectApplicant(requestId: request.requestId, reason: reason);
       _invalidateAll();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Applicant rejected and notified.')));
+        AppToast.success(context, 'Applicant rejected and notified.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not reject this applicant: $e')));
+        AppToast.error(context, 'Could not reject this applicant.', error: e);
       }
     } finally {
       if (mounted) setState(() => _deciding = false);
@@ -354,7 +236,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
       _invalidateAll();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not complete this: $e')));
+        AppToast.error(context, 'Could not complete this.', error: e);
       }
     } finally {
       if (mounted) setState(() => _acknowledging = false);
@@ -422,7 +304,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
               if (isOwningOrg && request.overallStatus == 'pending') ...[
                 const _InfoBanner(
                   icon: Icons.info_outline,
-                  message: 'This starts an automated check -- UbuntuID compares what was claimed against the '
+                  message: 'This starts an automated check – UbuntuID compares what was claimed against the '
                       'real department records. No official reviews this manually.',
                 ),
                 const SizedBox(height: 12),
@@ -556,7 +438,7 @@ class _ResultsList extends ConsumerWidget {
     final resultsAsync = ref.watch(verificationResultLinesProvider(requestId));
     return resultsAsync.when(
       loading: () => const LoadingIndicator(),
-      error: (error, _) => const ErrorView(message: 'Could not load verification results.'),
+      error: (error, _) => ErrorView(message: 'Could not load verification results.', onRetry: () => ref.invalidate(verificationResultLinesProvider(requestId))),
       data: (results) => results.isEmpty
           ? const AppCard(child: Text('No credential checks recorded for this request yet.'))
           : AppCard(

@@ -34,7 +34,7 @@ class NotificationsListScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(notificationsControllerProvider),
         ),
         data: (notifications) => notifications.isEmpty
-            ? const EmptyState(icon: Icons.notifications_none_outlined, title: 'No notifications')
+            ? const EmptyState(icon: Icons.notifications_none_outlined, title: 'No notifications', message: "You're all caught up. Updates about your applications and records will appear here.")
             : ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: notifications.length,

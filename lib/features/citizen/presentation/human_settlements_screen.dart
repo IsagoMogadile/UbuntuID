@@ -50,12 +50,12 @@ class HumanSettlementsScreen extends ConsumerWidget {
             const SectionHeader(title: 'My property'),
             propertiesAsync.when(
               loading: () => const LoadingIndicator(),
-              error: (error, _) => const ErrorView(message: 'Could not load property records.'),
+              error: (error, _) => ErrorView(message: 'Could not load property records.', onRetry: () => ref.invalidate(housingBeneficiaryPropertiesProvider)),
               data: (beneficiaries) {
                 if (beneficiaries.isEmpty) {
                   return const EmptyState(
                     icon: Icons.home_work_outlined,
-                    title: 'No property linked to your record yet',
+                    title: 'No property linked to your record yet', message: 'When Human Settlements links a property to your ID, it will show here.',
                   );
                 }
                 return Column(
@@ -98,7 +98,7 @@ class HumanSettlementsScreen extends ConsumerWidget {
             const SectionHeader(title: 'My housing applications'),
             applicationsAsync.when(
               loading: () => const LoadingIndicator(),
-              error: (error, _) => const ErrorView(message: 'Could not load your applications.'),
+              error: (error, _) => ErrorView(message: 'Could not load your applications.', onRetry: () => ref.invalidate(housingApplicationsRawProvider)),
               data: (applications) {
                 if (applications.isEmpty) {
                   return const EmptyState(

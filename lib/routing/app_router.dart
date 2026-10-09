@@ -47,7 +47,6 @@ import '../features/citizen/presentation/consent_management_screen.dart';
 import '../features/citizen/presentation/citizen_timeline_screen.dart';
 import '../features/citizen/presentation/my_appeals_screen.dart';
 import '../features/citizen/presentation/my_employment_screen.dart';
-import '../features/citizen/presentation/digital_id_card_screen.dart';
 import '../features/citizen/presentation/digital_identity_screen.dart';
 import '../features/citizen/presentation/document_detail_screen.dart';
 import '../features/citizen/presentation/document_wallet_screen.dart';
@@ -60,7 +59,6 @@ import '../features/citizen/presentation/profile_overview_screen.dart';
 import '../features/citizen/presentation/sassa_screen.dart';
 import '../features/citizen/presentation/services_screen.dart';
 import '../features/department_official/presentation/department_citizen_records_screen.dart';
-import '../features/department_official/presentation/department_citizen_search_screen.dart';
 import '../features/department_official/presentation/department_colleagues_screen.dart';
 import '../features/department_official/presentation/department_dashboard_screen.dart';
 import '../features/department_official/presentation/department_profile_screen.dart';
@@ -194,7 +192,7 @@ const _reportsDestination =
 AppNavDestination _logOutDestination(WidgetRef ref) => AppNavDestination(
       icon: Icons.logout,
       selectedIcon: Icons.logout,
-      label: 'Log Out',
+      label: 'Sign out',
       onSelected: (context) => confirmAndLogOut(context, ref),
     );
 
@@ -362,7 +360,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: AppRoutes.citizenVerification, builder: (c, s) => const CitizenVerificationListScreen()),
       GoRoute(path: AppRoutes.citizenConsent, builder: (c, s) => const ConsentManagementScreen()),
-      GoRoute(path: AppRoutes.citizenDigitalIdCard, builder: (c, s) => const DigitalIdCardScreen()),
       GoRoute(path: AppRoutes.citizenDocumentWallet, builder: (c, s) => const DocumentWalletScreen()),
       GoRoute(path: AppRoutes.citizenTimeline, builder: (c, s) => const CitizenTimelineScreen()),
       GoRoute(path: AppRoutes.citizenEmployment, builder: (c, s) => const MyEmploymentScreen()),
@@ -386,9 +383,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ],
             profileRoute: AppRoutes.departmentProfile,
             headerSearch: const HeaderSearch(
-              searchRoute: AppRoutes.departmentCitizenSearch,
+              searchRoute: AppRoutes.departmentCitizenRecords,
               hintText: 'Search citizen by ID number',
-              queryParameter: 'id',
               icon: Icons.person_search_outlined,
               keyboardType: TextInputType.number,
             ),
@@ -412,13 +408,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.departmentRegisterCitizen, builder: (c, s) => const RegisterCitizenScreen()),
       // Visible only to SAPS officials.
       GoRoute(path: AppRoutes.departmentClearanceSearch, builder: (c, s) => const SapsClearanceSearchScreen()),
-      // Reached from the header search field, for every department official
-      // regardless of category. `?id=` pre-fills and runs the search.
+      // Also where the header search lands, for every department official:
+      // the typed ID arrives as `extra` (kept out of the URL), and an exact
+      // match opens that citizen's records straight away, ready to edit.
       GoRoute(
-        path: AppRoutes.departmentCitizenSearch,
-        builder: (c, s) => DepartmentCitizenSearchScreen(initialIdNumber: s.uri.queryParameters['id']),
+        path: AppRoutes.departmentCitizenRecords,
+        builder: (c, s) => DepartmentCitizenRecordsScreen(initialIdNumber: s.extra as String?),
       ),
-      GoRoute(path: AppRoutes.departmentCitizenRecords, builder: (c, s) => const DepartmentCitizenRecordsScreen()),
       GoRoute(path: AppRoutes.departmentColleagues, builder: (c, s) => const DepartmentColleaguesScreen()),
       // Visible only to Home Affairs officials.
       GoRoute(
@@ -500,7 +496,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             headerSearch: const HeaderSearch(
               searchRoute: AppRoutes.adminSearch,
               hintText: 'Search people, organisations, departments',
-              queryParameter: 'q',
             ),
           ),
         ),
@@ -567,10 +562,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '${AppRoutes.adminVerification}/:id',
         builder: (c, s) => VerificationRequestDetailScreen(requestId: s.pathParameters['id']!),
       ),
-      // Reached from the admin header's search field; `?q=` pre-fills and runs the search.
+      // Reached from the admin header's search field; the typed text arrives
+      // as `extra` (kept out of the URL) and pre-fills and runs the search.
       GoRoute(
         path: AppRoutes.adminSearch,
-        builder: (c, s) => AdminSearchScreen(initialQuery: s.uri.queryParameters['q']),
+        builder: (c, s) => AdminSearchScreen(initialQuery: s.extra as String?),
       ),
       GoRoute(path: AppRoutes.adminComplianceAudits, builder: (c, s) => const ComplianceAuditsListScreen()),
       GoRoute(path: AppRoutes.adminHouseholdRecords, builder: (c, s) => const HouseholdRecordsListScreen()),

@@ -12,6 +12,9 @@ import '../../../core/widgets/status_badge.dart';
 import '../data/admin_repository.dart';
 import '../domain/organisation_list_item.dart';
 import '../domain/organisation_review_detail.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/app_form_dialog.dart';
 
 class OrganisationDetailScreen extends ConsumerStatefulWidget {
   const OrganisationDetailScreen({super.key, required this.organisationId});
@@ -26,6 +29,17 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
   bool _isSubmitting = false;
 
   Future<void> _toggleVerified(OrganisationListItem organisation) async {
+    if (organisation.verified &&
+        !await confirmAction(
+          context,
+          title: 'Remove verified status?',
+          message: '${organisation.legalName} will no longer show as a verified organisation. You can verify it again later.',
+          confirmLabel: 'Remove verified status',
+          destructive: true,
+        )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _isSubmitting = true);
     try {
       await ref
@@ -34,13 +48,11 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
       ref.invalidate(adminOrganisationsProvider);
       ref.invalidate(adminOrganisationReviewDetailProvider(organisation.organisationId));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(organisation.verified ? 'Organisation unverified.' : 'Organisation verified.')),
-        );
+        AppToast.success(context, organisation.verified ? 'Organisation unverified.' : 'Organisation verified.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update this organisation: $e')));
+        AppToast.error(context, 'Could not update this organisation.', error: e);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -52,16 +64,14 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
       context: context,
       builder: (context) {
         final controller = TextEditingController();
-        return AlertDialog(
-          title: Text(revoke ? 'Revoke access' : 'Reinstate access'),
-          content: Column(
+        return AppFormDialog(title: revoke ? 'Revoke access' : 'Reinstate access', submitLabel: revoke ? 'Revoke' : 'Reinstate', onSubmit: () => Navigator.pop(context, controller.text.trim()), child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 revoke
-                    ? 'This organisation\'s staff will lose data access and be signed out on their next login. This can be reversed later.'
-                    : 'This restores the organisation to approved status. Its staff will be able to log in and access data again.',
+                    ? 'This organisation\'s staff will lose data access and be signed out the next time they use UbuntuID. This can be reversed later.'
+                    : 'This restores the organisation to approved status. Its staff will be able to sign in and access data again.',
               ),
               const SizedBox(height: 12),
               TextField(
@@ -71,15 +81,7 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
                 autofocus: true,
               ),
             ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            TextButton(
-              onPressed: () => Navigator.pop(context, controller.text.trim()),
-              child: Text(revoke ? 'Revoke' : 'Reinstate'),
-            ),
-          ],
-        );
+          ),);
       },
     );
     if (reason == null || reason.isEmpty) return;
@@ -95,13 +97,11 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
       ref.invalidate(adminOrganisationsProvider);
       ref.invalidate(adminOrganisationReviewDetailProvider(organisation.organisationId));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(revoke ? 'Organisation access revoked.' : 'Organisation access reinstated.')),
-        );
+        AppToast.success(context, revoke ? 'Organisation access revoked.' : 'Organisation access reinstated.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not complete this action: $e')));
+        AppToast.error(context, 'Could not complete this action.', error: e);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -115,21 +115,11 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
         context: context,
         builder: (context) {
           final controller = TextEditingController();
-          return AlertDialog(
-            title: const Text('Decline application'),
-            content: TextField(
+          return AppFormDialog(title: 'Decline application', submitLabel: 'Decline application', onSubmit: () => Navigator.pop(context, controller.text.trim()), destructive: true, child: TextField(
               controller: controller,
               decoration: const InputDecoration(labelText: 'Reason (shown to the organisation)'),
               maxLines: 3,
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-              TextButton(
-                onPressed: () => Navigator.pop(context, controller.text.trim()),
-                child: const Text('Decline'),
-              ),
-            ],
-          );
+            ),);
         },
       );
       if (notes == null) return;
@@ -145,13 +135,11 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
       ref.invalidate(adminOrganisationsProvider);
       ref.invalidate(adminOrganisationReviewDetailProvider(organisation.organisationId));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(approve ? 'Organisation approved.' : 'Organisation declined.')),
-        );
+        AppToast.success(context, approve ? 'Organisation approved.' : 'Organisation declined.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not review this organisation: $e')));
+        AppToast.error(context, 'Could not review this organisation.', error: e);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -168,12 +156,12 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
       appBar: AppBar(title: const Text('Organisation')),
       body: organisationsAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load this organisation.'),
+        error: (error, _) => ErrorView(message: 'Could not load this organisation.', onRetry: () => ref.invalidate(adminOrganisationsProvider)),
         data: (organisations) {
           final matches = organisations.where((o) => o.organisationId == widget.organisationId);
           final organisation = matches.isEmpty ? null : matches.first;
           if (organisation == null) {
-            return const EmptyState(icon: Icons.search_off_outlined, title: 'Organisation not found');
+            return const EmptyState(icon: Icons.search_off_outlined, title: 'Organisation not found', message: 'It may have been removed, or the link is out of date. Go back and try again.');
           }
 
           return ListView(

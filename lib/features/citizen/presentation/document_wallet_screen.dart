@@ -53,10 +53,10 @@ class _DocumentWalletScreenState extends ConsumerState<DocumentWalletScreen> {
       ),
       body: identityAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load your document wallet.'),
+        error: (error, _) => ErrorView(message: 'Could not load your document wallet.', onRetry: () => ref.invalidate(digitalIdentityProvider)),
         data: (identity) => credentialsAsync.when(
           loading: () => const LoadingIndicator(),
-          error: (error, _) => const ErrorView(message: 'Could not load your documents.'),
+          error: (error, _) => ErrorView(message: 'Could not load your documents.', onRetry: () => ref.invalidate(credentialsProvider)),
           data: (credentials) {
             final cards = [
               _identityCard(identity),

@@ -8,6 +8,8 @@ import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../routing/app_routes.dart';
 import '../../../services/service_providers.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Reached after the user follows the password-reset link from their email.
 /// `Supabase.initialize` (see `SupabaseService.initialize`, called from
@@ -47,14 +49,12 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     try {
       await ref.read(authServiceProvider).updatePassword(_passwordController.text);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated. Please log in again.')),
-      );
+      AppToast.success(context, 'Password updated. Please sign in again.');
       context.go(AppRoutes.login);
     } on AuthException catch (e) {
-      setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = 'Something went wrong. Please try again.');
+      setState(() => _error = friendlyAuthMessage(e.message));
+    } catch (e) {
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -82,13 +82,14 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     const SizedBox(height: 20),
                     AppTextField(
                       label: 'New password',
+                      helperText: 'At least 8 characters.',
                       controller: _passwordController,
                       obscureText: true,
                       prefixIcon: Icons.lock_outline,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.newPassword],
                       validator: (value) {
-                        if (value == null || value.length < 8) return 'At least 8 characters';
+                        if (value == null || value.length < 8) return 'Use at least 8 characters.';
                         return null;
                       },
                     ),

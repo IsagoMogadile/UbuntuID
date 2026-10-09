@@ -27,7 +27,7 @@ class HouseholdRecordsListScreen extends ConsumerWidget {
         ),
         data: (records) {
           if (records.isEmpty) {
-            return const EmptyState(icon: Icons.home_outlined, title: 'No household records');
+            return const EmptyState(icon: Icons.home_outlined, title: 'No household records', message: 'Household records will appear here once they are captured.');
           }
           return ListView.separated(
             padding: const EdgeInsets.all(16),

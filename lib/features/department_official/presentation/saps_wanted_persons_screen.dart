@@ -10,6 +10,9 @@ import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/department_repository.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/app_form_dialog.dart';
 
 /// SAPS-only, department-wide (not per-citizen) "have a list of wanted
 /// people, if found indicate" -- backed by `saps_wanted_persons`
@@ -24,9 +27,9 @@ class SapsWantedPersonsScreen extends ConsumerWidget {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add to wanted list'),
-        content: Form(
+      builder: (context) => AppFormDialog(title: 'Add to wanted list', submitLabel: 'Add to wanted list', onSubmit: () {
+              if (formKey.currentState?.validate() ?? false) Navigator.pop(context, true);
+            }, child: Form(
           key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -46,17 +49,7 @@ class SapsWantedPersonsScreen extends ConsumerWidget {
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) Navigator.pop(context, true);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
+        ),),
     );
     if (result != true) return;
 
@@ -67,11 +60,11 @@ class SapsWantedPersonsScreen extends ConsumerWidget {
           );
       ref.invalidate(wantedPersonsProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added to wanted list.')));
+        AppToast.success(context, 'Added to wanted list.');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not add: $e')));
+        AppToast.error(context, 'Could not add.', error: e);
       }
     }
   }
@@ -81,11 +74,11 @@ class SapsWantedPersonsScreen extends ConsumerWidget {
       await ref.read(departmentRepositoryProvider).setWantedStatus(wantedId: wantedId, status: status);
       ref.invalidate(wantedPersonsProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Marked as $status.')));
+        AppToast.success(context, 'Marked as $status.');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update: $e')));
+        AppToast.error(context, 'Could not update.', error: e);
       }
     }
   }
@@ -99,11 +92,11 @@ class SapsWantedPersonsScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _addToList(context, ref),
         icon: const Icon(Icons.person_add_alt_1_outlined),
-        label: const Text('Add'),
+        label: const Text('Add wanted person'),
       ),
       body: wantedAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (e, _) => ErrorView(message: 'Could not load the wanted list.\n\n$e', onRetry: () => ref.invalidate(wantedPersonsProvider)),
+        error: (e, _) => ErrorView(message: 'Could not load the wanted list. ${friendlyError(e)}', onRetry: () => ref.invalidate(wantedPersonsProvider)),
         data: (people) => people.isEmpty
             ? const EmptyState(
                 icon: Icons.person_search_outlined,

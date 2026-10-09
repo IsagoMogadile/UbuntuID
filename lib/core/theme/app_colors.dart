@@ -33,7 +33,7 @@ class AppColors {
   // Status
   static const Color success = Color(0xFF1E7B45);
   static const Color successBg = Color(0xFFE4F3E9);
-  static const Color warning = Color(0xFFA8720E);
+  static const Color warning = Color(0xFF8A5D0A); // 5:1 on warningBg (WCAG AA)
   static const Color warningBg = Color(0xFFFBF0DA);
   static const Color error = Color(0xFFB3261E);
   static const Color errorBg = Color(0xFFFBE9E8);

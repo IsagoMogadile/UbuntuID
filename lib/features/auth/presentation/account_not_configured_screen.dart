@@ -7,6 +7,7 @@ import '../../../core/widgets/app_button.dart';
 import '../../../routing/app_routes.dart';
 import '../../../services/service_providers.dart';
 import '../application/role_resolution.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Shown when a Supabase auth account exists but has no matching row in
 /// citizens / department_officials / organisation_users /
@@ -31,9 +32,7 @@ class _AccountNotConfiguredScreenState extends ConsumerState<AccountNotConfigure
         context.go(destination);
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Still not linked to a role yet.')),
-      );
+      AppToast.warning(context, 'Still not linked to a role yet.');
     } finally {
       if (mounted) setState(() => _checking = false);
     }
@@ -66,7 +65,7 @@ class _AccountNotConfiguredScreenState extends ConsumerState<AccountNotConfigure
                     'official, organisation or administrator record. If Home '
                     "Affairs already registered you as a citizen, make sure "
                     "you signed up with the exact same email address they "
-                    'used for you -- that\'s what links your login to your '
+                    'used for you – that\'s what links your account to your '
                     'record automatically. Otherwise, contact your '
                     'administrator to have your access configured, then try '
                     'again.',

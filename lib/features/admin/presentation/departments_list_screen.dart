@@ -36,7 +36,7 @@ class DepartmentsListScreen extends ConsumerWidget {
         ),
         data: (departments) {
           if (departments.isEmpty) {
-            return const EmptyState(icon: Icons.account_balance_outlined, title: 'No departments found');
+            return const EmptyState(icon: Icons.account_balance_outlined, title: 'No departments found', message: 'Try a different search, or add a department.');
           }
 
           return ListView.separated(

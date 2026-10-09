@@ -13,9 +13,12 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium,
+          // A heading for screen readers, and free to wrap at large text sizes.
+          Flexible(
+            child: Semantics(
+              header: true,
+              child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+            ),
           ),
           ?action,
         ],

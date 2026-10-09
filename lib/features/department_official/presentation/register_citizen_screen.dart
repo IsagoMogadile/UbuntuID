@@ -10,6 +10,8 @@ import '../../../core/utils/sa_id_generator.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../data/department_repository.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Home Affairs officials' "Register Citizen" workflow (see
 /// docs/PROJECT_SCOPE.md). Only fields already confirmed to exist on
@@ -118,7 +120,7 @@ class _RegisterCitizenScreenState extends ConsumerState<RegisterCitizenScreen> {
     } on AppException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = 'Could not register this citizen: $e');
+      setState(() => _error = 'Could not register this citizen. ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -131,6 +133,7 @@ class _RegisterCitizenScreenState extends ConsumerState<RegisterCitizenScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
+        scrollable: true,
         icon: const Icon(Icons.check_circle_outline, color: AppColors.green),
         title: const Text('Citizen registered'),
         content: Column(
@@ -141,7 +144,7 @@ class _RegisterCitizenScreenState extends ConsumerState<RegisterCitizenScreen> {
             const SizedBox(height: 12),
             SelectableText(email, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
-            const Text('Their account links to this record automatically the first time they log in.'),
+            const Text('Their account links to this record automatically the first time they sign in.'),
           ],
         ),
         actions: [
@@ -150,7 +153,7 @@ class _RegisterCitizenScreenState extends ConsumerState<RegisterCitizenScreen> {
             label: const Text('Copy email'),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: email));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email copied.')));
+              AppToast.success(context, 'Email copied.');
             },
           ),
           FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Done')),

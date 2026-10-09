@@ -12,6 +12,7 @@ import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/feedback_repository.dart';
 import '../domain/feedback_item.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Administrator review of one piece of citizen feedback: set it to
 /// acknowledged / under investigation / resolved and optionally type a
@@ -49,12 +50,10 @@ class _AdminFeedbackDetailScreenState extends ConsumerState<AdminFeedbackDetailS
       ref.invalidate(adminFeedbackProvider);
       if (!mounted) return;
       _responseController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Feedback marked ${feedbackLabel(status).toLowerCase()}. The citizen has been notified.')),
-      );
+      AppToast.success(context, 'Feedback marked ${feedbackLabel(status).toLowerCase()}. The citizen has been notified.');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update feedback: $e')));
+        AppToast.error(context, 'Could not update feedback.', error: e);
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -69,12 +68,12 @@ class _AdminFeedbackDetailScreenState extends ConsumerState<AdminFeedbackDetailS
       appBar: AppBar(title: const Text('Feedback')),
       body: feedbackAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load this feedback.'),
+        error: (error, _) => ErrorView(message: 'Could not load this feedback.', onRetry: () => ref.invalidate(adminFeedbackProvider)),
         data: (items) {
           final matches = items.where((f) => f.feedbackId == widget.feedbackId);
           final item = matches.isEmpty ? null : matches.first;
           if (item == null) {
-            return const EmptyState(icon: Icons.search_off_outlined, title: 'Feedback not found');
+            return const EmptyState(icon: Icons.search_off_outlined, title: 'Feedback not found', message: 'It may have been removed, or the link is out of date. Go back and try again.');
           }
           _status ??= item.status == 'submitted' ? 'acknowledged' : item.status;
 

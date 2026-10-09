@@ -12,6 +12,8 @@ import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../routing/app_routes.dart';
 import '../data/admin_repository.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/app_form_dialog.dart';
 
 class FlaggedRecordDetailScreen extends ConsumerStatefulWidget {
   const FlaggedRecordDetailScreen({super.key, required this.flagId});
@@ -31,9 +33,14 @@ class _FlaggedRecordDetailScreenState extends ConsumerState<FlaggedRecordDetailS
     final notes = await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Mark as reviewed'),
-          content: TextField(
+        builder: (context, setDialogState) => AppFormDialog(title: 'Mark as reviewed', submitLabel: 'Mark as reviewed', onSubmit: () {
+                final trimmed = notesController.text.trim();
+                if (trimmed.isEmpty) {
+                  setDialogState(() => showError = true);
+                  return;
+                }
+                Navigator.pop(context, trimmed);
+              }, child: TextField(
             controller: notesController,
             maxLines: 3,
             autofocus: true,
@@ -44,22 +51,7 @@ class _FlaggedRecordDetailScreenState extends ConsumerState<FlaggedRecordDetailS
             onChanged: (_) {
               if (showError) setDialogState(() => showError = false);
             },
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            TextButton(
-              onPressed: () {
-                final trimmed = notesController.text.trim();
-                if (trimmed.isEmpty) {
-                  setDialogState(() => showError = true);
-                  return;
-                }
-                Navigator.pop(context, trimmed);
-              },
-              child: const Text('Confirm'),
-            ),
-          ],
-        ),
+          ),),
       ),
     );
     if (notes == null) return;
@@ -69,11 +61,11 @@ class _FlaggedRecordDetailScreenState extends ConsumerState<FlaggedRecordDetailS
       await ref.read(adminRepositoryProvider).resolveFlaggedRecord(widget.flagId, resolutionNotes: notes);
       ref.invalidate(adminFlaggedRecordsProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Flagged record resolved.')));
+        AppToast.success(context, 'Flagged record resolved.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not resolve this record: $e')));
+        AppToast.error(context, 'Could not resolve this record.', error: e);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -88,12 +80,12 @@ class _FlaggedRecordDetailScreenState extends ConsumerState<FlaggedRecordDetailS
       appBar: AppBar(title: const Text('Flagged record')),
       body: flagsAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load this flagged record.'),
+        error: (error, _) => ErrorView(message: 'Could not load this flagged record.', onRetry: () => ref.invalidate(adminFlaggedRecordsProvider)),
         data: (flags) {
           final matches = flags.where((f) => f.flagId == widget.flagId);
           final flag = matches.isEmpty ? null : matches.first;
           if (flag == null) {
-            return const EmptyState(icon: Icons.search_off_outlined, title: 'Flagged record not found');
+            return const EmptyState(icon: Icons.search_off_outlined, title: 'Flagged record not found', message: 'It may have been removed, or the link is out of date. Go back and try again.');
           }
 
           return ListView(

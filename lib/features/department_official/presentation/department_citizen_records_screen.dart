@@ -11,6 +11,12 @@ import '../../shared/domain/citizen_lookup_result.dart';
 import '../../shared/presentation/citizen_lookup_screen.dart';
 import '../data/department_repository.dart';
 import '../domain/department_record_config.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/detail_row.dart';
+import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/status_badge.dart';
+import '../../../core/widgets/app_form_dialog.dart';
 
 const _iconByName = recordTypeIconByName;
 
@@ -19,7 +25,11 @@ const _iconByName = recordTypeIconByName;
 /// return, etc.) -- the "do my job" screen for every department, reached
 /// from the dashboard and from Department Services.
 class DepartmentCitizenRecordsScreen extends ConsumerStatefulWidget {
-  const DepartmentCitizenRecordsScreen({super.key});
+  const DepartmentCitizenRecordsScreen({super.key, this.initialIdNumber});
+
+  /// Typed into the header search: searched straight away, and an exact
+  /// match opens that citizen's records.
+  final String? initialIdNumber;
 
   @override
   ConsumerState<DepartmentCitizenRecordsScreen> createState() => _DepartmentCitizenRecordsScreenState();
@@ -34,20 +44,21 @@ class _DepartmentCitizenRecordsScreenState extends ConsumerState<DepartmentCitiz
     final citizen = _citizen;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Department Records')),
+      appBar: AppBar(title: Text(citizen == null ? 'Find a citizen' : citizen.fullName)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: citizen == null
             ? CitizenSearchPanel(
                 onSearch: ref.read(departmentRepositoryProvider).searchCitizens,
+                initialIdNumber: widget.initialIdNumber,
+                openExactMatch: true,
                 onSelect: (selected) => setState(() => _citizen = selected),
               )
             : profileAsync.when(
                 loading: () => const LoadingIndicator(),
-                error: (e, _) => const EmptyState(
-                  icon: Icons.error_outline,
-                  title: 'Could not load your department',
-                  message: '',
+                error: (e, _) => ErrorView(
+                  message: 'Could not load your department.',
+                  onRetry: () => ref.invalidate(departmentProfileProvider),
                 ),
                 data: (profile) => Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -78,36 +89,103 @@ class _RecordSections extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final types = recordTypesForDepartment(departmentCode);
-    if (types.isEmpty) {
-      return const EmptyState(
-        icon: Icons.inbox_outlined,
-        title: 'No record types configured',
-        message: 'Your department has no dedicated record type set up yet.',
-      );
-    }
 
     return ListView(
       children: [
         AppCard(
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text('${citizen.fullName} • ${citizen.idNumber}',
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              DetailRow(label: 'ID number', value: citizen.idNumber),
+              if (citizen.dateOfBirth != null)
+                DetailRow(label: 'Date of birth', value: AppFormatters.date(citizen.dateOfBirth!)),
+              if (citizen.phoneNumber?.isNotEmpty ?? false) DetailRow(label: 'Phone', value: citizen.phoneNumber!),
+              if (citizen.email?.isNotEmpty ?? false) DetailRow(label: 'Email', value: citizen.email!),
+              DetailRow(
+                label: 'Identity status',
+                value: '',
+                trailing: StatusBadge.fromStatus(citizen.currentStatus),
               ),
-              if (departmentCode == 'HOME_AFFAIRS')
-                TextButton.icon(
-                  onPressed: () => context.push('${AppRoutes.departmentEditCitizen}/${citizen.citizenId}/edit'),
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('Edit details'),
-                ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (departmentCode == 'HOME_AFFAIRS')
+                    OutlinedButton.icon(
+                      onPressed: () => context.push('${AppRoutes.departmentEditCitizen}/${citizen.citizenId}/edit'),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Edit details'),
+                    ),
+                  OutlinedButton.icon(
+                    onPressed: () => _lodgeGeneralAppeal(context, ref),
+                    icon: const Icon(Icons.gavel_outlined, size: 18),
+                    label: const Text('Lodge an appeal'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
         const SizedBox(height: 16),
+        if (types.isEmpty)
+          const EmptyState(
+            icon: Icons.inbox_outlined,
+            title: 'No record screens for your department yet',
+            message: 'You can still lodge an appeal for this citizen above.',
+          ),
         for (final type in types) _RecordTypeSection(citizen: citizen, config: type),
       ],
     );
+  }
+
+  /// An appeal on the citizen's behalf that isn't about one specific
+  /// record (or for a department without record screens). Reviewed by a
+  /// UbuntuID administrator like any other appeal.
+  Future<void> _lodgeGeneralAppeal(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AppFormDialog(title: 'Lodge an appeal for ${citizen.fullName}', submitLabel: 'Lodge appeal', onSubmit: controller.text.trim().isEmpty ? null : () => Navigator.pop(context, controller.text.trim()), child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Use this when the citizen disputes something your department holds or did, or something '
+                'that is missing. A UbuntuID administrator reviews every appeal, and the citizen is notified.',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                minLines: 3,
+                maxLines: 5,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'What is the citizen disputing, and why?',
+                  hintText: 'e.g. Their 2019 grant was stopped although they still qualify.',
+                ),
+              ),
+            ],
+          ),),
+      ),
+    );
+    controller.dispose();
+    if (reason == null || !context.mounted) return;
+    try {
+      await ref.read(departmentRepositoryProvider).lodgeAppeal(
+            citizenId: citizen.citizenId,
+            relatedTable: 'citizens',
+            relatedId: citizen.citizenId,
+            appealReason: reason,
+          );
+      if (context.mounted) {
+        AppToast.success(context, 'Appeal lodged', detail: 'An administrator will review it. The citizen has been notified.');
+      }
+    } catch (e) {
+      if (context.mounted) AppToast.error(context, 'Could not lodge this appeal.', error: e);
+    }
   }
 }
 
@@ -148,11 +226,11 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
         final message = widget.config.label == 'Death'
             ? 'Death recorded. A UbuntuID administrator has been notified to deactivate this citizen\'s account.'
             : '${widget.config.label} record added.';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        AppToast.success(context, message);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not add this record: $e')));
+        AppToast.error(context, 'Could not add this record.', error: e);
       }
     }
   }
@@ -169,11 +247,11 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
       await updater(ref.read(departmentRepositoryProvider), widget.citizen, existingRow, values);
       if (mounted) {
         setState(_load);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${widget.config.label} record updated.')));
+        AppToast.success(context, '${widget.config.label} record updated.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update this record: $e')));
+        AppToast.error(context, 'Could not update this record.', error: e);
       }
     }
   }
@@ -184,11 +262,12 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: Text('Remove this ${widget.config.label.toLowerCase()}?'),
         content: const Text('This cannot be undone.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
+          TextButton(style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error), onPressed: () => Navigator.pop(context, true), child: const Text('Remove record')),
         ],
       ),
     );
@@ -197,11 +276,11 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
       await deleter(ref.read(departmentRepositoryProvider), widget.citizen, existingRow);
       if (mounted) {
         setState(_load);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${widget.config.label} record removed.')));
+        AppToast.success(context, '${widget.config.label} record removed.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not remove this record: $e')));
+        AppToast.error(context, 'Could not remove this record.', error: e);
       }
     }
   }
@@ -217,9 +296,7 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
       context: context,
       builder: (context) {
         final controller = TextEditingController();
-        return AlertDialog(
-          title: Text('Lodge appeal -- ${widget.config.rowTitle(existingRow)}'),
-          content: Column(
+        return AppFormDialog(title: 'Lodge appeal – ${widget.config.rowTitle(existingRow)}', submitLabel: 'Lodge appeal', onSubmit: () => Navigator.pop(context, controller.text.trim()), child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -232,15 +309,7 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
                 autofocus: true,
               ),
             ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            TextButton(
-              onPressed: () => Navigator.pop(context, controller.text.trim()),
-              child: const Text('Lodge appeal'),
-            ),
-          ],
-        );
+          ),);
       },
     );
     if (reason == null || reason.isEmpty) return;
@@ -253,11 +322,11 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
             appealReason: reason,
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appeal lodged.')));
+        AppToast.success(context, 'Appeal lodged.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not lodge this appeal: $e')));
+        AppToast.error(context, 'Could not lodge this appeal.', error: e);
       }
     }
   }
@@ -420,9 +489,7 @@ class _RecordFormDialogState extends State<_RecordFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(_isEditing ? 'Edit ${widget.config.label}' : 'Add ${widget.config.label}'),
-      content: SingleChildScrollView(
+    return AppFormDialog(title: _isEditing ? 'Edit ${widget.config.label}' : 'Add ${widget.config.label}', submitLabel: _isEditing ? 'Save' : 'Add', onSubmit: _submit, child: SingleChildScrollView(
         child: Form(
           key: _formKey,
           child: Column(
@@ -482,11 +549,6 @@ class _RecordFormDialogState extends State<_RecordFormDialog> {
             ],
           ),
         ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        TextButton(onPressed: _submit, child: Text(_isEditing ? 'Save' : 'Add')),
-      ],
-    );
+      ),);
   }
 }

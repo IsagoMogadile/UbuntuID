@@ -10,6 +10,8 @@ import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/admin_repository.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/app_form_dialog.dart';
 
 class AppealDetailScreen extends ConsumerStatefulWidget {
   const AppealDetailScreen({super.key, required this.appealId});
@@ -30,7 +32,7 @@ class _AppealDetailScreenState extends ConsumerState<AppealDetailScreen> {
       ref.invalidate(adminAppealsProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not start review: $e')));
+        AppToast.error(context, 'Could not start review.', error: e);
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -43,9 +45,14 @@ class _AppealDetailScreenState extends ConsumerState<AppealDetailScreen> {
     final notes = await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(uphold ? 'Uphold this appeal?' : 'Reject this appeal?'),
-          content: TextField(
+        builder: (context, setDialogState) => AppFormDialog(title: uphold ? 'Uphold this appeal?' : 'Reject this appeal?', submitLabel: uphold ? 'Uphold' : 'Reject', onSubmit: () {
+                final trimmed = notesController.text.trim();
+                if (trimmed.isEmpty) {
+                  setDialogState(() => showError = true);
+                  return;
+                }
+                Navigator.pop(context, trimmed);
+              }, child: TextField(
             controller: notesController,
             maxLines: 3,
             autofocus: true,
@@ -56,22 +63,7 @@ class _AppealDetailScreenState extends ConsumerState<AppealDetailScreen> {
             onChanged: (_) {
               if (showError) setDialogState(() => showError = false);
             },
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            TextButton(
-              onPressed: () {
-                final trimmed = notesController.text.trim();
-                if (trimmed.isEmpty) {
-                  setDialogState(() => showError = true);
-                  return;
-                }
-                Navigator.pop(context, trimmed);
-              },
-              child: Text(uphold ? 'Uphold' : 'Reject'),
-            ),
-          ],
-        ),
+          ),),
       ),
     );
     if (notes == null) return;
@@ -81,13 +73,11 @@ class _AppealDetailScreenState extends ConsumerState<AppealDetailScreen> {
       await ref.read(adminRepositoryProvider).decideAppeal(appealId: widget.appealId, uphold: uphold, decisionNotes: notes);
       ref.invalidate(adminAppealsProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(uphold ? 'Appeal upheld.' : 'Appeal rejected.')),
-        );
+        AppToast.success(context, uphold ? 'Appeal upheld.' : 'Appeal rejected.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not record this decision: $e')));
+        AppToast.error(context, 'Could not record this decision.', error: e);
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -102,12 +92,12 @@ class _AppealDetailScreenState extends ConsumerState<AppealDetailScreen> {
       appBar: AppBar(title: const Text('Appeal')),
       body: appealsAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load this appeal.'),
+        error: (error, _) => ErrorView(message: 'Could not load this appeal.', onRetry: () => ref.invalidate(adminAppealsProvider)),
         data: (appeals) {
           final matches = appeals.where((a) => a.appealId == widget.appealId);
           final appeal = matches.isEmpty ? null : matches.first;
           if (appeal == null) {
-            return const EmptyState(icon: Icons.search_off_outlined, title: 'Appeal not found');
+            return const EmptyState(icon: Icons.search_off_outlined, title: 'Appeal not found', message: 'It may have been removed, or the link is out of date. Go back and try again.');
           }
 
           return ListView(
@@ -130,7 +120,7 @@ class _AppealDetailScreenState extends ConsumerState<AppealDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DetailRow(label: 'Reason', value: appeal.appealReason),
-                    DetailRow(label: 'Against record in', value: appeal.relatedTable),
+                    DetailRow(label: 'About', value: appealSubject(appeal.relatedTable)),
                     DetailRow(label: 'Lodged by', value: appeal.lodgedByName ?? 'Unknown official'),
                     DetailRow(label: 'Submitted', value: AppFormatters.dateTime(appeal.submittedAt)),
                     if (appeal.decision != null) ...[
@@ -188,3 +178,29 @@ class _AppealDetailScreenState extends ConsumerState<AppealDetailScreen> {
     );
   }
 }
+
+/// What an appeal is about, in words: the record type it was lodged
+/// against, or a general appeal (lodged against the citizen themselves).
+String appealSubject(String relatedTable) => switch (relatedTable) {
+      'citizens' => 'General – not about one specific record',
+      'dha_marital_records' => 'Marriage record',
+      'dha_death_records' => 'Death record',
+      'dha_passports' => 'Passport',
+      'dha_immigration_records' => 'Immigration record',
+      'dot_driver_licences' => "Driver's licence",
+      'dot_vehicles' => 'Vehicle registration',
+      'sars_taxpayers' => 'Taxpayer registration',
+      'sars_tax_returns' => 'Tax return',
+      'saps_criminal_records' => 'Criminal record',
+      'saps_clearance_certificates' => 'Police clearance certificate',
+      'dbe_nsc_results' => 'Matric certificate',
+      'dhet_student_enrollment' => 'Student enrolment',
+      'dhet_academic_records' => 'Academic record',
+      'dhet_nsfas_funding' => 'NSFAS funding',
+      'sassa_grants' => 'SASSA grant',
+      'labour_employment_records' => 'Employment / UIF record',
+      'properties' => 'Property',
+      'title_deeds' => 'Title deed',
+      'housing_applications' => 'Housing application',
+      _ => relatedTable.replaceAll('_', ' '),
+    };

@@ -18,7 +18,10 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="UbuntuID -- South Africa's digital identity platform.">
+  <meta name="description" content="UbuntuID – South Africa's digital identity platform.">
+  <!-- Every page is either signed-in or shows someone's verification result:
+       none of it belongs in search engines. -->
+  <meta name="robots" content="noindex, nofollow">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -34,6 +37,32 @@
 
   <title>UbuntuID</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* Shown while the app downloads; removed on Flutter's first frame. */
+    #app-loading {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
+      background: #FAFAF8; color: #1B1F1D;
+      font: 600 18px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      transition: opacity .2s ease;
+    }
+    #app-loading img { width: 72px; height: auto; }
+    #app-loading .bar { width: 160px; height: 4px; border-radius: 4px; background: #E3F3E9; overflow: hidden; }
+    #app-loading .bar::after {
+      content: ""; display: block; width: 40%; height: 100%; background: #00723F;
+      border-radius: 4px; animation: app-loading 1.2s ease-in-out infinite;
+    }
+    @keyframes app-loading { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+    @media (prefers-color-scheme: dark) {
+      #app-loading { background: #10130F; color: #FFFFFF; }
+      #app-loading .bar { background: #00512C; }
+      #app-loading .bar::after { background: #4FAE78; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #app-loading .bar::after { animation: none; width: 100%; }
+    }
+  </style>
 
   <script>
     // Each tab has its own sign-in (see lib/services/tab_session_store.dart).
@@ -53,6 +82,22 @@
   </script>
 </head>
 <body>
+  <div id="app-loading" role="status" aria-live="polite">
+    <img src="favicon.svg" alt="">
+    <span>Loading UbuntuID…</span>
+    <div class="bar" aria-hidden="true"></div>
+  </div>
+  <script>
+    function hideAppLoading() {
+      var el = document.getElementById('app-loading');
+      if (!el) return;
+      el.style.opacity = '0';
+      setTimeout(function () { el.remove(); }, 250);
+    }
+    window.addEventListener('flutter-first-frame', hideAppLoading);
+    // Safety net: never leave the loading screen over the app.
+    setTimeout(hideAppLoading, 30000);
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

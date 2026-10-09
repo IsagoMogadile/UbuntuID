@@ -28,7 +28,7 @@ class AppealsListScreen extends ConsumerWidget {
         ),
         data: (appeals) {
           if (appeals.isEmpty) {
-            return const EmptyState(icon: Icons.gavel_outlined, title: 'No appeals lodged yet');
+            return const EmptyState(icon: Icons.gavel_outlined, title: 'No appeals lodged yet', message: 'Appeals that officials lodge against records will appear here for review.');
           }
           return ListView.separated(
             padding: const EdgeInsets.all(16),

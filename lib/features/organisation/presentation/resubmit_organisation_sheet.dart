@@ -7,6 +7,7 @@ import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../data/organisation_repository.dart';
 import 'credential_scope_picker.dart';
+import '../../../core/utils/friendly_error.dart';
 
 const _organisationTypes = ['private', 'government', 'ngo', 'education', 'financial', 'other'];
 
@@ -87,7 +88,7 @@ class _ResubmitOrganisationSheetState extends ConsumerState<ResubmitOrganisation
           );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      setState(() => _error = 'Could not resubmit: $e');
+      setState(() => _error = 'Could not resubmit. ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

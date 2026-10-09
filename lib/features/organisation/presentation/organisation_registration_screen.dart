@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/auth_error_messages.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/app_text_field.dart';
@@ -13,6 +12,7 @@ import '../../../routing/app_routes.dart';
 import '../../../services/service_providers.dart';
 import '../data/organisation_repository.dart';
 import 'credential_scope_picker.dart';
+import '../../../core/utils/friendly_error.dart';
 
 const _organisationTypes = ['private', 'government', 'ngo', 'education', 'financial', 'other'];
 
@@ -134,11 +134,9 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
 
       setState(() => _submitted = true);
     } on AuthException catch (e) {
-      setState(() => _error = friendlyAuthError(e));
-    } on PostgrestException catch (e) {
-      setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = 'Something went wrong. Please try again.');
+      setState(() => _error = friendlyAuthMessage(e.message));
+    } catch (e) {
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -186,11 +184,11 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
         const SizedBox(height: 8),
         const Text(
           'A UbuntuID administrator will review your organisation\'s application. '
-          'You can log in at any time to check its status.',
+          'You can sign in at any time to check its status.',
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
-        AppButton(label: 'Back to login', onPressed: () => context.go(AppRoutes.login), expand: true),
+        AppButton(label: 'Back to sign in', onPressed: () => context.go(AppRoutes.login), expand: true),
       ],
     );
   }
@@ -205,13 +203,13 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
         const SizedBox(height: 8),
         const Text(
           "We've sent a confirmation link to your email address. Confirm it, "
-          'then log in and come back to "Finish registering your organisation" '
+          'then sign in and come back to "Finish registering your organisation" '
           'to submit your application.',
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
         AppButton(
-          label: 'Back to login',
+          label: 'Back to sign in',
           onPressed: () => context.go(AppRoutes.login),
           expand: true,
         ),
@@ -255,7 +253,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
           ),
           const SizedBox(height: 14),
           AppTextField(
-            label: _hasSession ? 'Organisation / login email (confirmed)' : 'Organisation / login email',
+            label: _hasSession ? 'Organisation / sign-in email (confirmed)' : 'Organisation / sign-in email',
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             prefixIcon: Icons.mail_outline,
@@ -273,10 +271,11 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
           const SizedBox(height: 14),
           AppTextField(
             label: 'Password',
+            helperText: 'At least 8 characters.',
             controller: _passwordController,
             obscureText: true,
             prefixIcon: Icons.lock_outline,
-            validator: (v) => (v == null || v.length < 8) ? 'At least 8 characters' : null,
+            validator: (v) => (v == null || v.length < 8) ? 'Use at least 8 characters.' : null,
           ),
           ],
           const SizedBox(height: 24),
@@ -327,7 +326,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
           ],
           const SizedBox(height: 20),
           AppButton(
-            label: 'Continue',
+            label: 'Next: choose credentials',
             icon: Icons.arrow_forward,
             onPressed: _continueToCredentialTypes,
             expand: true,
@@ -335,7 +334,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.center,
-            child: TextButton(onPressed: () => context.pop(), child: const Text('Back to login')),
+            child: TextButton(onPressed: () => context.pop(), child: const Text('Back to sign in')),
           ),
         ],
       ),
@@ -354,7 +353,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
         const SizedBox(height: 4),
         Text(
           'Which credential types does ${_legalNameController.text.trim().isEmpty ? "your organisation" : _legalNameController.text.trim()} '
-          'need to verify, and why? Staff who log in under this organisation will only ever see the '
+          'need to verify, and why? Staff who sign in under this organisation will only ever see the '
           'credential types you select here. An administrator reads your reasons before approving.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.charcoalMuted),
         ),

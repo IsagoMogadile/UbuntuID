@@ -24,12 +24,12 @@ class DocumentDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Document')),
       body: documentsAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load this document.'),
+        error: (error, _) => ErrorView(message: 'Could not load this document.', onRetry: () => ref.invalidate(documentsProvider)),
         data: (documents) {
           final matches = documents.where((d) => d.documentId == documentId);
           final document = matches.isEmpty ? null : matches.first;
           if (document == null) {
-            return const EmptyState(icon: Icons.search_off_outlined, title: 'Document not found');
+            return const EmptyState(icon: Icons.search_off_outlined, title: 'Document not found', message: 'It may have been removed, or the link is out of date. Go back and try again.');
           }
 
           return ListView(

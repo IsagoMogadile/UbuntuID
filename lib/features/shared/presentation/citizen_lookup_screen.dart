@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
-import '../../../core/widgets/detail_row.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/list_item_card.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../domain/citizen_lookup_result.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Citizen search by any combination of first name, last name and/or ID
 /// number, plus a "View all" browse, ending in a selectable result list --
@@ -17,12 +16,16 @@ import '../domain/citizen_lookup_result.dart';
 /// across roles/repositories -- [onSearch] is whichever repository's own
 /// `searchCitizens`.
 ///
-/// [CitizenLookupScreen] wraps this in its own `Scaffold` for standalone
-/// use; [DepartmentCitizenRecordsScreen] embeds the bare panel instead,
-/// since that screen already has its own `Scaffold`/app bar and its own
-/// "then show this department's records" step after a citizen is picked.
+/// Embedded in [DepartmentCitizenRecordsScreen], which shows the picked
+/// citizen's profile and this department's records for them.
 class CitizenSearchPanel extends StatefulWidget {
-  const CitizenSearchPanel({super.key, required this.onSearch, required this.onSelect, this.initialIdNumber});
+  const CitizenSearchPanel({
+    super.key,
+    required this.onSearch,
+    required this.onSelect,
+    this.initialIdNumber,
+    this.openExactMatch = false,
+  });
 
   final Future<List<CitizenLookupResult>> Function({String? idNumber, String? firstName, String? lastName}) onSearch;
   final void Function(CitizenLookupResult citizen) onSelect;
@@ -30,6 +33,10 @@ class CitizenSearchPanel extends StatefulWidget {
   /// Pre-fills the ID number field and runs the search immediately -- e.g.
   /// an ID typed into the department header's search field.
   final String? initialIdNumber;
+
+  /// A full ID number that matches exactly one citizen opens them straight
+  /// away, instead of showing a one-row result list to tap.
+  final bool openExactMatch;
 
   @override
   State<CitizenSearchPanel> createState() => _CitizenSearchPanelState();
@@ -81,9 +88,13 @@ class _CitizenSearchPanelState extends State<CitizenSearchPanel> {
         firstName: browseAll ? null : (firstName.isEmpty ? null : firstName),
         lastName: browseAll ? null : (lastName.isEmpty ? null : lastName),
       );
-      if (mounted) setState(() => _results = results);
+      if (!mounted) return;
+      setState(() => _results = results);
+      if (widget.openExactMatch && !browseAll && results.length == 1 && results.single.idNumber == idNumber) {
+        widget.onSelect(results.single);
+      }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not complete this search: $e');
+      if (mounted) setState(() => _error = 'Could not complete this search. ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -181,63 +192,6 @@ class _CitizenSearchPanelState extends State<CitizenSearchPanel> {
           onTap: () => widget.onSelect(r),
         );
       },
-    );
-  }
-}
-
-/// Standalone search screen -- [CitizenSearchPanel] in its own `Scaffold`,
-/// defaulting to a detail bottom sheet on selection (the identity-only view
-/// this screen has always shown).
-class CitizenLookupScreen extends StatelessWidget {
-  const CitizenLookupScreen({super.key, required this.onSearch, this.initialIdNumber});
-
-  final Future<List<CitizenLookupResult>> Function({String? idNumber, String? firstName, String? lastName}) onSearch;
-  final String? initialIdNumber;
-
-  void _showDetail(BuildContext context, CitizenLookupResult citizen) {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DetailRow(label: 'Name', value: citizen.fullName.isEmpty ? 'Unknown' : citizen.fullName),
-            DetailRow(label: 'ID number', value: citizen.idNumber),
-            if (citizen.dateOfBirth != null)
-              DetailRow(label: 'Date of birth', value: AppFormatters.date(citizen.dateOfBirth!)),
-            if (citizen.phoneNumber != null && citizen.phoneNumber!.isNotEmpty)
-              DetailRow(label: 'Phone', value: citizen.phoneNumber!),
-            if (citizen.email != null && citizen.email!.isNotEmpty) DetailRow(label: 'Email', value: citizen.email!),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  const SizedBox(width: 130, child: Text('Identity status')),
-                  StatusBadge.fromStatus(citizen.currentStatus),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Search Citizen')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: CitizenSearchPanel(
-          onSearch: onSearch,
-          initialIdNumber: initialIdNumber,
-          onSelect: (citizen) => _showDetail(context, citizen),
-        ),
-      ),
     );
   }
 }

@@ -9,6 +9,8 @@ import '../../../core/widgets/list_item_card.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/organisation_repository.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Everyone this organisation has employed through UbuntuID. Any staff
 /// member can end an active employment (with a reason); the citizen is
@@ -135,12 +137,10 @@ class _EmployeeSheetState extends ConsumerState<_EmployeeSheet> {
             reason: _reason.text.trim(),
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Employment ended. ${widget.employee.citizenFullName} has been notified.')),
-      );
+      AppToast.success(context, 'Employment ended. ${widget.employee.citizenFullName} has been notified.');
       Navigator.pop(context, true);
     } catch (e) {
-      setState(() => _error = 'Could not end this employment: $e');
+      setState(() => _error = 'Could not end this employment. ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _ending = false);
     }

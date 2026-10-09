@@ -11,6 +11,8 @@ import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/admin_repository.dart';
 import '../domain/department_list_item.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/confirm_dialog.dart';
 
 class DepartmentDetailScreen extends ConsumerStatefulWidget {
   const DepartmentDetailScreen({super.key, required this.departmentId});
@@ -25,18 +27,27 @@ class _DepartmentDetailScreenState extends ConsumerState<DepartmentDetailScreen>
   bool _isSubmitting = false;
 
   Future<void> _toggleActive(DepartmentListItem department) async {
+    if (department.active &&
+        !await confirmAction(
+          context,
+          title: 'Deactivate ${department.departmentName}?',
+          message: 'Its officials will lose access until the department is reactivated. Its records are kept.',
+          confirmLabel: 'Deactivate department',
+          destructive: true,
+        )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _isSubmitting = true);
     try {
       await ref.read(adminRepositoryProvider).setDepartmentActive(department.departmentId, !department.active);
       ref.invalidate(adminDepartmentsProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(department.active ? 'Department deactivated.' : 'Department reactivated.')),
-        );
+        AppToast.success(context, department.active ? 'Department deactivated.' : 'Department reactivated.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update this department: $e')));
+        AppToast.error(context, 'Could not update this department.', error: e);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -52,12 +63,12 @@ class _DepartmentDetailScreenState extends ConsumerState<DepartmentDetailScreen>
       appBar: AppBar(title: const Text('Department')),
       body: departmentsAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load this department.'),
+        error: (error, _) => ErrorView(message: 'Could not load this department.', onRetry: () => ref.invalidate(adminDepartmentsProvider)),
         data: (departments) {
           final matches = departments.where((d) => d.departmentId == widget.departmentId);
           final department = matches.isEmpty ? null : matches.first;
           if (department == null) {
-            return const EmptyState(icon: Icons.search_off_outlined, title: 'Department not found');
+            return const EmptyState(icon: Icons.search_off_outlined, title: 'Department not found', message: 'It may have been removed, or the link is out of date. Go back and try again.');
           }
 
           return ListView(
@@ -95,20 +106,20 @@ class _DepartmentDetailScreenState extends ConsumerState<DepartmentDetailScreen>
               ),
               const SizedBox(height: 8),
               const Text(
-                'Deactivating flips this department\'s status column -- it is never deleted from here.',
+                'Deactivating only pauses this department. Nothing is deleted, and you can reactivate it at any time.',
                 style: TextStyle(fontSize: 12),
               ),
               const SizedBox(height: 20),
               const SectionHeader(title: 'Department officials'),
               usersAsync.when(
                 loading: () => const LoadingIndicator(),
-                error: (error, _) => const ErrorView(message: 'Could not load officials.'),
+                error: (error, _) => ErrorView(message: 'Could not load officials.', onRetry: () => ref.invalidate(adminUsersProvider)),
                 data: (users) {
                   final officials = users
                       .where((u) => u.roleLabel == 'Department Official' && u.departmentId == widget.departmentId)
                       .toList();
                   if (officials.isEmpty) {
-                    return const EmptyState(icon: Icons.badge_outlined, title: 'No officials listed');
+                    return const EmptyState(icon: Icons.badge_outlined, title: 'No officials listed', message: 'Officials assigned to this department will appear here.');
                   }
                   return AppCard(
                     padding: EdgeInsets.zero,

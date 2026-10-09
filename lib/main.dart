@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/accessibility_controller.dart';
 import 'core/theme/theme_mode_controller.dart';
 import 'core/widgets/inactivity_sign_out.dart';
+import 'core/widgets/offline_notice.dart';
 import 'core/widgets/read_aloud.dart';
 import 'routing/app_router.dart';
 import 'services/supabase_service.dart';
@@ -60,7 +61,7 @@ class UbuntuIdApp extends ConsumerWidget {
           ),
           child: InactivitySignOut(
             messengerKey: _messengerKey,
-            child: Overlay.wrap(child: CitizenReadAloud(child: SelectionArea(child: child!))),
+            child: Overlay.wrap(child: OfflineNotice(child: CitizenReadAloud(child: SelectionArea(child: child!)))),
           ),
         );
       },

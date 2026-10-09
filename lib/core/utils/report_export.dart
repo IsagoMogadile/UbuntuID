@@ -325,7 +325,7 @@ class ReportExport {
                         pw.Text(subtitle, style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
                       pw.SizedBox(height: 4),
                       pw.Text(
-                        'UbuntuID -- generated ${DateTime.now().toIso8601String().split('T').first}',
+                        'UbuntuID - generated ${DateTime.now().toIso8601String().split('T').first}',
                         style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
                       ),
                     ],

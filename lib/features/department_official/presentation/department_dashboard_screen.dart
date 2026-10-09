@@ -10,6 +10,7 @@ import '../../../routing/app_routes.dart';
 import '../../reports/domain/report_data.dart';
 import '../../reports/presentation/report_activity_card.dart';
 import '../data/department_repository.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// A department official never sees or acts on verification here -- an
 /// organisation requests it, an automated check decides it
@@ -39,7 +40,7 @@ class DepartmentDashboardScreen extends ConsumerWidget {
         ),
       ),
       error: (error, _) => ErrorView(
-        message: 'Could not load dashboard.\n\nDEBUG: $error',
+        message: 'Could not load dashboard.\n\nDEBUG. ${friendlyError(error)}',
         onRetry: () => ref.invalidate(departmentDashboardStatsProvider),
       ),
       data: (stats) {

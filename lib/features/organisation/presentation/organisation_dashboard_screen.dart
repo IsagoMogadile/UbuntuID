@@ -17,6 +17,7 @@ import '../../reports/presentation/report_activity_card.dart';
 import '../data/organisation_repository.dart';
 import '../domain/organisation_dashboard_stats.dart';
 import 'resubmit_organisation_sheet.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class OrganisationDashboardScreen extends ConsumerWidget {
   const OrganisationDashboardScreen({super.key});
@@ -49,7 +50,7 @@ class OrganisationDashboardScreen extends ConsumerWidget {
             ),
           ),
           error: (error, _) => ErrorView(
-            message: 'Could not load dashboard.\n\nDEBUG: $error',
+            message: 'Could not load dashboard.\n\nDEBUG. ${friendlyError(error)}',
             onRetry: () => ref.invalidate(organisationDashboardStatsProvider),
           ),
           data: (stats) => _buildDashboard(context, ref, stats),
@@ -93,7 +94,7 @@ class OrganisationDashboardScreen extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.badge_outlined),
               title: Text('Employees'),
-              subtitle: Text('People you employed through UbuntuID -- view or end an employment'),
+              subtitle: Text('People you employed through UbuntuID – view or end an employment'),
               trailing: Icon(Icons.chevron_right),
             ),
           ),

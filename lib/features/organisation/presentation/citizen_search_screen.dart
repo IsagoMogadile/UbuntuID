@@ -13,6 +13,7 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../routing/app_routes.dart';
 import '../data/organisation_repository.dart';
 import '../domain/verification_claim_config.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// The organisation's core feature (spec §11/§12): the applicant's actual
 /// application happens entirely outside UbuntuID (Spar's own hiring
@@ -58,8 +59,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     if (firstName.isEmpty && lastName.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Enter at least a first name or last name to confirm the ID number.')));
+      AppToast.warning(context, 'Enter at least a first name or last name to confirm the ID number.');
       return;
     }
     setState(() {
@@ -75,8 +75,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
 
   Future<void> _submitApplication(String citizenId) async {
     if (_selectedCredentialTypeIds.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Select at least one credential to check.')));
+      AppToast.warning(context, 'Select at least one credential to check.');
       return;
     }
     for (final credentialTypeId in _selectedCredentialTypeIds) {
@@ -86,9 +85,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
       for (final field in fields) {
         final value = claim[field.key]?.toString().trim();
         if (value == null || value.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Fill in "${field.label}" before submitting this application.')),
-          );
+          AppToast.warning(context, 'Fill in "${field.label}" before submitting this application.');
           return;
         }
       }
@@ -97,15 +94,16 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: const Text('Submit application'),
         content: Text(
           'Start an automated check of ${_selectedCredentialTypeIds.length} credential(s) against what you\'ve '
-          'entered for this applicant? UbuntuID compares this against the real department records -- no official '
+          'entered for this applicant? UbuntuID compares this against the real department records – no official '
           'reviews it manually.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit application')),
         ],
       ),
     );
@@ -123,8 +121,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not submit this application: $e')));
+        AppToast.error(context, 'Could not submit this application.', error: e);
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

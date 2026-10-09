@@ -176,7 +176,7 @@ String? _minAgeValidator({
   final eventDate = DateTime.tryParse(values[dateKey] as String? ?? '') ?? DateTime.now();
   final age = ageAt(dob, eventDate);
   if (age < minAge) {
-    return '${citizen.fullName} would be $age years old on ${eventDate.toIso8601String().split('T').first} -- '
+    return '${citizen.fullName} would be $age years old on ${eventDate.toIso8601String().split('T').first} – '
         '$label requires a minimum age of $minAge.';
   }
   return null;
@@ -206,12 +206,12 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             if (marriageDate == null) return null;
             final spouse1Dob = saIdDateOfBirth(citizen.idNumber);
             if (spouse1Dob != null && ageAt(spouse1Dob, marriageDate) < 18) {
-              return '${citizen.fullName} would be ${ageAt(spouse1Dob, marriageDate)} years old on this date -- '
+              return '${citizen.fullName} would be ${ageAt(spouse1Dob, marriageDate)} years old on this date – '
                   'the minimum marriage age is 18.';
             }
             final spouse2Dob = saIdDateOfBirth(values['spouse_2_id'] as String? ?? '');
             if (spouse2Dob != null && ageAt(spouse2Dob, marriageDate) < 18) {
-              return 'The spouse would be ${ageAt(spouse2Dob, marriageDate)} years old on this date -- '
+              return 'The spouse would be ${ageAt(spouse2Dob, marriageDate)} years old on this date – '
                   'the minimum marriage age is 18.';
             }
             return null;
@@ -594,7 +594,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             if (dob == null || year == null) return null;
             final age = year - dob.year;
             if (age < 17) {
-              return '${citizen.fullName} would be $age years old in $year -- the minimum age to write the NSC (including as a private/adult candidate) is 17.';
+              return '${citizen.fullName} would be $age years old in $year – the minimum age to write the NSC (including as a private/adult candidate) is 17.';
             }
             return null;
           },
@@ -642,7 +642,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             ),
             RecordField(
               key: 'mature_age_exemption',
-              label: 'No matric on file -- mature age exemption',
+              label: 'No matric on file – mature age exemption',
               type: RecordFieldType.dropdown,
               options: ['No', 'Yes'],
             ),
@@ -718,7 +718,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             if (dob == null || year == null) return null;
             final age = year - dob.year;
             if (age < 17) {
-              return '${citizen.fullName} would be $age years old in $year -- too young to have completed this qualification.';
+              return '${citizen.fullName} would be $age years old in $year – too young to have completed this qualification.';
             }
             return null;
           },
@@ -806,7 +806,7 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             if (dob == null) return null;
             final age = ageAt(dob, DateTime.now());
             if (age < 60) {
-              return '${citizen.fullName} is $age years old -- the Old Age grant requires a minimum age of 60.';
+              return '${citizen.fullName} is $age years old – the Old Age grant requires a minimum age of 60.';
             }
             return null;
           },

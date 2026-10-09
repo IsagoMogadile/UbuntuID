@@ -197,7 +197,7 @@ class ReportsRepository {
         ),
       ],
       notes: const [
-        '"Requests" are organisation verification requests -- the only request workflow UbuntuID records across '
+        '"Requests" are organisation verification requests – the only request workflow UbuntuID records across '
             'the whole platform. Department record changes are not logged as requests.',
         'Platform totals are counts as of now; every other figure covers the reporting period only.',
       ],
@@ -435,6 +435,8 @@ class ReportsRepository {
   // verification visibility via `can_view_verification_request`).
   // ---------------------------------------------------------------------
 
+  static DateTime? _later(DateTime? a, DateTime? b) => a == null || (b != null && b.isAfter(a)) ? b ?? a : a;
+
   Future<ReportData> citizenReport(ReportRange range) async {
     final citizen = await _client
         .from('citizens')
@@ -444,7 +446,7 @@ class ReportsRepository {
     final citizenId = citizen?['citizen_id'] as String?;
     if (citizenId == null) throw const AppException('No citizen record is linked to this account.');
 
-    final (credentials, requests, consents, appeals) = await (
+    final (credentials, requests, appeals) = await (
       _client
           .from('credentials')
           .select('credential_type_id, status, issued_date, expiry_date, '
@@ -457,12 +459,6 @@ class ReportsRepository {
               'verification_results(match_status, credential_type_id, credential_types(display_name))')
           .eq('citizen_id', citizenId)
           .order('requested_at', ascending: false),
-      _client
-          .from('consent_grants')
-          .select('granted_at')
-          .eq('citizen_id', citizenId)
-          .gte('granted_at', range.startTimestamp)
-          .lt('granted_at', range.endExclusiveTimestamp),
       _client
           .from('appeals')
           .select('status')
@@ -493,6 +489,51 @@ class ReportsRepository {
     final periodStatuses = [for (final r in periodRequests) r['overall_status'] as String? ?? 'unknown'];
     final name = '${citizen?['first_name'] ?? ''} ${citizen?['last_name'] ?? ''}'.trim();
 
+    // How each credential fared in this period's checks: matched exactly,
+    // partly, or not at all. A credential that keeps failing points to an
+    // error the citizen should take up with the issuing department.
+    var matched = 0, partial = 0, notMatched = 0;
+    final failures = <String, ({int count, DateTime? last})>{};
+    final byOrganisation = <String, ({int count, DateTime? last})>{};
+    for (final r in periodRequests) {
+      final when = _date(r['requested_at']);
+      final org = (r['organisations'] as Map<String, dynamic>?)?['legal_name'] as String? ?? 'Unknown organisation';
+      final o = byOrganisation[org];
+      byOrganisation[org] = (
+        count: (o?.count ?? 0) + 1,
+        last: _later(o?.last, when),
+      );
+      for (final line in (r['verification_results'] as List? ?? const [])) {
+        final result = line as Map<String, dynamic>;
+        switch (result['match_status']) {
+          case 'exact_match':
+            matched++;
+            continue;
+          case 'partial_match':
+            partial++;
+          default:
+            notMatched++;
+        }
+        final credential =
+            (result['credential_types'] as Map<String, dynamic>?)?['display_name'] as String? ?? 'Credential';
+        final f = failures[credential];
+        failures[credential] = (
+          count: (f?.count ?? 0) + 1,
+          last: _later(f?.last, when),
+        );
+      }
+    }
+    final checkedLines = matched + partial + notMatched;
+    final matchRate = checkedLines == 0 ? 0 : (matched * 100 / checkedLines).round();
+
+    // Expiring in the next 90 days (from today, whatever the period).
+    final today = DateTime.now();
+    final soon = today.add(const Duration(days: 90));
+    final expiring = [
+      for (final c in credentials)
+        if (_date(c['expiry_date']) case final DateTime expiry when !expiry.isBefore(today) && expiry.isBefore(soon)) c,
+    ]..sort((a, b) => _date(a['expiry_date'])!.compareTo(_date(b['expiry_date'])!));
+
     return ReportData(
       kind: ReportKind.citizen,
       ownerLabel: 'Citizen',
@@ -521,9 +562,15 @@ class ReportsRepository {
           title: 'Verification checks on you in this period',
           metrics: _requestMetrics(periodStatuses, noun: 'Checks'),
         ),
+        ReportMetricGroup(title: 'How your details matched in this period', metrics: [
+          ReportMetric(label: 'Match rate (%)', value: matchRate, icon: Icons.percent),
+          ReportMetric(label: 'Matched', value: matched, icon: Icons.check_circle_outline),
+          ReportMetric(label: 'Partly matched', value: partial, icon: Icons.rule_outlined),
+          ReportMetric(label: 'Did not match', value: notMatched, icon: Icons.cancel_outlined),
+        ]),
         ReportMetricGroup(title: 'Other activity in this period', metrics: [
-          ReportMetric(label: 'Consents granted', value: consents.length, icon: Icons.privacy_tip_outlined),
           ReportMetric(label: 'Appeals on your records', value: appeals.length, icon: Icons.gavel_outlined),
+          ReportMetric(label: 'Expiring in the next 90 days', value: expiring.length, icon: Icons.event_busy_outlined),
         ]),
       ],
       sections: [
@@ -545,6 +592,43 @@ class ReportsRepository {
                   null => '—',
                 },
               ],
+          ],
+        ),
+        TableSection(
+          title: 'Records that failed checks',
+          description: 'Credentials that did not fully match what an organisation was told. If one keeps failing, '
+              'ask the department that issued it to check its records.',
+          headers: const ['Credential', 'Times not matched', 'Last time'],
+          emptyMessage: 'Every check in this period matched your records.',
+          rows: [
+            for (final e in (failures.entries.toList()..sort((a, b) => b.value.count.compareTo(a.value.count))))
+              [e.key, '${e.value.count}', e.value.last == null ? '—' : _shortDate.format(e.value.last!)],
+          ],
+        ),
+        TableSection(
+          title: 'Expiring soon',
+          description: 'Credentials that expire in the next 90 days. Renew them in time so checks keep matching.',
+          headers: const ['Credential', 'Issued by', 'Expires'],
+          emptyMessage: 'Nothing expires in the next 90 days.',
+          rows: [
+            for (final c in expiring)
+              [
+                (c['credential_types'] as Map<String, dynamic>?)?['display_name'] as String? ?? 'Credential',
+                ((c['credential_types'] as Map<String, dynamic>?)?['departments'] as Map<String, dynamic>?)?[
+                        'department_name'] as String? ??
+                    '—',
+                _formatDate(c['expiry_date']),
+              ],
+          ],
+        ),
+        TableSection(
+          title: 'Who checks your details most',
+          description: 'Organisations ranked by how many times they checked you in this period.',
+          headers: const ['Organisation', 'Checks', 'Most recent'],
+          emptyMessage: 'No organisation checked your details in this period.',
+          rows: [
+            for (final e in (byOrganisation.entries.toList()..sort((a, b) => b.value.count.compareTo(a.value.count))))
+              [e.key, '${e.value.count}', e.value.last == null ? '—' : _shortDate.format(e.value.last!)],
           ],
         ),
         TrendSection(
@@ -570,11 +654,7 @@ class ReportsRepository {
           ],
         ),
       ],
-      notes: const [
-        'Only your own records are included.',
-        'Citizens do not submit service requests in UbuntuID -- organisations request verification of your '
-            'credentials with your consent, so those checks are what this report counts.',
-      ],
+      notes: const ['Only your own records are included.'],
     );
   }
 

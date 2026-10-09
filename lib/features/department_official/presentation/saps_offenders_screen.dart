@@ -9,6 +9,7 @@ import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/department_repository.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// SAPS-only, department-wide "list of offenders and type of offense" -- a
 /// read view over the existing `saps_criminal_records` table (no new table
@@ -25,7 +26,7 @@ class SapsOffendersScreen extends ConsumerWidget {
       body: offendersAsync.when(
         loading: () => const LoadingIndicator(),
         error: (e, _) =>
-            ErrorView(message: 'Could not load offenders.\n\n$e', onRetry: () => ref.invalidate(offendersProvider)),
+            ErrorView(message: 'Could not load offenders. ${friendlyError(e)}', onRetry: () => ref.invalidate(offendersProvider)),
         data: (offenders) => offenders.isEmpty
             ? const EmptyState(
                 icon: Icons.gavel_outlined,

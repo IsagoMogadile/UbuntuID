@@ -17,6 +17,7 @@ import '../domain/report_data.dart';
 import '../domain/report_range.dart';
 import 'report_charts.dart';
 import 'report_pdf.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// The Reports tab for every role -- one layout, so all four reports read
 /// the same way: what it is, who it belongs to, the period, headline
@@ -66,7 +67,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not download the report.')));
+      AppToast.error(context, 'Could not download the report.');
     }
   }
 

@@ -28,7 +28,7 @@ class FlaggedRecordsListScreen extends ConsumerWidget {
         ),
         data: (flags) {
           if (flags.isEmpty) {
-            return const EmptyState(icon: Icons.flag_outlined, title: 'No flagged records');
+            return const EmptyState(icon: Icons.flag_outlined, title: 'No flagged records', message: 'Nothing needs your attention. Records flagged for review will appear here.');
           }
 
           return ListView.separated(

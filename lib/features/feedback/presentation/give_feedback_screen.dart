@@ -8,6 +8,7 @@ import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/feedback_repository.dart';
 import '../domain/feedback_item.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Citizen-only (Settings > Feedback): a complaint, compliment or
 /// suggestion about one department or UbuntuID in general, plus an
@@ -52,12 +53,10 @@ class _GiveFeedbackScreenState extends ConsumerState<GiveFeedbackScreen> {
         _departmentId = null;
         _type = 'complaint';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Thank you. Your feedback has been sent to the UbuntuID administrators.')),
-      );
+      AppToast.success(context, 'Thank you. Your feedback has been sent to the UbuntuID administrators.');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not send feedback: $e')));
+        AppToast.error(context, 'Could not send feedback.', error: e);
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

@@ -78,7 +78,7 @@ class SettingsHomeScreen extends ConsumerWidget {
           if (showLogout) ...[
             const SizedBox(height: 24),
             ListItemCard(
-              title: 'Log out',
+              title: 'Sign out',
               leadingIcon: Icons.logout,
               onTap: () => confirmAndLogOut(context, ref),
               trailing: const SizedBox.shrink(),

@@ -37,7 +37,7 @@ class AccountRevokedScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   AppButton(
-                    label: 'Back to login',
+                    label: 'Back to sign in',
                     icon: Icons.login,
                     expand: true,
                     onPressed: () => context.go(AppRoutes.login),

@@ -9,6 +9,8 @@ import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../data/admin_repository.dart';
 import '../domain/department_official_detail.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Admin-only create/edit form for a department official. `officialId ==
 /// null` is create mode (asks for a login password only -- login email and
@@ -100,13 +102,11 @@ class _DepartmentOfficialFormScreenState extends ConsumerState<DepartmentOfficia
       ref.invalidate(adminDepartmentsProvider);
       if (widget.isEdit) ref.invalidate(departmentOfficialDetailProvider(widget.officialId!));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(widget.isEdit ? 'Official updated.' : 'Official created.')),
-        );
+        AppToast.success(context, widget.isEdit ? 'Official updated.' : 'Official created.');
         context.pop();
       }
     } catch (e) {
-      setState(() => _error = 'Could not save this official: $e');
+      setState(() => _error = 'Could not save this official. ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -126,7 +126,10 @@ class _DepartmentOfficialFormScreenState extends ConsumerState<DepartmentOfficia
       if (detailAsync.hasError) {
         return Scaffold(
           appBar: AppBar(title: const Text('Edit Official')),
-          body: const ErrorView(message: 'Could not load this official.'),
+          body: ErrorView(
+            message: 'Could not load this official.',
+            onRetry: () => ref.invalidate(departmentOfficialDetailProvider(widget.officialId!)),
+          ),
         );
       }
       _prefillIfNeeded(detailAsync.value);
@@ -159,15 +162,16 @@ class _DepartmentOfficialFormScreenState extends ConsumerState<DepartmentOfficia
                 if (!widget.isEdit) ...[
                   AppTextField(
                     label: 'Password',
+                    helperText: 'At least 8 characters.',
                     controller: _passwordController,
                     obscureText: true,
                     prefixIcon: Icons.lock_outline,
                     validator: (v) =>
-                        (v == null || v.length < 6) ? 'Enter a password (6+ characters)' : null,
+                        (v == null || v.length < 8) ? 'Use at least 8 characters.' : null,
                   ),
                   const SizedBox(height: 14),
                   AppTextField(
-                    label: 'Login email (optional -- auto-generated as name.surname@department)',
+                    label: 'Sign-in email (optional – created automatically if left blank)',
                     controller: _emailOverrideController,
                     keyboardType: TextInputType.emailAddress,
                     prefixIcon: Icons.mail_outline,

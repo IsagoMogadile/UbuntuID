@@ -18,6 +18,9 @@ import '../../../routing/app_routes.dart';
 import '../../verification/data/verification_repository.dart';
 import '../data/organisation_repository.dart';
 import '../domain/bulk_applicants.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/app_form_dialog.dart';
 
 /// Organisation bulk upload: download a template, upload an Excel/CSV list
 /// of applicants, review a "Name - Status" preview (sortable by status),
@@ -133,7 +136,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
     } on FormatException catch (e) {
       _showError(e.message);
     } catch (e) {
-      _showError('Could not read this file: $e');
+      _showError('Could not read this file. ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _reading = false);
     }
@@ -141,7 +144,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 6)));
+    AppToast.error(context, message);
   }
 
   Future<void> _submit() async {
@@ -151,6 +154,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: const Text('Submit applications'),
         content: Text([
           if (rows.isNotEmpty)
@@ -164,7 +168,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
         ].join('\n\n')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit applications')),
         ],
       ),
     );
@@ -189,7 +193,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
         await verificationRepo.startVerification(requestId);
         outcomes[row] = await verificationRepo.completeVerification(requestId);
       } catch (e) {
-        outcomes[row] = 'error: $e';
+        outcomes[row] = 'error: ${friendlyError(e)}';
       }
       if (mounted) setState(() => _done++);
     }
@@ -199,7 +203,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
         await orgRepo.notifyIncompleteApplication(citizenId: row.citizenId!, missing: row.issues.join('; '));
         outcomes[row] = 'incomplete_notified';
       } catch (e) {
-        outcomes[row] = 'error: could not notify applicant: $e';
+        outcomes[row] = 'error: could not notify applicant. ${friendlyError(e)}';
       }
       if (mounted) setState(() => _done++);
     }
@@ -209,7 +213,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
         await orgRepo.notifyRemovedApplicant(citizenId: row.citizenId!, reason: row.removedReason!);
         outcomes[row] = 'removed_notified';
       } catch (e) {
-        outcomes[row] = 'error: could not notify applicant: $e';
+        outcomes[row] = 'error: could not notify applicant. ${friendlyError(e)}';
       }
       if (mounted) setState(() => _done++);
     }
@@ -365,9 +369,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
     final reason = await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('Remove ${row.displayName}?'),
-          content: Column(
+        builder: (context, setDialogState) => AppFormDialog(title: 'Remove ${row.displayName}?', submitLabel: 'Remove applicant', onSubmit: controller.text.trim().isEmpty ? null : () => Navigator.pop(context, controller.text.trim()), child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -389,15 +391,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
                 ),
               ),
             ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            TextButton(
-              onPressed: controller.text.trim().isEmpty ? null : () => Navigator.pop(context, controller.text.trim()),
-              child: const Text('Remove'),
-            ),
-          ],
-        ),
+          ),),
       ),
     );
     controller.dispose();
@@ -419,7 +413,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
         data: (scope) {
           final credentials = _credentials(scope);
           if (credentials.isEmpty) {
-            return const ErrorView(message: 'Your organisation is not approved to verify any credentials yet.');
+            return ErrorView(message: 'Your organisation is not approved to verify any credentials yet.', onRetry: () => ref.invalidate(myCredentialScopeProvider));
           }
           return _buildBody(credentials);
         },

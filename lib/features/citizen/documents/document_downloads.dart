@@ -5,6 +5,8 @@ import '../data/citizen_repository.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
 import 'credential_documents.dart';
+import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Builds and shares a citizen's prototype PDFs -- the Documents screen's
 /// and Document Wallet's download actions. Everything comes from the
@@ -27,11 +29,17 @@ class DocumentDownloads {
 
   static Future<void> _withFeedback(BuildContext context, Future<void> Function() action) async {
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('Preparing your document...'), duration: Duration(seconds: 2)));
+    AppToast.show(messenger, ToastTone.info, 'Preparing your document…', duration: const Duration(seconds: 2));
     try {
       await action();
-    } catch (_) {
-      messenger.showSnackBar(const SnackBar(content: Text('Could not create the document. Please try again.')));
+    } catch (e) {
+      AppToast.show(
+        messenger,
+        ToastTone.error,
+        'Could not create the document.',
+        detail: friendlyError(e),
+        action: SnackBarAction(label: 'Try again', onPressed: () => _withFeedback(context, action)),
+      );
     }
   }
 

@@ -54,7 +54,7 @@ class AboutScreen extends StatelessWidget {
             'own service records against that identity. Organisations can '
             'search for a citizen and request verification of specific '
             'credentials (with consent tracked and revocable); a UbuntuID '
-            'administrator oversees the whole platform -- users, departments, '
+            'administrator oversees the whole platform – users, departments, '
             'organisations, flagged records and an audit trail. Everything '
             'runs on Supabase/PostgreSQL with Row Level Security as the real '
             'access-control boundary, not just the app\'s own screens.',

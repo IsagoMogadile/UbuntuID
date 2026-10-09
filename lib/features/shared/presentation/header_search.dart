@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 /// A search field in the middle of a role's header -- an inline field on
 /// wide layouts, a search icon beside Profile on narrow ones. Either way it
 /// opens [searchRoute] (that role's own search screen), with the typed text
-/// (if any) passed as `?[queryParameter]=` and searched immediately.
+/// (if any) passed as the route's `extra` -- never in the URL, since it is
+/// often an ID number -- and searched immediately.
 ///
 /// Department officials use it to search citizens by ID number; the
 /// administrator's version searches every actor on UbuntuID.
@@ -13,14 +14,12 @@ class HeaderSearch extends StatefulWidget {
     super.key,
     required this.searchRoute,
     required this.hintText,
-    required this.queryParameter,
     this.icon = Icons.search,
     this.keyboardType,
   });
 
   final String searchRoute;
   final String hintText;
-  final String queryParameter;
   final IconData icon;
   final TextInputType? keyboardType;
 
@@ -41,11 +40,10 @@ class _HeaderSearchState extends State<HeaderSearch> {
 
   void _openSearch([String? text]) {
     final query = text?.trim() ?? '';
-    final location = query.isEmpty
-        ? widget.searchRoute
-        : Uri(path: widget.searchRoute, queryParameters: {widget.queryParameter: query}).toString();
     _controller.clear();
-    context.push(location);
+    // Passed alongside the route, not in the URL: searches are often ID
+    // numbers, which must not end up in browser history.
+    context.push(widget.searchRoute, extra: query.isEmpty ? null : query);
   }
 
   @override

@@ -6,6 +6,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../data/admin_repository.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/friendly_error.dart';
 
 const _categoryOptions = [
   'identity',
@@ -64,11 +66,11 @@ class _DepartmentFormScreenState extends ConsumerState<DepartmentFormScreen> {
           );
       ref.invalidate(adminDepartmentsProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Department created.')));
+        AppToast.success(context, 'Department created.');
         context.pop();
       }
     } catch (e) {
-      setState(() => _error = 'Could not create this department: $e');
+      setState(() => _error = 'Could not create this department. ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -122,10 +124,9 @@ class _DepartmentFormScreenState extends ConsumerState<DepartmentFormScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'A new department has no dedicated record types or dashboard '
-                  'stats until those are added in code -- creating it here lets '
-                  'officials be assigned to it and credential types be issued '
-                  'under it.',
+                  'Once created, you can assign officials to this department and '
+                  'issue credential types under it. Its own record screens and '
+                  'dashboard figures are added separately by the development team.',
                   style: TextStyle(color: AppColors.charcoalMuted, fontSize: 12),
                 ),
                 if (_error != null) ...[

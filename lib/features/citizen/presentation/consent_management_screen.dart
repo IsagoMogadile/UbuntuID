@@ -10,6 +10,7 @@ import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/citizen_repository.dart';
 import '../domain/consent_grant_item.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Which organisations currently hold consent to verify which of this
 /// citizen's credential types -- and lets them revoke it. `consent_grants`
@@ -29,6 +30,7 @@ class _ConsentManagementScreenState extends ConsumerState<ConsentManagementScree
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: const Text('Revoke consent'),
         content: Text(
           'Revoke ${consent.organisationName}\'s consent to verify '
@@ -37,7 +39,7 @@ class _ConsentManagementScreenState extends ConsumerState<ConsentManagementScree
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Revoke')),
+          TextButton(style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error), onPressed: () => Navigator.pop(context, true), child: const Text('Revoke consent')),
         ],
       ),
     );
@@ -49,7 +51,7 @@ class _ConsentManagementScreenState extends ConsumerState<ConsentManagementScree
       ref.invalidate(consentGrantsProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not revoke consent: $e')));
+        AppToast.error(context, 'Could not revoke consent.', error: e);
       }
     } finally {
       if (mounted) setState(() => _revokingId = null);

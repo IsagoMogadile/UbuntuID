@@ -20,7 +20,7 @@ class PersonalInformationScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Personal Information')),
       body: identityAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load your personal information.'),
+        error: (error, _) => ErrorView(message: 'Could not load your personal information.', onRetry: () => ref.invalidate(digitalIdentityProvider)),
         data: (identity) => ListView(
           padding: const EdgeInsets.all(16),
           children: [

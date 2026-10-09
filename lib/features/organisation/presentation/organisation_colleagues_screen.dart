@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_view.dart';
@@ -11,6 +10,9 @@ import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/staggered_fade_in.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/organisation_repository.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/friendly_error.dart';
+import '../../../core/widgets/app_form_dialog.dart';
 
 const _orgAdminTiers = {'manager', 'administrator'};
 
@@ -44,7 +46,7 @@ class _OrganisationColleaguesScreenState extends ConsumerState<OrganisationColle
       ref.invalidate(organisationColleaguesProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update this user: $e')));
+        AppToast.error(context, 'Could not update this user.', error: e);
       }
     } finally {
       if (mounted) setState(() => _togglingId = null);
@@ -74,7 +76,7 @@ class _OrganisationColleaguesScreenState extends ConsumerState<OrganisationColle
         ),
         data: (colleagues) {
           if (colleagues.isEmpty) {
-            return const EmptyState(icon: Icons.group_outlined, title: 'No colleagues found');
+            return const EmptyState(icon: Icons.group_outlined, title: 'No colleagues found', message: 'Try a different search, or add a colleague.');
           }
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
@@ -144,12 +146,10 @@ class _AddOrgStaffDialogState extends ConsumerState<_AddOrgStaffDialog> {
           );
       if (mounted) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Staff account created: ${result['email']}')),
-        );
+        AppToast.success(context, 'Staff account created: ${result['email']}');
       }
     } catch (e) {
-      setState(() => _error = 'Could not create this account: $e');
+      setState(() => _error = 'Could not create this account. ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -157,10 +157,13 @@ class _AddOrgStaffDialogState extends ConsumerState<_AddOrgStaffDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add staff member'),
-      content: SingleChildScrollView(
-        child: Form(
+    return AppFormDialog(
+      title: 'Add staff member',
+      subtitle: 'They can sign in straight away with the password you set here.',
+      submitLabel: 'Create account',
+      submitting: _submitting,
+      onSubmit: _submit,
+      child: Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -168,24 +171,25 @@ class _AddOrgStaffDialogState extends ConsumerState<_AddOrgStaffDialog> {
               AppTextField(
                 label: 'First name',
                 controller: _firstNameController,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter their first name.' : null,
               ),
               const SizedBox(height: 12),
               AppTextField(
                 label: 'Last name',
                 controller: _lastNameController,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter their last name.' : null,
               ),
               const SizedBox(height: 12),
               AppTextField(
                 label: 'Password',
+                helperText: 'At least 8 characters.',
                 controller: _passwordController,
                 obscureText: true,
-                validator: (v) => (v == null || v.length < 8) ? 'At least 8 characters' : null,
+                validator: (v) => (v == null || v.length < 8) ? 'Use at least 8 characters.' : null,
               ),
               const SizedBox(height: 4),
               const Text(
-                'Login email is auto-generated from their name and your organisation\'s domain.',
+                'Sign-in email is created automatically from their name and your organisation\'s domain.',
                 style: TextStyle(fontSize: 12, color: AppColors.charcoalMuted),
               ),
               if (_error != null) ...[
@@ -195,11 +199,6 @@ class _AddOrgStaffDialogState extends ConsumerState<_AddOrgStaffDialog> {
             ],
           ),
         ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        AppButton(label: 'Create', loading: _submitting, onPressed: _submitting ? null : _submit),
-      ],
     );
   }
 }

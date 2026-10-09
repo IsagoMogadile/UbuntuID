@@ -14,6 +14,8 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../routing/app_routes.dart';
 import '../data/admin_repository.dart';
 import '../domain/user_list_item.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/confirm_dialog.dart';
 
 class UserDetailScreen extends ConsumerStatefulWidget {
   const UserDetailScreen({super.key, required this.userId});
@@ -28,6 +30,17 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   bool _isSubmitting = false;
 
   Future<void> _toggleActive(UserListItem user) async {
+    if (user.active &&
+        !await confirmAction(
+          context,
+          title: 'Suspend ${user.displayName}?',
+          message: 'They will not be able to sign in until you reactivate the account. Nothing is deleted.',
+          confirmLabel: 'Suspend account',
+          destructive: true,
+        )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _isSubmitting = true);
     try {
       await ref.read(adminRepositoryProvider).setUserActive(
@@ -37,13 +50,11 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
           );
       ref.invalidate(adminUsersProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(user.active ? 'Account suspended.' : 'Account reactivated.')),
-        );
+        AppToast.success(context, user.active ? 'Account suspended.' : 'Account reactivated.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update this account: $e')));
+        AppToast.error(context, 'Could not update this account.', error: e);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -54,11 +65,12 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete official?'),
-        content: Text('This permanently removes ${user.displayName} and their login. This cannot be undone.'),
+        scrollable: true,
+        title: Text('Delete ${user.displayName}?'),
+        content: Text('This permanently removes ${user.displayName} and their account. This cannot be undone.'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete')),
+          TextButton(style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error), onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete official')),
         ],
       ),
     );
@@ -69,12 +81,12 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       await ref.read(adminRepositoryProvider).deleteDepartmentOfficial(user.userId);
       ref.invalidate(adminUsersProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Official deleted.')));
+        AppToast.success(context, 'Official deleted.');
         context.pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not delete this official: $e')));
+        AppToast.error(context, 'Could not delete this official.', error: e);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -89,12 +101,12 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       appBar: AppBar(title: const Text('User')),
       body: usersAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load this user.'),
+        error: (error, _) => ErrorView(message: 'Could not load this user.', onRetry: () => ref.invalidate(adminUsersProvider)),
         data: (users) {
           final matches = users.where((u) => u.userId == widget.userId);
           final user = matches.isEmpty ? null : matches.first;
           if (user == null) {
-            return const EmptyState(icon: Icons.search_off_outlined, title: 'User not found');
+            return const EmptyState(icon: Icons.search_off_outlined, title: 'User not found', message: 'It may have been removed, or the link is out of date. Go back and try again.');
           }
 
           return ListView(
@@ -152,7 +164,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Suspension flips this account\'s status column -- accounts are never deleted from here.',
+                'Suspending only blocks sign-in. Nothing is deleted, and you can reactivate the account at any time.',
                 style: TextStyle(fontSize: 12),
               ),
               if (user.role == AdminUserRole.departmentOfficial) ...[
@@ -167,7 +179,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Permanently removes this official\'s profile and login.',
+                  'Permanently removes this official\'s profile and account.',
                   style: TextStyle(fontSize: 12, color: AppColors.error),
                 ),
               ],

@@ -9,6 +9,8 @@ import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../data/department_repository.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/friendly_error.dart';
 
 /// Home Affairs only -- "make changes to citizen details, edit names, and
 /// everything". Gated by the live `citizens_update` RLS policy (see
@@ -89,11 +91,11 @@ class _EditCitizenScreenState extends ConsumerState<EditCitizenScreen> {
             citizenshipStatus: _citizenshipStatus,
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Citizen details updated.')));
+        AppToast.success(context, 'Citizen details updated.');
         context.pop();
       }
     } catch (e) {
-      setState(() => _error = 'Could not save these changes: $e');
+      setState(() => _error = 'Could not save these changes. ${friendlyError(e)}');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -113,7 +115,12 @@ class _EditCitizenScreenState extends ConsumerState<EditCitizenScreen> {
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) return const LoadingIndicator();
                   if (snapshot.hasError || !snapshot.hasData) {
-                    return ErrorView(message: 'Could not load this citizen.\n\n${snapshot.error ?? ''}');
+                    return ErrorView(
+                      message: snapshot.error == null
+                          ? 'Could not load this citizen.'
+                          : 'Could not load this citizen. ${friendlyError(snapshot.error!)}',
+                      onRetry: () => setState(() {}),
+                    );
                   }
                   _prefill(snapshot.data!);
                   return _buildForm(context);

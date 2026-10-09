@@ -10,6 +10,7 @@ import '../../../core/widgets/app_text_field.dart';
 import '../../../routing/app_routes.dart';
 import '../../../services/service_providers.dart';
 import '../application/role_resolution.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -50,9 +51,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
       context.go(destination);
     } on AuthException catch (e) {
-      setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = 'Something went wrong. Please try again.');
+      setState(() => _error = friendlyAuthMessage(e.message));
+    } catch (e) {
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -113,7 +114,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                     const SizedBox(height: 20),
                     AppButton(
-                      label: 'Login',
+                      label: 'Sign in',
                       onPressed: _submit,
                       loading: _submitting,
                       expand: true,

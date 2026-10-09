@@ -4,13 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/auth_error_messages.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../routing/app_routes.dart';
 import '../../../services/service_providers.dart';
 import '../application/role_resolution.dart';
+import '../../../core/utils/friendly_error.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -65,9 +65,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (!mounted) return;
       context.go(destination);
     } on AuthException catch (e) {
-      setState(() => _error = friendlyAuthError(e));
-    } catch (_) {
-      setState(() => _error = 'Something went wrong. Please try again.');
+      setState(() => _error = friendlyAuthMessage(e.message));
+    } catch (e) {
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -102,7 +102,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           Text(
             'Register for a UbuntuID account. If Home Affairs already '
             'registered you as a citizen, sign up with the exact same '
-            'email address they used for you -- your account is linked '
+            'email address they used for you – your account is linked '
             'to your citizen record automatically. Otherwise, access to '
             'department, organisation or administrator features is '
             'granted separately once your account is linked to a record.',
@@ -125,13 +125,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 14),
           AppTextField(
             label: 'Password',
+            helperText: 'At least 8 characters.',
             controller: _passwordController,
             obscureText: true,
             prefixIcon: Icons.lock_outline,
             textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.newPassword],
             validator: (value) {
-              if (value == null || value.length < 8) return 'At least 8 characters';
+              if (value == null || value.length < 8) return 'Use at least 8 characters.';
               return null;
             },
           ),
@@ -179,7 +180,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             alignment: Alignment.center,
             child: TextButton(
               onPressed: () => context.pop(),
-              child: const Text('Back to login'),
+              child: const Text('Back to sign in'),
             ),
           ),
         ],
@@ -197,12 +198,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         const SizedBox(height: 8),
         const Text(
           "We've sent a confirmation link to your email address. "
-          'Confirm it, then log in.',
+          'Confirm it, then sign in.',
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
         AppButton(
-          label: 'Back to login',
+          label: 'Back to sign in',
           onPressed: () => context.go(AppRoutes.login),
           expand: true,
         ),

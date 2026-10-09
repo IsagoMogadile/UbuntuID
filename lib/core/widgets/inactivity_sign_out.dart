@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'app_toast.dart';
 
 /// Signs the user out after [timeout] without a tap, click, scroll or key
 /// press. A minute before, a banner warns them and offers to stay signed in
@@ -116,12 +117,16 @@ class _InactivitySignOutState extends State<InactivitySignOut> {
     } catch (_) {
       // Offline: the local session is cleared regardless.
     }
-    widget.messengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: Text('You were signed out after ${widget.timeout.inMinutes} minutes of inactivity.'),
+    final messenger = widget.messengerKey.currentState;
+    if (messenger != null) {
+      AppToast.show(
+        messenger,
+        ToastTone.info,
+        'You were signed out',
+        detail: 'For your security, you are signed out after ${widget.timeout.inMinutes} minutes without activity.',
         duration: const Duration(seconds: 8),
-      ),
-    );
+      );
+    }
   }
 
   @override

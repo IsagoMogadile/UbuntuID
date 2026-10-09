@@ -24,7 +24,7 @@ class ProfileOverviewScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Profile')),
       body: identityAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load your profile.'),
+        error: (error, _) => ErrorView(message: 'Could not load your profile.', onRetry: () => ref.invalidate(digitalIdentityProvider)),
         data: (identity) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -51,16 +51,6 @@ class ProfileOverviewScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
             const SectionHeader(title: 'Account'),
-            Hero(
-              tag: 'digital-id-card-hero',
-              child: ListItemCard(
-                title: 'Digital ID card',
-                subtitle: 'QR code for in-person identity verification',
-                leadingIcon: Icons.qr_code_2_outlined,
-                onTap: () => context.push(AppRoutes.citizenDigitalIdCard),
-              ),
-            ),
-            const SizedBox(height: 10),
             ListItemCard(
               title: 'Personal information',
               subtitle: 'Name, ID number, contact details',

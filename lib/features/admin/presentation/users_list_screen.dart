@@ -153,7 +153,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                   return u.displayName.toLowerCase().contains(query) || u.email.toLowerCase().contains(query);
                 }).toList();
                 if (users.isEmpty) {
-                  return const EmptyState(icon: Icons.group_outlined, title: 'No users found');
+                  return const EmptyState(icon: Icons.group_outlined, title: 'No users found', message: 'Try a different search or filter.');
                 }
 
                 return ListView.separated(

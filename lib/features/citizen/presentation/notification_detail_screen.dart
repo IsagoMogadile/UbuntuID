@@ -46,12 +46,12 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
       ),
       body: notificationsAsync.when(
         loading: () => const LoadingIndicator(),
-        error: (error, _) => const ErrorView(message: 'Could not load this notification.'),
+        error: (error, _) => ErrorView(message: 'Could not load this notification.', onRetry: () => ref.invalidate(notificationsControllerProvider)),
         data: (notifications) {
           final matches = notifications.where((n) => n.notificationId == widget.notificationId);
           final notification = matches.isEmpty ? null : matches.first;
           if (notification == null) {
-            return const EmptyState(icon: Icons.search_off_outlined, title: 'Notification not found');
+            return const EmptyState(icon: Icons.search_off_outlined, title: 'Notification not found', message: 'It may have been removed, or the link is out of date. Go back and try again.');
           }
 
           // Sized to its content instead of filling the screen.

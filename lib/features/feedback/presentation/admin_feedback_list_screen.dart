@@ -29,7 +29,7 @@ class AdminFeedbackListScreen extends ConsumerWidget {
         ),
         data: (items) {
           if (items.isEmpty) {
-            return const EmptyState(icon: Icons.feedback_outlined, title: 'No feedback received yet');
+            return const EmptyState(icon: Icons.feedback_outlined, title: 'No feedback received yet', message: 'Complaints, compliments and suggestions from citizens will appear here.');
           }
           return ListView.separated(
             padding: const EdgeInsets.all(16),

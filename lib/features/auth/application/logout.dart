@@ -14,11 +14,12 @@ Future<void> confirmAndLogOut(BuildContext context, WidgetRef ref) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Log out'),
-      content: const Text('Are you sure you want to log out of UbuntuID?'),
+        scrollable: true,
+      title: const Text('Sign out'),
+      content: const Text('Are you sure you want to sign out of UbuntuID?'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Log out')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sign out')),
       ],
     ),
   );
