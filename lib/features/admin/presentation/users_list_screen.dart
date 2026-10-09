@@ -62,7 +62,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       headers: const ['Name', 'Email', 'Role', 'Status', 'Created'],
       rows: [
         for (final u in users)
-          [u.displayName, u.email, u.roleLabel, u.active ? 'Active' : 'Inactive', u.createdAt.toIso8601String().split('T').first],
+          [u.displayName, u.email, u.roleLabel, u.active ? 'Active' : 'Inactive', u.createdAt.toLocal().toIso8601String().split('T').first],
       ],
     );
   }

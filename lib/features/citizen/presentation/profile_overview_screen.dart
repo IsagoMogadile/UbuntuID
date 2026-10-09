@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/accessibility_link.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/list_item_card.dart';
 import '../../../core/widgets/loading_indicator.dart';
@@ -73,6 +74,7 @@ class ProfileOverviewScreen extends ConsumerWidget {
               leadingIcon: Icons.privacy_tip_outlined,
               onTap: () => context.push(AppRoutes.citizenConsent),
             ),
+            const AccessibilityProfileLink(),
           ],
         ),
       ),

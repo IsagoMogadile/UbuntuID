@@ -149,6 +149,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: () => context.push(AppRoutes.privacyPolicy),
+                        child: const Text('Privacy policy'),
+                      ),
+                    ),
                     const Text(
                       'Secure digital access to public services',
                       textAlign: TextAlign.center,

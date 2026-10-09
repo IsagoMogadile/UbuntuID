@@ -59,8 +59,17 @@ class StatusBadge extends StatelessWidget {
 
     // Keyed by label so a status change (e.g. a verification request going
     // pending -> completed live) cross-fades instead of snapping.
+    // An icon as well as a colour, so the status reads without colour vision.
+    final icon = switch (tone) {
+      AppStatusTone.success => Icons.check_circle_outline,
+      AppStatusTone.warning => Icons.schedule,
+      AppStatusTone.error => Icons.cancel_outlined,
+      AppStatusTone.info => Icons.info_outline,
+      AppStatusTone.neutral => null,
+    };
+
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
+      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 250),
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
         child: ScaleTransition(scale: animation, child: child),
@@ -69,7 +78,16 @@ class StatusBadge extends StatelessWidget {
         key: ValueKey(label),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-        child: Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 13, color: fg),
+              const SizedBox(width: 4),
+            ],
+            Flexible(child: Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12))),
+          ],
+        ),
       ),
     );
   }

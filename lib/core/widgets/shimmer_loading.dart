@@ -35,6 +35,8 @@ class ShimmerListPlaceholder extends StatelessWidget {
     return Shimmer.fromColors(
       baseColor: AppColors.neutralBg,
       highlightColor: Colors.white,
+      // Still placeholders when the user asked for reduced motion.
+      enabled: !MediaQuery.disableAnimationsOf(context),
       child: Padding(
         padding: padding,
         child: Column(
@@ -82,6 +84,8 @@ class ShimmerStatCardsPlaceholder extends StatelessWidget {
     return Shimmer.fromColors(
       baseColor: AppColors.neutralBg,
       highlightColor: Colors.white,
+      // Still placeholders when the user asked for reduced motion.
+      enabled: !MediaQuery.disableAnimationsOf(context),
       child: Row(
         children: [
           for (var i = 0; i < count; i++) ...[

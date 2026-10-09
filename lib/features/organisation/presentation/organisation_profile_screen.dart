@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/detail_row.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/accessibility_link.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/list_item_card.dart';
 import '../../../core/widgets/loading_indicator.dart';
@@ -90,6 +91,7 @@ class OrganisationProfileScreen extends ConsumerWidget {
               leadingIcon: Icons.group_outlined,
               onTap: () => context.push(AppRoutes.organisationColleagues),
             ),
+            const AccessibilityProfileLink(),
           ],
         ),
       ),

@@ -239,7 +239,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
     }
 
     try {
-      final result = await ref.read(organisationRepositoryProvider).offerEmployment(
+      await ref.read(organisationRepositoryProvider).offerEmployment(
             citizenId: citizenId,
             jobTitle: titleController.text.trim(),
             departmentOrPosition: positionController.text.trim().isEmpty ? null : positionController.text.trim(),
@@ -252,13 +252,10 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
           );
       _invalidateAll();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            result.labourRecorded
-                ? 'Employment offer created. Department of Labour\'s official record now shows this citizen as employed.'
-                : 'Employment offer created. ${result.skipReason ?? "Department of Labour's official record was not updated."}',
-          ),
-          duration: const Duration(seconds: 5),
+        // Records held by other departments update on their own; the
+        // organisation only needs to know the person is now on its staff.
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Done. This applicant is now part of your staff and has been notified.'),
         ));
       }
     } catch (e) {
@@ -271,7 +268,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
   /// Offer / reject, or the decision already made on this application.
   List<Widget> _decisionActions(VerificationRequestSummary request) {
     if (request.decision == 'offered') {
-      return const [_InfoBanner(icon: Icons.business_center_outlined, message: 'Employment was offered to this applicant.')];
+      return const [_InfoBanner(icon: Icons.business_center_outlined, message: 'This applicant is now part of your staff.')];
     }
     if (request.decision == 'rejected') {
       return [

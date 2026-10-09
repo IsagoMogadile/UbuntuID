@@ -152,7 +152,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 12),
             Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text('By creating an account you accept the ', style: TextStyle(fontSize: 13)),
+              InkWell(
+                onTap: () => context.push(AppRoutes.privacyPolicy),
+                child: const Text(
+                  'privacy policy',
+                  style: TextStyle(fontSize: 13, decoration: TextDecoration.underline),
+                ),
+              ),
+              const Text('.', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 12),
           AppButton(
             label: 'Create account',
             onPressed: _submit,

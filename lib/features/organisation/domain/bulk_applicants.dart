@@ -78,6 +78,9 @@ class BulkRow {
   bool includeAnyway = false;
   bool removed = false;
 
+  /// Why the organisation removed this applicant; sent to the citizen.
+  String? removedReason;
+
   String get displayName {
     if (registeredName != null && registeredName!.isNotEmpty) return registeredName!;
     final name = '$firstName $lastName'.trim();
@@ -88,6 +91,9 @@ class BulkRow {
 
   /// Not considered because it is incomplete, but the applicant can be told.
   bool get willNotifyIncomplete => !removed && status.isIncomplete && citizenId != null && namesMatch;
+
+  /// Removed with a reason, and we're sure who the applicant is.
+  bool get willNotifyRemoved => removed && removedReason != null && citizenId != null && namesMatch;
 }
 
 class BulkParseResult {

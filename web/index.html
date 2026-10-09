@@ -34,6 +34,23 @@
 
   <title>UbuntuID</title>
   <link rel="manifest" href="manifest.json">
+
+  <script>
+    // Each tab has its own sign-in (see lib/services/tab_session_store.dart).
+    // Supabase normally copies sign-ins and sign-outs to every open tab over a
+    // BroadcastChannel; give each tab a private channel so it can't.
+    (function () {
+      var Native = window.BroadcastChannel;
+      if (!Native) return;
+      var tab = Math.random().toString(36).slice(2);
+      window.BroadcastChannel = function (name) {
+        var n = String(name);
+        if (/^sb-.*-auth-token$/.test(n)) n += '-' + tab;
+        return new Native(n);
+      };
+      window.BroadcastChannel.prototype = Native.prototype;
+    })();
+  </script>
 </head>
 <body>
   <!--

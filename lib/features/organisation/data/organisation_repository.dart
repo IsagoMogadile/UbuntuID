@@ -363,11 +363,13 @@ class OrganisationRepository {
   /// at once (chunked). Same rule as [searchCitizens] -- only exact ID
   /// numbers the organisation already holds, never a browse.
   Future<Map<String, ({String citizenId, String firstName, String lastName})>> findCitizensByIdNumbers(
-    List<String> idNumbers,
-  ) async {
+    List<String> idNumbers, {
+    void Function(int done, int total)? onProgress,
+  }) async {
     final found = <String, ({String citizenId, String firstName, String lastName})>{};
-    for (var i = 0; i < idNumbers.length; i += 100) {
-      final chunk = idNumbers.sublist(i, i + 100 > idNumbers.length ? idNumbers.length : i + 100);
+    for (var i = 0; i < idNumbers.length; i += 50) {
+      onProgress?.call(i, idNumbers.length);
+      final chunk = idNumbers.sublist(i, i + 50 > idNumbers.length ? idNumbers.length : i + 50);
       final rows = await _client.from('citizens').select('citizen_id, id_number, first_name, last_name').inFilter('id_number', chunk);
       for (final r in rows) {
         found[r['id_number'] as String] = (
@@ -477,6 +479,15 @@ class OrganisationRepository {
     return _client.rpc('org_notify_incomplete_application', params: {
       'p_citizen_id': citizenId,
       'p_missing': missing,
+    });
+  }
+
+  /// Tells a citizen the organisation removed them from a bulk upload, and
+  /// why, so they can fix their application and apply again.
+  Future<void> notifyRemovedApplicant({required String citizenId, required String reason}) {
+    return _client.rpc('org_notify_removed_applicant', params: {
+      'p_citizen_id': citizenId,
+      'p_reason': reason,
     });
   }
 

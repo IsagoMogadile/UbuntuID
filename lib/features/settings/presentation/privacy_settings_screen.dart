@@ -27,6 +27,17 @@ class PrivacySettingsScreen extends StatelessWidget {
               onTap: () => context.push(AppRoutes.citizenConsent),
             ),
           ),
+          const SizedBox(height: 12),
+          AppCard(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.policy_outlined),
+              title: const Text('Privacy policy'),
+              subtitle: const Text('How UbuntuID uses your data, and what organisations you apply to are responsible for'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push(AppRoutes.privacyPolicy),
+            ),
+          ),
           const SizedBox(height: 16),
           const Text(
             'UbuntuID records each verification request an organisation or '

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/accessibility_link.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/detail_row.dart';
 import '../../../core/widgets/error_view.dart';
@@ -52,6 +53,7 @@ class DepartmentProfileScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            const AccessibilityProfileLink(),
           ],
         ),
       ),

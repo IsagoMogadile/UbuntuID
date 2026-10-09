@@ -82,7 +82,8 @@ import '../features/reports/presentation/report_screen.dart';
 import '../features/settings/presentation/about_screen.dart';
 import '../features/settings/presentation/account_settings_screen.dart';
 import '../features/settings/presentation/notification_settings_screen.dart';
-import '../features/settings/presentation/appearance_settings_screen.dart';
+import '../features/settings/presentation/accessibility_settings_screen.dart';
+import '../features/settings/presentation/privacy_policy_screen.dart';
 import '../features/settings/presentation/privacy_settings_screen.dart';
 import '../features/settings/presentation/security_settings_screen.dart';
 import '../features/settings/presentation/settings_home_screen.dart';
@@ -271,6 +272,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (c, s) => PublicVerificationScreen(docRef: s.pathParameters['ref']!),
       ),
 
+      GoRoute(path: AppRoutes.privacyPolicy, builder: (c, s) => const PrivacyPolicyScreen()),
+
       // --- Settings (shared across roles) ---
       GoRoute(path: AppRoutes.settings, builder: (c, s) => const SettingsHomeScreen()),
       GoRoute(path: AppRoutes.settingsAccount, builder: (c, s) => const AccountSettingsScreen()),
@@ -280,7 +283,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (c, s) => const NotificationSettingsScreen(),
       ),
       GoRoute(path: AppRoutes.settingsPrivacy, builder: (c, s) => const PrivacySettingsScreen()),
-      GoRoute(path: AppRoutes.settingsAppearance, builder: (c, s) => const AppearanceSettingsScreen()),
+      GoRoute(path: AppRoutes.settingsAccessibility, builder: (c, s) => const AccessibilitySettingsScreen()),
       GoRoute(path: AppRoutes.settingsAbout, builder: (c, s) => const AboutScreen()),
 
       // --- Citizen ---

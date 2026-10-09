@@ -1,9 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/config/env_config.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/accessibility_controller.dart';
 import 'core/theme/theme_mode_controller.dart';
+import 'core/widgets/inactivity_sign_out.dart';
+import 'core/widgets/read_aloud.dart';
 import 'routing/app_router.dart';
 import 'services/supabase_service.dart';
 
@@ -17,8 +22,13 @@ Future<void> main() async {
     return;
   }
   await SupabaseService.initialize();
+  // Flutter web hides the page from screen readers until a hidden "Enable
+  // accessibility" button is pressed; switch it on for everyone instead.
+  if (kIsWeb) SemanticsBinding.instance.ensureSemantics();
   runApp(const ProviderScope(child: UbuntuIdApp()));
 }
+
+final _messengerKey = GlobalKey<ScaffoldMessengerState>();
 
 class UbuntuIdApp extends ConsumerWidget {
   const UbuntuIdApp({super.key});
@@ -27,6 +37,7 @@ class UbuntuIdApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeControllerProvider);
+    final a11y = ref.watch(accessibilityControllerProvider);
 
     return MaterialApp.router(
       title: 'UbuntuID',
@@ -35,9 +46,24 @@ class UbuntuIdApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       routerConfig: router,
+      scaffoldMessengerKey: _messengerKey,
       // SelectionArea sits above the router's Navigator, so it needs its own
       // Overlay for the selection handles and context menu.
-      builder: (context, child) => Overlay.wrap(child: SelectionArea(child: child!)),
+      builder: (context, child) {
+        // Accessibility: text size on top of the device's own setting, and
+        // reduced motion if either the device or the user asks for it.
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: TextScaler.linear(media.textScaler.scale(1) * a11y.textSize.scale),
+            disableAnimations: media.disableAnimations || a11y.reduceMotion,
+          ),
+          child: InactivitySignOut(
+            messengerKey: _messengerKey,
+            child: Overlay.wrap(child: CitizenReadAloud(child: SelectionArea(child: child!))),
+          ),
+        );
+      },
     );
   }
 }

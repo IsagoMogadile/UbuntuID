@@ -23,6 +23,8 @@ class AppRoutes {
 
   /// Public -- where QR codes lead. Takes the document ref: `/verify/<ref>`.
   static const publicVerify = '/verify';
+  /// Public: readable before signing in or registering.
+  static const privacyPolicy = '/privacy';
 
   // Citizen
   static const citizenDashboard = '/citizen';
@@ -101,7 +103,7 @@ class AppRoutes {
   static const settingsSecurity = '/settings/security';
   static const settingsNotifications = '/settings/notifications';
   static const settingsPrivacy = '/settings/privacy';
-  static const settingsAppearance = '/settings/appearance';
+  static const settingsAccessibility = '/settings/accessibility';
   /// Authenticated only (under the protected `/settings` prefix) -- About
   /// lists the team behind UbuntuID, so it is deliberately not reachable
   /// from the public login screen.

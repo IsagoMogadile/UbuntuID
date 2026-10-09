@@ -55,10 +55,10 @@ class SettingsHomeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           ListItemCard(
-            title: 'Appearance',
-            subtitle: 'Light, dark, or match your device',
-            leadingIcon: Icons.dark_mode_outlined,
-            onTap: () => context.push(AppRoutes.settingsAppearance),
+            title: 'Accessibility',
+            subtitle: 'Theme, text size, reduce motion${isCitizen ? ', read aloud' : ''}',
+            leadingIcon: Icons.accessibility_new_outlined,
+            onTap: () => context.push(AppRoutes.settingsAccessibility),
           ),
           const SizedBox(height: 10),
           if (isCitizen) ...[

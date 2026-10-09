@@ -69,6 +69,8 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: background,
+      // Keyboard users: make the focused control obvious.
+      focusColor: scheme.primary.withValues(alpha: 0.22),
       appBarTheme: AppBarTheme(
         backgroundColor: surface,
         foregroundColor: scheme.onSurface,
@@ -138,7 +140,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: scheme.primary, width: 1.6),
+          borderSide: BorderSide(color: scheme.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),

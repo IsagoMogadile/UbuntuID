@@ -41,6 +41,8 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
   String? _fileName;
   BulkParseResult? _parsed;
   bool _reading = false;
+  String _readingStep = '';
+  double? _readingProgress;
   _Sort _sort = _Sort.readyFirst;
   _Filter _filter = _Filter.all;
 
@@ -87,13 +89,25 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
     final file = picked?.files.single;
     if (file == null || file.bytes == null) return;
 
+    void step(String label, double? progress) {
+      if (mounted) {
+        setState(() {
+          _readingStep = label;
+          _readingProgress = progress;
+        });
+      }
+    }
+
     setState(() {
       _reading = true;
       _fileName = file.name;
       _parsed = null;
       _outcomes = null;
     });
+    step('Reading ${file.name}…', 0.05);
     try {
+      // Let the progress card paint before the (synchronous) file parse.
+      await WidgetsBinding.instance.endOfFrame;
       final table = readTable(Uint8List.fromList(file.bytes!), file.name);
       if (table.length - 1 > _maxRows) {
         throw FormatException('This file has ${table.length - 1} rows. Upload at most $_maxRows applicants at a time.');
@@ -105,7 +119,13 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
         for (final r in parsed.rows)
           if (r.status != BulkRowStatus.invalidId) r.idNumber,
       }.toList();
-      final citizens = await repo.findCitizensByIdNumbers(ids);
+      step('Checking ${ids.length} ID numbers against the population register…', 0.15);
+      final citizens = await repo.findCitizensByIdNumbers(
+        ids,
+        onProgress: (done, total) =>
+            step('Checking ID numbers ($done of $total)…', 0.15 + 0.7 * (total == 0 ? 1 : done / total)),
+      );
+      step('Checking for existing applications…', 0.9);
       final open = await repo.citizensWithOpenApplications([for (final c in citizens.values) c.citizenId]);
       applyLookups(parsed.rows, citizens, open);
 
@@ -127,6 +147,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
   Future<void> _submit() async {
     final rows = _parsed!.rows.where((r) => r.willSubmit).toList();
     final incomplete = _parsed!.rows.where((r) => r.willNotifyIncomplete).toList();
+    final removed = _parsed!.rows.where((r) => r.willNotifyRemoved).toList();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -138,6 +159,8 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
           if (incomplete.isNotEmpty)
             '${incomplete.length} incomplete application(s) will not be considered. Those applicants will be '
                 'notified of what was missing.',
+          if (removed.isNotEmpty)
+            '${removed.length} removed applicant(s) will be told why their application was not considered.',
         ].join('\n\n')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -153,7 +176,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
     setState(() {
       _submitting = true;
       _done = 0;
-      _total = rows.length + incomplete.length;
+      _total = rows.length + incomplete.length + removed.length;
     });
 
     Future<void> submitOne(BulkRow row) async {
@@ -181,6 +204,16 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
       if (mounted) setState(() => _done++);
     }
 
+    Future<void> notifyRemoved(BulkRow row) async {
+      try {
+        await orgRepo.notifyRemovedApplicant(citizenId: row.citizenId!, reason: row.removedReason!);
+        outcomes[row] = 'removed_notified';
+      } catch (e) {
+        outcomes[row] = 'error: could not notify applicant: $e';
+      }
+      if (mounted) setState(() => _done++);
+    }
+
     // A few at a time: fast for hundreds of rows without flooding the API.
     var next = 0;
     Future<void> worker() async {
@@ -192,6 +225,9 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
     await Future.wait([for (var i = 0; i < 4; i++) worker()]);
     for (final row in incomplete) {
       await notifyIncomplete(row);
+    }
+    for (final row in removed) {
+      await notifyRemoved(row);
     }
     ref.invalidate(verificationRequestsProvider);
     if (mounted) {
@@ -207,6 +243,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
         'partially_verified' => 'Partly verified',
         'failed' => 'Not verified',
         'incomplete_notified' => 'Not considered (incomplete) - applicant notified',
+        'removed_notified' => 'Removed - applicant told why',
         _ when status.startsWith('error') => 'Could not submit',
         _ => status,
       };
@@ -219,7 +256,13 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
       headers: const ['Row', 'Name', 'ID number', 'Result', 'Details'],
       rows: [
         for (final e in outcomes.entries)
-          ['${e.key.rowNumber}', e.key.displayName, e.key.idNumber, _outcomeLabel(e.value), e.key.issues.join('; ')],
+          [
+            '${e.key.rowNumber}',
+            e.key.displayName,
+            e.key.idNumber,
+            _outcomeLabel(e.value),
+            e.key.removedReason ?? e.key.issues.join('; '),
+          ],
         for (final r in _parsed!.rows)
           if (!outcomes.containsKey(r))
             [
@@ -227,7 +270,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
               r.displayName,
               r.idNumber,
               r.removed ? 'Removed before submitting' : 'Not submitted: ${r.status.label}',
-              r.issues.join('; '),
+              r.removedReason ?? r.issues.join('; '),
             ],
       ],
     );
@@ -298,8 +341,13 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
                 icon: Icons.delete_outline,
                 variant: AppButtonVariant.secondary,
                 expand: true,
-                onPressed: () {
-                  setState(() => row.removed = true);
+                onPressed: () async {
+                  final reason = await _askRemovalReason(row);
+                  if (reason == null || !context.mounted) return;
+                  setState(() {
+                    row.removed = true;
+                    row.removedReason = reason;
+                  });
                   Navigator.pop(context);
                 },
               ),
@@ -308,6 +356,52 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
         ),
       ),
     );
+  }
+
+  /// Asks why [row] is being removed; null when cancelled.
+  Future<String?> _askRemovalReason(BulkRow row) async {
+    final controller = TextEditingController();
+    final canNotify = row.citizenId != null && row.namesMatch;
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Remove ${row.displayName}?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(canNotify
+                  ? 'When you submit, the applicant is notified that something is wrong with their application, '
+                      'with this reason.'
+                  : 'This row does not match a registered citizen, so nobody can be notified. The reason is kept in '
+                      'your results file.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLines: 3,
+                minLines: 2,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Reason',
+                  hintText: 'e.g. Your matric details do not match the certificate you sent us.',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: controller.text.trim().isEmpty ? null : () => Navigator.pop(context, controller.text.trim()),
+              child: const Text('Remove'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    return reason;
   }
 
   @override
@@ -372,7 +466,19 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
             ],
           ),
         ),
-        if (_reading) const Padding(padding: EdgeInsets.all(24), child: LoadingIndicator()),
+        if (_reading) ...[
+          const SizedBox(height: 16),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_readingStep),
+                const SizedBox(height: 8),
+                LinearProgressIndicator(value: _readingProgress),
+              ],
+            ),
+          ),
+        ],
         if (parsed != null && !_reading) ...[
           const SizedBox(height: 16),
           if (_submitting)
@@ -422,6 +528,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
     final active = parsed.rows.where((r) => !r.removed).toList();
     final ready = active.where((r) => r.willSubmit).length;
     final incomplete = active.where((r) => r.willNotifyIncomplete).length;
+    final removed = parsed.rows.where((r) => r.willNotifyRemoved).length;
     final attention = active.length - ready;
     return AppCard(
       child: Column(
@@ -445,14 +552,21 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
+          if (removed > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              '$removed removed applicant${removed == 1 ? '' : 's'} will be told why.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: 12),
           AppButton(
-            label: ready == 0 && incomplete > 0
-                ? 'Notify $incomplete incomplete applicant${incomplete == 1 ? '' : 's'}'
+            label: ready == 0 && incomplete + removed > 0
+                ? 'Notify ${incomplete + removed} applicant${incomplete + removed == 1 ? '' : 's'}'
                 : 'Submit $ready ready application${ready == 1 ? '' : 's'}',
             icon: Icons.send_outlined,
             expand: true,
-            onPressed: ready == 0 && incomplete == 0 ? null : _submit,
+            onPressed: ready == 0 && incomplete == 0 && removed == 0 ? null : _submit,
           ),
         ],
       ),
