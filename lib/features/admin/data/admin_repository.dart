@@ -797,6 +797,17 @@ final adminOrganisationsProvider = FutureProvider.autoDispose<List<OrganisationL
   return ref.watch(adminRepositoryProvider).getOrganisations();
 });
 
+/// Organisations still awaiting an approve/decline decision. Derived from
+/// [adminOrganisationsProvider], so approving or declining one (which
+/// invalidates that provider) drops it from this list and its count.
+final pendingOrganisationsProvider = FutureProvider.autoDispose<List<OrganisationListItem>>((ref) async {
+  final organisations = await ref.watch(adminOrganisationsProvider.future);
+  return [
+    for (final o in organisations)
+      if (o.registrationStatus == 'pending') o,
+  ];
+});
+
 final adminDepartmentsProvider = FutureProvider.autoDispose<List<DepartmentListItem>>((ref) {
   return ref.watch(adminRepositoryProvider).getDepartments();
 });

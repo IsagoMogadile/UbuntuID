@@ -73,6 +73,8 @@ class AppRoutes {
   static const adminDashboard = '/admin';
   static const adminUsers = '/admin/users';
   static const adminOrganisations = '/admin/organisations';
+  // Not under adminOrganisations, where it would be taken for an `:id`.
+  static const adminPendingOrganisations = '/admin/pending-organisations';
   static const adminDepartments = '/admin/departments';
   static const adminDepartmentNew = '/admin/departments/new';
   static const adminAudit = '/admin/audit';

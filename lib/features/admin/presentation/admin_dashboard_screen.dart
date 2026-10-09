@@ -71,6 +71,8 @@ class AdminDashboardScreen extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          const _PendingOrganisationsCard(),
           const SizedBox(height: 20),
           const SectionHeader(title: 'Needs attention'),
           AppCard(
@@ -144,6 +146,46 @@ class AdminDashboardScreen extends ConsumerWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Opens the pending-organisations queue, with a live count badge that
+/// drops as applications are approved or declined.
+class _PendingOrganisationsCard extends ConsumerWidget {
+  const _PendingOrganisationsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(pendingOrganisationsProvider).value?.length;
+    final scheme = Theme.of(context).colorScheme;
+
+    return AppCard(
+      onTap: () => context.push(AppRoutes.adminPendingOrganisations),
+      child: Row(
+        children: [
+          Icon(Icons.pending_actions_outlined, color: scheme.primary),
+          const SizedBox(width: 12),
+          const Expanded(child: Text('Organisations pending review')),
+          if (count != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: count > 0 ? scheme.secondary : scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: count > 0 ? scheme.onSecondary : scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right),
         ],
       ),
     );

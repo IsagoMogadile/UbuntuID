@@ -29,6 +29,7 @@ import '../features/admin/presentation/flagged_record_detail_screen.dart';
 import '../features/admin/presentation/flagged_records_list_screen.dart';
 import '../features/admin/presentation/organisation_detail_screen.dart';
 import '../features/admin/presentation/organisations_list_screen.dart';
+import '../features/admin/presentation/pending_organisations_screen.dart';
 import '../features/admin/presentation/user_detail_screen.dart';
 import '../features/admin/presentation/users_list_screen.dart';
 import '../features/auth/application/logout.dart';
@@ -553,6 +554,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Reached from the admin dashboard / header, not a navigation tab.
       GoRoute(path: AppRoutes.adminVerification, builder: (c, s) => const AdminVerificationQueueScreen()),
+      GoRoute(
+        path: AppRoutes.adminPendingOrganisations,
+        builder: (c, s) => const PendingOrganisationsScreen(),
+      ),
       GoRoute(
         path: '${AppRoutes.adminVerification}/:id',
         builder: (c, s) => VerificationRequestDetailScreen(requestId: s.pathParameters['id']!),
