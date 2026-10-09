@@ -13,6 +13,7 @@ import '../domain/department_official_detail.dart';
 import '../domain/flagged_record_item.dart';
 import '../domain/household_record_item.dart';
 import '../domain/organisation_list_item.dart';
+import '../domain/organisation_review_detail.dart';
 import '../domain/user_list_item.dart';
 
 /// Real Supabase-backed administrator data source. Schema reference:
@@ -292,6 +293,65 @@ class AdminRepository {
           reinstateReason: row['reinstate_reason'] as String?,
         ),
     ];
+  }
+
+  Future<OrganisationReviewDetail> getOrganisationReviewDetail(String organisationId) async {
+    final results = await Future.wait<Object>([
+      _client
+          .from('organisations')
+          .select('registration_number, contact_phone, access_purpose, requested_at, reviewed_at')
+          .eq('organisation_id', organisationId)
+          .single(),
+      _client
+          .from('organisation_credential_scopes')
+          .select('reason, credential_types(display_name, departments(department_name))')
+          .eq('organisation_id', organisationId),
+      _client
+          .from('organisation_users')
+          .select('full_name, user_role, email, id_number, active, created_at')
+          .eq('organisation_id', organisationId)
+          .order('created_at'),
+      _client
+          .from('organisation_verifications')
+          .select('verification_status, evidence_notes, verified_at')
+          .eq('organisation_id', organisationId)
+          .order('verified_at', ascending: false),
+    ]);
+    final org = results[0] as Map<String, dynamic>;
+    DateTime? at(Object? v) => v == null ? null : DateTime.tryParse(v as String);
+    return OrganisationReviewDetail(
+      registrationNumber: org['registration_number'] as String?,
+      contactPhone: org['contact_phone'] as String?,
+      accessPurpose: org['access_purpose'] as String?,
+      requestedAt: at(org['requested_at']),
+      reviewedAt: at(org['reviewed_at']),
+      scopes: [
+        for (final r in results[1] as List<dynamic>)
+          (
+            name: r['credential_types']?['display_name'] as String? ?? 'Credential',
+            department: r['credential_types']?['departments']?['department_name'] as String? ?? '',
+            reason: r['reason'] as String?,
+          ),
+      ],
+      staff: [
+        for (final r in results[2] as List<dynamic>)
+          (
+            name: r['full_name'] as String? ?? 'Staff member',
+            role: r['user_role'] == 'manager' ? 'Head (admin)' : 'Staff',
+            email: r['email'] as String?,
+            idNumber: r['id_number'] as String?,
+            active: r['active'] as bool? ?? true,
+          ),
+      ],
+      history: [
+        for (final r in results[3] as List<dynamic>)
+          (
+            status: r['verification_status'] as String? ?? '',
+            notes: r['evidence_notes'] as String?,
+            at: at(r['verified_at']),
+          ),
+      ],
+    );
   }
 
   Future<void> setOrganisationVerified(String organisationId, bool verified) {
@@ -806,6 +866,11 @@ final pendingOrganisationsProvider = FutureProvider.autoDispose<List<Organisatio
     for (final o in organisations)
       if (o.registrationStatus == 'pending') o,
   ];
+});
+
+final adminOrganisationReviewDetailProvider =
+    FutureProvider.autoDispose.family<OrganisationReviewDetail, String>((ref, organisationId) {
+  return ref.watch(adminRepositoryProvider).getOrganisationReviewDetail(organisationId);
 });
 
 final adminDepartmentsProvider = FutureProvider.autoDispose<List<DepartmentListItem>>((ref) {

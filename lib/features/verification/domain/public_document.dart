@@ -79,8 +79,9 @@ class PublicDocument {
 
   String get title => credential?.typeName ?? 'Identity Document';
 
-  String get fileName =>
-      credential == null ? CredentialDocuments.identityFileName : CredentialDocuments.credentialFileName(credential!.typeName);
+  String get fileName => credential == null
+      ? CredentialDocuments.identityFileName(identity.firstName, identity.lastName)
+      : CredentialDocuments.credentialFileName(identity.firstName, identity.lastName, credential!.typeName);
 
   Future<Uint8List> buildPdf() {
     final holder = DocumentHolder.fromIdentity(identity, address: address?.formatted);

@@ -18,7 +18,7 @@ class VerificationRepository {
   final RoleService _roleService;
 
   static const _requestSelect = 'request_id, overall_status, requested_at, responded_at, '
-      'processing_started_at, org_viewed_at, organisation_id, citizen_id, '
+      'processing_started_at, org_viewed_at, organisation_id, citizen_id, decision, decision_reason, '
       'citizens(first_name, last_name), organisations(legal_name)';
 
   Future<RoleLookupResult?> _currentRole() async {
@@ -46,6 +46,8 @@ class VerificationRepository {
       processingStartedAt:
           row['processing_started_at'] == null ? null : DateTime.tryParse(row['processing_started_at'] as String),
       orgViewedAt: row['org_viewed_at'] == null ? null : DateTime.tryParse(row['org_viewed_at'] as String),
+      decision: row['decision'] as String?,
+      decisionReason: row['decision_reason'] as String?,
     );
   }
 

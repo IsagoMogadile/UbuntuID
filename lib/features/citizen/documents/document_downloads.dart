@@ -39,7 +39,10 @@ class DocumentDownloads {
   static Future<void> identityDocument(BuildContext context, WidgetRef ref, DigitalIdentity identity) {
     return _withFeedback(context, () async {
       final bytes = await CredentialDocuments.identityDocument(await _holder(ref, identity));
-      await CredentialDocuments.share(bytes, CredentialDocuments.identityFileName);
+      await CredentialDocuments.share(
+        bytes,
+        CredentialDocuments.identityFileName(identity.firstName, identity.lastName),
+      );
     });
   }
 
@@ -55,7 +58,10 @@ class DocumentDownloads {
         ref.read(citizenRepositoryProvider).getCredentialRecord(credential.typeCode),
       ).wait;
       final bytes = await CredentialDocuments.credentialDocument(holder, credential, record);
-      await CredentialDocuments.share(bytes, CredentialDocuments.credentialFileName(credential.typeName));
+      await CredentialDocuments.share(
+        bytes,
+        CredentialDocuments.credentialFileName(identity.firstName, identity.lastName, credential.typeName),
+      );
     });
   }
 }

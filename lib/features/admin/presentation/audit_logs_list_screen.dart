@@ -71,7 +71,7 @@ class AuditLogsListScreen extends ConsumerWidget {
   Future<void> _exportExcel(WidgetRef ref) async {
     final logs = ref.read(adminAuditLogsProvider).value ?? const [];
     await ReportExport.exportExcel(
-      filename: 'ubuntuid_audit_logs_last_200.xlsx',
+      filename: 'UbuntuID_Audit_Logs_Last_200.xlsx',
       title: 'Audit logs',
       subtitle: 'Most recent 200 events',
       headers: const ['Action', 'Responsible', 'Related table', 'Occurred', 'IP address'],

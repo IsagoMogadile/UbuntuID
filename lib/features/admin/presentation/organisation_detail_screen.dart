@@ -11,6 +11,7 @@ import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/admin_repository.dart';
 import '../domain/organisation_list_item.dart';
+import '../domain/organisation_review_detail.dart';
 
 class OrganisationDetailScreen extends ConsumerStatefulWidget {
   const OrganisationDetailScreen({super.key, required this.organisationId});
@@ -31,6 +32,7 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
           .read(adminRepositoryProvider)
           .setOrganisationVerified(organisation.organisationId, !organisation.verified);
       ref.invalidate(adminOrganisationsProvider);
+      ref.invalidate(adminOrganisationReviewDetailProvider(organisation.organisationId));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(organisation.verified ? 'Organisation unverified.' : 'Organisation verified.')),
@@ -91,6 +93,7 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
         await repo.reinstateOrganisation(organisationId: organisation.organisationId, reason: reason);
       }
       ref.invalidate(adminOrganisationsProvider);
+      ref.invalidate(adminOrganisationReviewDetailProvider(organisation.organisationId));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(revoke ? 'Organisation access revoked.' : 'Organisation access reinstated.')),
@@ -140,6 +143,7 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
             notes: notes,
           );
       ref.invalidate(adminOrganisationsProvider);
+      ref.invalidate(adminOrganisationReviewDetailProvider(organisation.organisationId));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(approve ? 'Organisation approved.' : 'Organisation declined.')),
@@ -157,6 +161,8 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
   @override
   Widget build(BuildContext context) {
     final organisationsAsync = ref.watch(adminOrganisationsProvider);
+    final detailAsync = ref.watch(adminOrganisationReviewDetailProvider(widget.organisationId));
+    final detail = detailAsync.value;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Organisation')),
@@ -189,9 +195,19 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DetailRow(label: 'Type', value: organisation.organisationType),
+                    DetailRow(label: 'Registration no.', value: detail?.registrationNumber ?? '—'),
                     DetailRow(label: 'Access tier', value: organisation.accessTier),
-                    DetailRow(label: 'Contact', value: organisation.contactEmail),
-                    DetailRow(label: 'Requested', value: AppFormatters.date(organisation.registeredAt)),
+                    DetailRow(label: 'Contact email', value: organisation.contactEmail),
+                    DetailRow(
+                      label: 'Contact phone',
+                      value: (detail?.contactPhone ?? '').isEmpty ? '—' : detail!.contactPhone!,
+                    ),
+                    DetailRow(
+                      label: 'Requested',
+                      value: AppFormatters.date(detail?.requestedAt ?? organisation.registeredAt),
+                    ),
+                    if (detail?.reviewedAt != null)
+                      DetailRow(label: 'Last reviewed', value: AppFormatters.dateTime(detail!.reviewedAt!)),
                     if (organisation.declineReason != null && organisation.declineReason!.isNotEmpty)
                       DetailRow(label: 'Decline reason', value: organisation.declineReason!),
                     if (organisation.revokedAt != null) ...[
@@ -206,6 +222,11 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
                 ),
               ),
               const SizedBox(height: 20),
+              ...switch (detailAsync) {
+                AsyncData(:final value) => _reviewSections(context, value),
+                AsyncError() => [const Text('Could not load the full application details.'), const SizedBox(height: 20)],
+                _ => [const LoadingIndicator(), const SizedBox(height: 20)],
+              },
               if (organisation.registrationStatus == 'revoked')
                 AppButton(
                   label: 'Reinstate access',
@@ -263,5 +284,85 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
         },
       ),
     );
+  }
+
+  List<Widget> _reviewSections(BuildContext context, OrganisationReviewDetail detail) {
+    final muted = Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600);
+    final heading = Theme.of(context).textTheme.titleSmall;
+    return [
+      Text('Why they need access', style: heading),
+      const SizedBox(height: 8),
+      AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Purpose', style: muted),
+            const SizedBox(height: 4),
+            Text((detail.accessPurpose ?? '').isEmpty ? 'Not given (registered before reasons were asked for).' : detail.accessPurpose!),
+            const Divider(height: 24),
+            Text('Credentials requested (${detail.scopes.length})', style: muted),
+            for (final scope in detail.scopes)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(scope.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    if (scope.department.isNotEmpty) Text(scope.department, style: muted),
+                    const SizedBox(height: 2),
+                    Text((scope.reason ?? '').isEmpty ? 'No reason given.' : scope.reason!),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 20),
+      Text('Registered by and staff', style: heading),
+      const SizedBox(height: 8),
+      AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (detail.staff.isEmpty) const Text('No staff accounts.'),
+            for (final (i, person) in detail.staff.indexed) ...[
+              if (i > 0) const Divider(height: 20),
+              Row(
+                children: [
+                  Expanded(child: Text(person.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                  Text(person.active ? person.role : '${person.role} · inactive', style: muted),
+                ],
+              ),
+              if ((person.email ?? '').isNotEmpty) Text(person.email!, style: muted),
+              if ((person.idNumber ?? '').isNotEmpty) Text('ID ${person.idNumber}', style: muted),
+            ],
+          ],
+        ),
+      ),
+      if (detail.history.isNotEmpty) ...[
+        const SizedBox(height: 20),
+        Text('Review history', style: heading),
+        const SizedBox(height: 8),
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final (i, entry) in detail.history.indexed) ...[
+                if (i > 0) const Divider(height: 20),
+                Row(
+                  children: [
+                    StatusBadge.fromStatus(entry.status),
+                    const Spacer(),
+                    if (entry.at != null) Text(AppFormatters.dateTime(entry.at!), style: muted),
+                  ],
+                ),
+                if ((entry.notes ?? '').isNotEmpty) ...[const SizedBox(height: 6), Text(entry.notes!)],
+              ],
+            ],
+          ),
+        ),
+      ],
+      const SizedBox(height: 20),
+    ];
   }
 }

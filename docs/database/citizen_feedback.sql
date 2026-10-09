@@ -124,8 +124,8 @@ begin
     v_citizen_id,
     'Your feedback is now ' || v_status_label || '.'
       || coalesce(' Response: ' || v_response, ''),
-    'app',
-    'delivered'
+    'in_app',
+    'sent'
   );
 
   insert into audit_logs (action, actor_id, actor_type, related_id, related_table, target_citizen_id, metadata)

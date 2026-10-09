@@ -14,6 +14,7 @@ import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../organisation/data/organisation_repository.dart';
 import '../data/verification_repository.dart';
+import '../domain/verification_request_summary.dart';
 
 /// How long the simulated automated check runs for, with a progress UI,
 /// before `complete_verification` is called. This project has no
@@ -57,6 +58,7 @@ class VerificationRequestDetailScreen extends ConsumerStatefulWidget {
 class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRequestDetailScreen> {
   bool _starting = false;
   bool _acknowledging = false;
+  bool _deciding = false;
   bool _autoProcessTriggered = false;
   Timer? _tickTimer;
   int _secondsElapsed = 0;
@@ -248,6 +250,7 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
             endDate: endDate,
             sourceVerificationRequestId: widget.requestId,
           );
+      _invalidateAll();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
@@ -262,6 +265,88 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not create this offer: $e')));
       }
+    }
+  }
+
+  /// Offer / reject, or the decision already made on this application.
+  List<Widget> _decisionActions(VerificationRequestSummary request) {
+    if (request.decision == 'offered') {
+      return const [_InfoBanner(icon: Icons.business_center_outlined, message: 'Employment was offered to this applicant.')];
+    }
+    if (request.decision == 'rejected') {
+      return [
+        _InfoBanner(
+          icon: Icons.person_off_outlined,
+          message: 'This applicant was rejected. Reason: ${request.decisionReason ?? 'not given'}',
+        ),
+      ];
+    }
+    return [
+      AppButton(
+        label: 'Offer employment',
+        icon: Icons.business_center_outlined,
+        expand: true,
+        onPressed: _deciding ? null : () => _offerEmployment(request.citizenId!),
+      ),
+      const SizedBox(height: 10),
+      AppButton(
+        label: 'Reject applicant',
+        icon: Icons.person_off_outlined,
+        variant: AppButtonVariant.secondary,
+        expand: true,
+        loading: _deciding,
+        onPressed: _deciding ? null : () => _reject(request),
+      ),
+    ];
+  }
+
+  Future<void> _reject(VerificationRequestSummary request) async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject applicant'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${request.citizenDisplayName} will be notified that their application was not successful, '
+                'with the reason below.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Reason (required)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Reject')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason == null || !mounted) return;
+    if (reason.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('A reason is required.')));
+      return;
+    }
+
+    setState(() => _deciding = true);
+    try {
+      await ref.read(organisationRepositoryProvider).rejectApplicant(requestId: request.requestId, reason: reason);
+      _invalidateAll();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Applicant rejected and notified.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not reject this applicant: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _deciding = false);
     }
   }
 
@@ -364,24 +449,14 @@ class _VerificationRequestDetailScreenState extends ConsumerState<VerificationRe
                 ),
                 if (_reviewedStatuses.contains(request.overallStatus) && request.citizenId != null) ...[
                   const SizedBox(height: 12),
-                  AppButton(
-                    label: 'Offer employment',
-                    icon: Icons.business_center_outlined,
-                    expand: true,
-                    onPressed: () => _offerEmployment(request.citizenId!),
-                  ),
+                  ..._decisionActions(request),
                 ],
               ] else ...[
                 const SectionHeader(title: 'Verification results'),
                 _ResultsList(requestId: widget.requestId),
                 if (isOwningOrg && _reviewedStatuses.contains(request.overallStatus) && request.citizenId != null) ...[
                   const SizedBox(height: 20),
-                  AppButton(
-                    label: 'Offer employment',
-                    icon: Icons.business_center_outlined,
-                    expand: true,
-                    onPressed: () => _offerEmployment(request.citizenId!),
-                  ),
+                  ..._decisionActions(request),
                 ],
                 if (isOwningOrg && _terminalStatuses.contains(request.overallStatus)) ...[
                   const SizedBox(height: 12),

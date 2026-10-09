@@ -47,7 +47,7 @@ class VerificationRequestListView extends ConsumerWidget {
                 title: request.citizenDisplayName,
                 subtitle: '${request.organisationName} • ${AppFormatters.date(request.requestedAt)}',
                 leadingIcon: Icons.fact_check_outlined,
-                trailing: StatusBadge.fromStatus(request.overallStatus),
+                trailing: StatusBadge.fromStatus(request.decision ?? request.overallStatus),
                 onTap: () => onOpen(request.requestId),
               );
             },

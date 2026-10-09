@@ -15,7 +15,7 @@ class ComplianceAuditsListScreen extends ConsumerWidget {
   Future<void> _exportPdf(WidgetRef ref) async {
     final audits = ref.read(adminComplianceAuditsProvider).value ?? const [];
     await ReportExport.exportPdf(
-      filename: 'ubuntuid_compliance_audits.pdf',
+      filename: 'UbuntuID_Compliance_Audits.pdf',
       title: 'UbuntuID Compliance Audits',
       subtitle: '${audits.length} periodic rollup(s)',
       headers: const ['Period', 'Verification requests', 'Flagged records', 'Resolved', 'Generated'],

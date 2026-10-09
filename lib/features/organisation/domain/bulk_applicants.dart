@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:typed_data';
+
+import 'package:archive/archive.dart';
 
 import 'package:excel/excel.dart';
 
@@ -28,14 +31,17 @@ enum BulkRowStatus {
   nameMismatch("Name doesn't match ID"),
   notFound('Not found'),
   invalidId('Invalid ID number'),
-  missingData('Missing or invalid details'),
+  missingData('Incomplete - not considered'),
   duplicate('Duplicate in file'),
-  noCredentials('No credentials filled in');
+  noCredentials('Incomplete - no credentials filled in');
 
   const BulkRowStatus(this.label);
   final String label;
 
   bool get isReady => this == ready || this == replacesEarlier;
+
+  /// Incomplete applications are not considered; the applicant is told why.
+  bool get isIncomplete => this == missingData || this == noCredentials;
 }
 
 class BulkRow {
@@ -61,6 +67,11 @@ class BulkRow {
 
   String? citizenId;
   String? registeredName;
+
+  /// The names in the file match the citizen registered under this ID --
+  /// only then is an incomplete applicant notified (a mistyped ID must not
+  /// send someone else a message).
+  bool namesMatch = false;
   BulkRowStatus status = BulkRowStatus.ready;
 
   /// The user chose to submit a name-mismatch row anyway.
@@ -74,6 +85,9 @@ class BulkRow {
   }
 
   bool get willSubmit => !removed && citizenId != null && (status.isReady || (status == BulkRowStatus.nameMismatch && includeAnyway));
+
+  /// Not considered because it is incomplete, but the applicant can be told.
+  bool get willNotifyIncomplete => !removed && status.isIncomplete && citizenId != null && namesMatch;
 }
 
 class BulkParseResult {
@@ -136,15 +150,52 @@ Uint8List buildTemplate(List<BulkCredential> credentials) {
 
 /// Reads the first sheet of an .xlsx, or a .csv, into rows of trimmed strings.
 List<List<String>> readTable(Uint8List bytes, String fileName) {
-  if (fileName.toLowerCase().endsWith('.csv')) return _parseCsv(String.fromCharCodes(bytes));
+  if (fileName.toLowerCase().endsWith('.csv')) return _parseCsv(utf8.decode(bytes, allowMalformed: true));
 
-  final excel = Excel.decodeBytes(bytes);
+  final Excel excel;
+  try {
+    excel = _decodeWorkbook(bytes);
+  } catch (_) {
+    throw const FormatException(
+      'This spreadsheet could not be read. Open it in Excel and save it again as .xlsx, or save it as .csv.',
+    );
+  }
   final sheetName = excel.tables.containsKey('Applicants') ? 'Applicants' : excel.tables.keys.first;
   final table = excel.tables[sheetName]!;
   return [
     for (final row in table.rows) [for (final cell in row) _cellText(cell?.value)],
   ];
 }
+
+/// The excel package crashes on two things other spreadsheet tools write:
+/// blank cells that still carry a type (`<c t="inlineStr"></c>` -- an empty
+/// value), and sheets listed by absolute path ("/xl/worksheets/sheet1.xml").
+/// If a straight decode fails, strip the type from empty cells, make the
+/// sheet paths relative, and decode again.
+Excel _decodeWorkbook(Uint8List bytes) {
+  try {
+    return Excel.decodeBytes(bytes);
+  } catch (_) {
+    final archive = ZipDecoder().decodeBytes(bytes);
+    final fixed = Archive();
+    for (final file in archive.files) {
+      if (!file.isFile) continue;
+      var content = file.content as List<int>;
+      if (file.name == 'xl/_rels/workbook.xml.rels') {
+        content = utf8.encode(utf8.decode(content).replaceAll('Target="/xl/', 'Target="'));
+      } else if (file.name.startsWith('xl/worksheets/') && file.name.endsWith('.xml')) {
+        content = utf8.encode(_untypeEmptyCells(utf8.decode(content)));
+      }
+      fixed.addFile(ArchiveFile(file.name, content.length, content));
+    }
+    return Excel.decodeBytes(ZipEncoder().encode(fixed)!);
+  }
+}
+
+final _emptyTypedCell = RegExp(r'<c(?=[\s/>])([^>]*?)\s+t="[^"]*"([^>]*?)(/>|>\s*(?:<is>\s*</is>|<is\s*/>)?\s*</c>)');
+
+String _untypeEmptyCells(String xml) =>
+    xml.replaceAllMapped(_emptyTypedCell, (m) => '<c${m[1]}${m[2]}${m[3]!.startsWith('/') ? '/>' : '></c>'}');
 
 String _cellText(CellValue? value) => switch (value) {
       null => '',
@@ -231,15 +282,18 @@ BulkParseResult parseApplicants(List<List<String>> table, List<BulkCredential> c
 
   final headers = table.first;
   int? idCol, firstCol, lastCol;
-  final claimCols = <(BulkCredential, ClaimField), int>{};
+  // Keyed by "<credential id>|<field key>": some ClaimFields (matric year)
+  // are rebuilt on every read, so they can't be map keys themselves.
+  String colKey(BulkCredential c, ClaimField f) => '${c.credentialTypeId}|${f.key}';
+  final claimCols = <String, int>{};
   final recognised = <String>[];
   final ignored = <String>[];
 
-  final claimHeaderLookup = <String, (BulkCredential, ClaimField)>{};
+  final claimHeaderLookup = <String, String>{};
   for (final c in credentials) {
     for (final f in c.fields) {
-      claimHeaderLookup[_normaliseHeader(claimHeader(c, f))] = (c, f);
-      claimHeaderLookup[_normaliseHeader('${c.typeCode} ${f.key}')] = (c, f);
+      claimHeaderLookup[_normaliseHeader(claimHeader(c, f))] = colKey(c, f);
+      claimHeaderLookup[_normaliseHeader('${c.typeCode} ${f.key}')] = colKey(c, f);
     }
   }
 
@@ -280,7 +334,7 @@ BulkParseResult parseApplicants(List<List<String>> table, List<BulkCredential> c
       final values = <String, String>{};
       final missing = <String>[];
       for (final f in c.fields) {
-        final col = claimCols[(c, f)];
+        final col = claimCols[colKey(c, f)];
         final value = at(cells, col);
         if (value.isEmpty) {
           missing.add(f.label);
@@ -289,7 +343,10 @@ BulkParseResult parseApplicants(List<List<String>> table, List<BulkCredential> c
         if (f.type == ClaimFieldType.dropdown) {
           final match = (f.options ?? const []).where((o) => normaliseValue(o) == normaliseValue(value));
           if (match.isEmpty) {
-            issues.add('${claimHeader(c, f)}: "$value" is not one of ${(f.options ?? const []).join(', ')}');
+            final options = f.options ?? const <String>[];
+            issues.add(options.length > 12
+                ? '${claimHeader(c, f)}: "$value" is not an allowed value (${options.last}-${options.first})'
+                : '${claimHeader(c, f)}: "$value" is not one of ${options.join(', ')}');
           } else {
             values[f.key] = match.first;
           }
@@ -374,9 +431,13 @@ void applyLookups(
     }
     row.citizenId = citizen.citizenId;
     row.registeredName = '${citizen.firstName} ${citizen.lastName}'.trim();
+    row.namesMatch = row.firstName.isNotEmpty &&
+        row.lastName.isNotEmpty &&
+        _namePartMatches(row.firstName, citizen.firstName) &&
+        _namePartMatches(row.lastName, citizen.lastName);
     if (row.status != BulkRowStatus.ready) continue;
 
-    if (!_namePartMatches(row.firstName, citizen.firstName) || !_namePartMatches(row.lastName, citizen.lastName)) {
+    if (!row.namesMatch) {
       row.status = BulkRowStatus.nameMismatch;
       row.issues.insert(0, 'File says "${row.firstName} ${row.lastName}" but ID ${row.idNumber} belongs to ${row.registeredName}');
     } else if (citizenIdsWithOpenApplications.contains(citizen.citizenId)) {

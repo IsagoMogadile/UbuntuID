@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../core/utils/file_names.dart';
 import '../../../core/utils/report_export.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/error_view.dart';
@@ -49,7 +50,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 
   Future<void> _download(ReportData data, {required bool pdf}) async {
     final stamp = DateFormat('yyyyMMdd').format(DateTime.now());
-    final base = 'ubuntuid_${data.kind.name}_report_$stamp';
+    // e.g. Kops_Tech_Report_20261009
+    final base = downloadBaseName([data.ownerName, 'Report', stamp]);
     try {
       if (pdf) {
         await Printing.sharePdf(bytes: await ReportPdf.build(data), filename: '$base.pdf');

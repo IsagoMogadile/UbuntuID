@@ -73,6 +73,7 @@ import '../features/department_official/presentation/saps_wanted_persons_screen.
 import '../features/organisation/presentation/citizen_search_screen.dart';
 import '../features/organisation/presentation/organisation_colleagues_screen.dart';
 import '../features/organisation/presentation/organisation_dashboard_screen.dart';
+import '../features/organisation/presentation/organisation_employees_screen.dart';
 import '../features/organisation/presentation/organisation_profile_screen.dart';
 import '../features/organisation/presentation/organisation_registration_screen.dart';
 import '../features/organisation/presentation/organisation_verification_list_screen.dart';
@@ -470,6 +471,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: AppRoutes.organisationColleagues, builder: (c, s) => const OrganisationColleaguesScreen()),
       GoRoute(path: AppRoutes.organisationBulkUpload, builder: (c, s) => const BulkUploadScreen()),
+      GoRoute(path: AppRoutes.organisationEmployees, builder: (c, s) => const OrganisationEmployeesScreen()),
 
       // --- Administrator ---
       StatefulShellRoute.indexedStack(

@@ -72,7 +72,7 @@ void main() {
   test('a scanned UIF code builds the UIF status PDF', () async {
     final document = PublicDocument.fromJson(_uifPayload);
     expect(document.credential?.typeCode, 'LABOUR_STATUS');
-    expect(document.fileName, 'uif_status_prototype.pdf');
+    expect(document.fileName, 'Thabo_Nkosi_UIF_Status.pdf');
     final bytes = await document.buildPdf();
     expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
   });

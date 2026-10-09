@@ -6,6 +6,7 @@ import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../data/organisation_repository.dart';
+import 'credential_scope_picker.dart';
 
 const _organisationTypes = ['private', 'government', 'ngo', 'education', 'financial', 'other'];
 
@@ -29,7 +30,7 @@ class _ResubmitOrganisationSheetState extends ConsumerState<ResubmitOrganisation
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   String _organisationType = _organisationTypes.first;
-  final Set<String> _selectedTypeCodes = {};
+  final _scope = CredentialScopeSelection();
 
   bool _loaded = false;
   bool _submitting = false;
@@ -41,6 +42,7 @@ class _ResubmitOrganisationSheetState extends ConsumerState<ResubmitOrganisation
     _registrationNumberController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _scope.dispose();
     super.dispose();
   }
 
@@ -52,13 +54,19 @@ class _ResubmitOrganisationSheetState extends ConsumerState<ResubmitOrganisation
     _emailController.text = detail['contact_email'] as String? ?? '';
     _phoneController.text = detail['contact_phone'] as String? ?? '';
     _organisationType = detail['organisation_type'] as String? ?? _organisationTypes.first;
-    _selectedTypeCodes.addAll((detail['selected_type_codes'] as List<dynamic>? ?? []).cast<String>());
+    _scope.purpose.text = detail['access_purpose'] as String? ?? '';
+    final reasons = (detail['scope_reasons'] as Map<String, String>?) ?? const {};
+    for (final code in (detail['selected_type_codes'] as List<dynamic>? ?? []).cast<String>()) {
+      _scope.selected.add(code);
+      _scope.reasonFor(code).text = reasons[code] ?? '';
+    }
   }
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_selectedTypeCodes.isEmpty) {
-      setState(() => _error = 'Select at least one credential type.');
+    final problem = _scope.validate();
+    if (problem != null) {
+      setState(() => _error = problem);
       return;
     }
     setState(() {
@@ -73,7 +81,9 @@ class _ResubmitOrganisationSheetState extends ConsumerState<ResubmitOrganisation
             organisationType: _organisationType,
             contactEmail: _emailController.text.trim(),
             contactPhone: _phoneController.text.trim(),
-            credentialTypeCodes: _selectedTypeCodes.toList(),
+            credentialTypeCodes: _scope.selected.toList(),
+            accessPurpose: _scope.purpose.text.trim(),
+            credentialReasons: _scope.reasons,
           );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -137,27 +147,16 @@ class _ResubmitOrganisationSheetState extends ConsumerState<ResubmitOrganisation
                   const SizedBox(height: 12),
                   AppTextField(label: 'Contact phone', controller: _phoneController, keyboardType: TextInputType.phone),
                   const SizedBox(height: 16),
-                  Text('Credential types', style: Theme.of(context).textTheme.titleSmall),
+                  Text('Access requested', style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 8),
                   typesAsync.when(
                     loading: () => const LoadingIndicator(),
                     error: (e, _) => const Text('Could not load credential types.'),
-                    data: (types) => Column(
-                      children: [
-                        for (final type in types)
-                          CheckboxListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            value: _selectedTypeCodes.contains(type.typeCode),
-                            onChanged: (checked) => setState(() {
-                              if (checked ?? false) {
-                                _selectedTypeCodes.add(type.typeCode);
-                              } else {
-                                _selectedTypeCodes.remove(type.typeCode);
-                              }
-                            }),
-                            title: Text(type.displayName),
-                          ),
-                      ],
+                    data: (types) => CredentialScopePicker(
+                      selection: _scope,
+                      types: types,
+                      showDepartment: false,
+                      onChanged: () => setState(() {}),
                     ),
                   ),
                   if (_error != null) ...[

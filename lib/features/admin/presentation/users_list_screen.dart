@@ -57,7 +57,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   Future<void> _exportExcel() async {
     final users = _visibleUsers();
     await ReportExport.exportExcel(
-      filename: 'ubuntuid_users.xlsx',
+      filename: 'UbuntuID_Users.xlsx',
       title: 'Users',
       headers: const ['Name', 'Email', 'Role', 'Status', 'Created'],
       rows: [

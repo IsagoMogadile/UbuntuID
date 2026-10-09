@@ -12,6 +12,7 @@ import '../../../core/widgets/loading_indicator.dart';
 import '../../../routing/app_routes.dart';
 import '../../../services/service_providers.dart';
 import '../data/organisation_repository.dart';
+import 'credential_scope_picker.dart';
 
 const _organisationTypes = ['private', 'government', 'ngo', 'education', 'financial', 'other'];
 
@@ -41,7 +42,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
 
   String _organisationType = _organisationTypes.first;
   String _headGender = 'female';
-  final Set<String> _selectedTypeCodes = {};
+  final _scope = CredentialScopeSelection();
 
   /// 0 = organisation/head details, 1 = credential-type selection (its own
   /// screen so the choice isn't buried at the bottom of one long form).
@@ -68,6 +69,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
     _headFirstNameController.dispose();
     _headLastNameController.dispose();
     _headIdNumberController.dispose();
+    _scope.dispose();
     super.dispose();
   }
 
@@ -85,8 +87,9 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
   }
 
   Future<void> _submit() async {
-    if (_selectedTypeCodes.isEmpty) {
-      setState(() => _error = 'Select at least one credential type your organisation needs to verify.');
+    final problem = _scope.validate();
+    if (problem != null) {
+      setState(() => _error = problem);
       return;
     }
 
@@ -120,7 +123,9 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
             organisationType: _organisationType,
             contactEmail: email,
             contactPhone: _phoneController.text.trim(),
-            credentialTypeCodes: _selectedTypeCodes.toList(),
+            credentialTypeCodes: _scope.selected.toList(),
+            accessPurpose: _scope.purpose.text.trim(),
+            credentialReasons: _scope.reasons,
             headFirstName: _headFirstNameController.text.trim(),
             headLastName: _headLastNameController.text.trim(),
             headGender: _headGender,
@@ -349,33 +354,18 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
         const SizedBox(height: 4),
         Text(
           'Which credential types does ${_legalNameController.text.trim().isEmpty ? "your organisation" : _legalNameController.text.trim()} '
-          'need to verify? Staff who log in under this organisation will only ever see the '
-          'credential types you select here -- e.g. a bank might select Driver\'s Licence, '
-          'Passport and Tax Compliance.',
+          'need to verify, and why? Staff who log in under this organisation will only ever see the '
+          'credential types you select here. An administrator reads your reasons before approving.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.charcoalMuted),
         ),
         const SizedBox(height: 12),
         credentialTypesAsync.when(
           loading: () => const LoadingIndicator(),
           error: (e, _) => const Text('Could not load credential types.'),
-          data: (types) => Column(
-            children: [
-              for (final type in types)
-                CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  value: _selectedTypeCodes.contains(type.typeCode),
-                  onChanged: (checked) => setState(() {
-                    if (checked ?? false) {
-                      _selectedTypeCodes.add(type.typeCode);
-                    } else {
-                      _selectedTypeCodes.remove(type.typeCode);
-                    }
-                  }),
-                  title: Text(type.displayName),
-                  subtitle: Text(type.issuingDepartment),
-                ),
-            ],
+          data: (types) => CredentialScopePicker(
+            selection: _scope,
+            types: types,
+            onChanged: () => setState(() {}),
           ),
         ),
         if (_error != null) ...[

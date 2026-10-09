@@ -13,6 +13,8 @@ class VerificationRequestSummary {
     this.respondedAt,
     this.processingStartedAt,
     this.orgViewedAt,
+    this.decision,
+    this.decisionReason,
   });
 
   final String requestId;
@@ -37,6 +39,10 @@ class VerificationRequestSummary {
   /// organisation's own detail view stops showing the per-credential
   /// claimed/verified comparison, only the final status.
   final DateTime? orgViewedAt;
+
+  /// The organisation's hiring decision: 'offered' | 'rejected' | null.
+  final String? decision;
+  final String? decisionReason;
 }
 
 /// Mirrors `public.verification_results` for a single request.

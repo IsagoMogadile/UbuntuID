@@ -21,7 +21,7 @@ class StatusBadge extends StatelessWidget {
 
   static const _successStatuses = {
     'active', 'approved', 'verified', 'completed', 'issued', 'resolved',
-    'matched', 'current', 'paid', 'read', 'delivered', 'confirmed',
+    'matched', 'current', 'paid', 'read', 'delivered', 'confirmed', 'offered',
   };
   static const _warningStatuses = {
     'pending', 'submitted', 'in_review', 'under_review', 'processing',
@@ -29,7 +29,7 @@ class StatusBadge extends StatelessWidget {
   };
   static const _errorStatuses = {
     'rejected', 'declined', 'expired', 'revoked', 'inactive', 'failed', 'denied',
-    'suspended', 'mismatch', 'closed',
+    'suspended', 'mismatch', 'closed', 'terminated',
   };
   static const _infoStatuses = {'draft', 'not_started', 'info', 'new', 'acknowledged'};
 

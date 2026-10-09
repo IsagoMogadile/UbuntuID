@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/utils/file_names.dart';
 import '../../../core/utils/pdf_branding.dart';
 import '../../../core/utils/pdf_text.dart';
 import '../domain/credential_item.dart';
@@ -1199,8 +1200,11 @@ class CredentialDocuments {
 
   static Future<void> share(Uint8List bytes, String filename) => Printing.sharePdf(bytes: bytes, filename: filename);
 
-  static const identityFileName = 'ubuntuid_identity_document_prototype.pdf';
+  /// e.g. Kopano_Mogadile_ID.pdf
+  static String identityFileName(String firstNames, String surname) =>
+      downloadFileName([...personFileNameParts(firstNames, surname), 'ID'], 'pdf');
 
-  static String credentialFileName(String typeName) =>
-      '${typeName.replaceAll(RegExp('[^A-Za-z0-9]+'), '_').toLowerCase()}_prototype.pdf';
+  /// e.g. Kopano_Mogadile_Drivers_Licence.pdf
+  static String credentialFileName(String firstNames, String surname, String typeName) =>
+      downloadFileName([...personFileNameParts(firstNames, surname), typeName], 'pdf');
 }

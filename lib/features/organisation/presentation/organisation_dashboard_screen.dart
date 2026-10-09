@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/overview_strip.dart';
@@ -84,6 +85,17 @@ class OrganisationDashboardScreen extends ConsumerWidget {
                 onTap: () => context.go(AppRoutes.organisationVerification),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          AppCard(
+            onTap: () => context.push(AppRoutes.organisationEmployees),
+            child: const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.badge_outlined),
+              title: Text('Employees'),
+              subtitle: Text('People you employed through UbuntuID -- view or end an employment'),
+              trailing: Icon(Icons.chevron_right),
+            ),
           ),
           const SizedBox(height: 20),
           const ReportActivityCard(kind: ReportKind.organisation, reportRoute: AppRoutes.organisationReports),

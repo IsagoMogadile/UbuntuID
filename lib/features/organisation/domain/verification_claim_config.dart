@@ -129,6 +129,7 @@ List<ClaimField> claimFieldsForType(String typeCode) => switch (typeCode) {
       _ => const [],
     };
 
-/// Most recent first, back to 1970 -- picked rather than typed so the claim
-/// is always a well-formed year.
-List<String> _matricYears() => [for (var y = DateTime.now().year; y >= 1970; y--) '$y'];
+/// Most recent first -- picked rather than typed so the claim is always a
+/// well-formed year. Back to 1940 (the oldest records are from the 1950s),
+/// and one year ahead because some records already carry next year's exam.
+List<String> _matricYears() => [for (var y = DateTime.now().year + 1; y >= 1940; y--) '$y'];

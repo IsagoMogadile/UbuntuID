@@ -53,17 +53,22 @@ class OrganisationRepository {
   Future<Map<String, dynamic>> getOrganisationForResubmit(String organisationId) async {
     final org = await _client
         .from('organisations')
-        .select('legal_name, registration_number, organisation_type, contact_email, contact_phone')
+        .select('legal_name, registration_number, organisation_type, contact_email, contact_phone, access_purpose')
         .eq('organisation_id', organisationId)
         .single();
     final scopeRows = await _client
         .from('organisation_credential_scopes')
-        .select('credential_types(type_code)')
+        .select('reason, credential_types(type_code)')
         .eq('organisation_id', organisationId);
     org['selected_type_codes'] = [
       for (final r in scopeRows)
         if (r['credential_types']?['type_code'] != null) r['credential_types']['type_code'] as String,
     ];
+    org['scope_reasons'] = <String, String>{
+      for (final r in scopeRows)
+        if (r['credential_types']?['type_code'] != null)
+          r['credential_types']['type_code'] as String: r['reason'] as String? ?? '',
+    };
     return org;
   }
 
@@ -84,6 +89,8 @@ class OrganisationRepository {
     required String headLastName,
     required String headGender,
     required String headIdNumber,
+    required String accessPurpose,
+    required Map<String, String> credentialReasons,
   }) async {
     await _client.rpc('register_organisation', params: {
       'p_legal_name': legalName,
@@ -96,6 +103,8 @@ class OrganisationRepository {
       'p_head_last_name': headLastName,
       'p_head_gender': headGender,
       'p_head_id_number': headIdNumber,
+      'p_access_purpose': accessPurpose,
+      'p_credential_reasons': credentialReasons,
     });
   }
 
@@ -109,6 +118,8 @@ class OrganisationRepository {
     required String contactEmail,
     required String contactPhone,
     required List<String> credentialTypeCodes,
+    required String accessPurpose,
+    required Map<String, String> credentialReasons,
   }) async {
     await _client.rpc('resubmit_organisation', params: {
       'p_organisation_id': organisationId,
@@ -118,6 +129,8 @@ class OrganisationRepository {
       'p_contact_email': contactEmail,
       'p_contact_phone': contactPhone,
       'p_credential_type_codes': credentialTypeCodes,
+      'p_access_purpose': accessPurpose,
+      'p_credential_reasons': credentialReasons,
     });
     _orgUserRowFuture = null;
   }
@@ -434,10 +447,37 @@ class OrganisationRepository {
     final rows = await _client
         .from('organisation_employees')
         .select('employee_id, job_title, department_or_position, salary, salary_frequency, '
-            'employment_status, start_date, citizens(first_name, last_name, id_number)')
+            'employment_status, start_date, employment_type, end_date, termination_reason, '
+            'citizens(first_name, last_name, id_number)')
         .eq('organisation_id', organisationId)
         .order('start_date', ascending: false);
     return [for (final r in rows) OrganisationEmployeeItem.fromRow(r)];
+  }
+
+  /// Ends an employment via `org_end_employment`: the employee becomes
+  /// Terminated, the Labour record the offer opened is closed and the
+  /// citizen is notified.
+  Future<void> endEmployment({required String employeeId, required DateTime endDate, required String reason}) {
+    return _client.rpc('org_end_employment', params: {
+      'p_employee_id': employeeId,
+      'p_end_date': endDate.toIso8601String().split('T').first,
+      'p_reason': reason,
+    });
+  }
+
+  /// Rejects an applicant via `org_reject_applicant` -- the citizen is
+  /// notified with the reason, and no offer can follow on this application.
+  Future<void> rejectApplicant({required String requestId, required String reason}) {
+    return _client.rpc('org_reject_applicant', params: {'p_request_id': requestId, 'p_reason': reason});
+  }
+
+  /// Tells a citizen their (bulk-uploaded) application was not considered
+  /// because it was incomplete.
+  Future<void> notifyIncompleteApplication({required String citizenId, required String missing}) {
+    return _client.rpc('org_notify_incomplete_application', params: {
+      'p_citizen_id': citizenId,
+      'p_missing': missing,
+    });
   }
 
   Future<OrganisationDashboardStats> getDashboardStats() async {
@@ -535,6 +575,9 @@ class OrganisationEmployeeItem {
     required this.salaryFrequency,
     required this.employmentStatus,
     required this.startDate,
+    this.employmentType = 'Permanent',
+    this.endDate,
+    this.terminationReason,
   });
 
   final String employeeId;
@@ -546,6 +589,11 @@ class OrganisationEmployeeItem {
   final String salaryFrequency;
   final String employmentStatus;
   final DateTime startDate;
+  final String employmentType;
+  final DateTime? endDate;
+  final String? terminationReason;
+
+  bool get isActive => employmentStatus != 'Terminated';
 
   factory OrganisationEmployeeItem.fromRow(Map<String, dynamic> row) {
     final citizen = row['citizens'] as Map<String, dynamic>?;
@@ -560,6 +608,9 @@ class OrganisationEmployeeItem {
       salaryFrequency: row['salary_frequency'] as String? ?? 'Monthly',
       employmentStatus: row['employment_status'] as String? ?? 'Active',
       startDate: DateTime.tryParse(row['start_date'] as String? ?? '') ?? DateTime.now(),
+      employmentType: row['employment_type'] as String? ?? 'Permanent',
+      endDate: DateTime.tryParse(row['end_date'] as String? ?? ''),
+      terminationReason: row['termination_reason'] as String?,
     );
   }
 }

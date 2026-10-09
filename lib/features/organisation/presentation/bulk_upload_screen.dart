@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/utils/file_names.dart';
 import '../../../core/utils/report_export.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
@@ -56,9 +57,18 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
             BulkCredential(credentialTypeId: c.credentialTypeId, typeCode: c.typeCode, displayName: c.displayName),
       ];
 
+  /// The organisation's name for download file names, e.g. "Kops Tech".
+  Future<String> _organisationName() async {
+    try {
+      return (await ref.read(organisationApplicationStatusProvider.future)).legalName;
+    } catch (_) {
+      return 'UbuntuID';
+    }
+  }
+
   Future<void> _downloadTemplate(List<BulkCredential> credentials) async {
     final bytes = buildTemplate(credentials);
-    const name = 'ubuntuid_applicants_template.xlsx';
+    final name = downloadFileName([await _organisationName(), 'Template'], 'xlsx');
     await SharePlus.instance.share(ShareParams(
       files: [
         XFile.fromData(bytes,
@@ -116,14 +126,19 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
 
   Future<void> _submit() async {
     final rows = _parsed!.rows.where((r) => r.willSubmit).toList();
+    final incomplete = _parsed!.rows.where((r) => r.willNotifyIncomplete).toList();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Submit applications'),
-        content: Text(
-          'Submit ${rows.length} application(s)? Each applicant is checked automatically against department '
-          'records. Anyone who already has an application with you will have it replaced by this new one.',
-        ),
+        content: Text([
+          if (rows.isNotEmpty)
+            'Submit ${rows.length} application(s)? Each applicant is checked automatically against department '
+                'records. Anyone who already has an application with you will have it replaced by this new one.',
+          if (incomplete.isNotEmpty)
+            '${incomplete.length} incomplete application(s) will not be considered. Those applicants will be '
+                'notified of what was missing.',
+        ].join('\n\n')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit')),
@@ -138,7 +153,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
     setState(() {
       _submitting = true;
       _done = 0;
-      _total = rows.length;
+      _total = rows.length + incomplete.length;
     });
 
     Future<void> submitOne(BulkRow row) async {
@@ -156,6 +171,16 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
       if (mounted) setState(() => _done++);
     }
 
+    Future<void> notifyIncomplete(BulkRow row) async {
+      try {
+        await orgRepo.notifyIncompleteApplication(citizenId: row.citizenId!, missing: row.issues.join('; '));
+        outcomes[row] = 'incomplete_notified';
+      } catch (e) {
+        outcomes[row] = 'error: could not notify applicant: $e';
+      }
+      if (mounted) setState(() => _done++);
+    }
+
     // A few at a time: fast for hundreds of rows without flooding the API.
     var next = 0;
     Future<void> worker() async {
@@ -165,6 +190,9 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
     }
 
     await Future.wait([for (var i = 0; i < 4; i++) worker()]);
+    for (final row in incomplete) {
+      await notifyIncomplete(row);
+    }
     ref.invalidate(verificationRequestsProvider);
     if (mounted) {
       setState(() {
@@ -178,6 +206,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
         'completed' => 'Verified',
         'partially_verified' => 'Partly verified',
         'failed' => 'Not verified',
+        'incomplete_notified' => 'Not considered (incomplete) - applicant notified',
         _ when status.startsWith('error') => 'Could not submit',
         _ => status,
       };
@@ -185,14 +214,21 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
   Future<void> _exportResults() async {
     final outcomes = _outcomes!;
     await ReportExport.exportExcel(
-      filename: 'ubuntuid_bulk_results.xlsx',
+      filename: downloadFileName([await _organisationName(), 'Bulk_Results'], 'xlsx'),
       title: 'Bulk verification results',
-      headers: const ['Row', 'Name', 'ID number', 'Result'],
+      headers: const ['Row', 'Name', 'ID number', 'Result', 'Details'],
       rows: [
         for (final e in outcomes.entries)
-          ['${e.key.rowNumber}', e.key.displayName, e.key.idNumber, _outcomeLabel(e.value)],
+          ['${e.key.rowNumber}', e.key.displayName, e.key.idNumber, _outcomeLabel(e.value), e.key.issues.join('; ')],
         for (final r in _parsed!.rows)
-          if (!outcomes.containsKey(r)) ['${r.rowNumber}', r.displayName, r.idNumber, 'Not submitted: ${r.status.label}'],
+          if (!outcomes.containsKey(r))
+            [
+              '${r.rowNumber}',
+              r.displayName,
+              r.idNumber,
+              r.removed ? 'Removed before submitting' : 'Not submitted: ${r.status.label}',
+              r.issues.join('; '),
+            ],
       ],
     );
   }
@@ -385,6 +421,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
   Widget _summaryCard(BulkParseResult parsed) {
     final active = parsed.rows.where((r) => !r.removed).toList();
     final ready = active.where((r) => r.willSubmit).length;
+    final incomplete = active.where((r) => r.willNotifyIncomplete).length;
     final attention = active.length - ready;
     return AppCard(
       child: Column(
@@ -400,12 +437,22 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
+          if (incomplete > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              '$incomplete incomplete application${incomplete == 1 ? '' : 's'} will not be considered; '
+              'the applicant${incomplete == 1 ? '' : 's'} will be told what was missing.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: 12),
           AppButton(
-            label: 'Submit $ready ready application${ready == 1 ? '' : 's'}',
+            label: ready == 0 && incomplete > 0
+                ? 'Notify $incomplete incomplete applicant${incomplete == 1 ? '' : 's'}'
+                : 'Submit $ready ready application${ready == 1 ? '' : 's'}',
             icon: Icons.send_outlined,
             expand: true,
-            onPressed: ready == 0 ? null : _submit,
+            onPressed: ready == 0 && incomplete == 0 ? null : _submit,
           ),
         ],
       ),

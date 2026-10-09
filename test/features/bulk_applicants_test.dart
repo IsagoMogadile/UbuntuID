@@ -68,4 +68,18 @@ void main() {
     expect(result.rows[1].willSubmit, isFalse);
     expect(result.rows[2].status, BulkRowStatus.notFound);
   });
+
+  test('reads the matric year column and marks incomplete rows', () {
+    const nsc = BulkCredential(credentialTypeId: 'nsc', typeCode: 'NSC', displayName: 'National Senior Certificate');
+    final result = parseApplicants([
+      templateHeaders(const [nsc]),
+      [id1, 'Kopano', 'Mogadile', 'Diploma', '2016'],
+      [id2, 'Lerato', 'Dlamini', 'Diploma', ''],
+    ], const [nsc]);
+
+    expect(result.rows[0].status, BulkRowStatus.ready);
+    expect(result.rows[0].claims['nsc'], {'overall_pass_status': 'Diploma', 'year': '2016'});
+    expect(result.rows[1].status, BulkRowStatus.missingData);
+    expect(result.rows[1].status.isIncomplete, isTrue);
+  });
 }
