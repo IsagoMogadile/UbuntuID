@@ -565,6 +565,48 @@ class CitizenRepository {
   }
 
   // ---------------------------------------------------------------------
+  // Other department records (Service Records screen)
+  // ---------------------------------------------------------------------
+
+  /// This citizen's rows in a department [table] whose [column] holds their
+  /// ID number, newest first by [orderBy] when given. Each table's own RLS
+  /// policy already limits citizens to their own rows.
+  Future<List<Map<String, dynamic>>> getDepartmentRecords({
+    required String table,
+    String column = 'national_id_number',
+    String select = '*',
+    String? orderBy,
+  }) async {
+    final idNumber = await _citizenIdNumber();
+    final query = _client.from(table).select(select).eq(column, idNumber);
+    if (orderBy == null) return await query;
+    return await query.order(orderBy, ascending: false);
+  }
+
+  /// `sars_tax_returns` key off `tax_number`, not the ID number, so look up
+  /// this citizen's tax number(s) first.
+  Future<List<Map<String, dynamic>>> getMyTaxReturns() async {
+    final taxpayers = await getDepartmentRecords(table: 'sars_taxpayers', select: 'tax_number');
+    final taxNumbers = taxpayers.map((r) => r['tax_number']).whereType<String>().toList();
+    if (taxNumbers.isEmpty) return [];
+    return _client
+        .from('sars_tax_returns')
+        .select()
+        .inFilter('tax_number', taxNumbers)
+        .order('tax_year', ascending: false);
+  }
+
+  /// Marriages where this citizen is either spouse.
+  Future<List<Map<String, dynamic>>> getMyMarriages() async {
+    final idNumber = await _citizenIdNumber();
+    return _client
+        .from('dha_marital_records')
+        .select()
+        .or('spouse_1_id.eq.$idNumber,spouse_2_id.eq.$idNumber')
+        .order('date_of_marriage', ascending: false);
+  }
+
+  // ---------------------------------------------------------------------
   // Human Settlements (simulated)
   // ---------------------------------------------------------------------
 

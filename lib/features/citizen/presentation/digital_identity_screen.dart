@@ -16,6 +16,7 @@ import '../../../routing/app_routes.dart';
 import '../data/citizen_repository.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
+import 'service_records_screen.dart';
 
 class DigitalIdentityScreen extends ConsumerWidget {
   const DigitalIdentityScreen({super.key, this.filterTypeCode, this.title});
@@ -137,12 +138,7 @@ class DigitalIdentityScreen extends ConsumerWidget {
                         if (i > 0) const Divider(height: 1),
                         StaggeredFadeIn(
                           index: i,
-                          child: ListTile(
-                            title: Text(credentials[i].typeName),
-                            subtitle: Text(_credentialSubtitle(credentials[i])),
-                            isThreeLine: credentials[i].qualification != null,
-                            trailing: StatusBadge.fromStatus(credentials[i].status),
-                          ),
+                          child: _CredentialTile(credential: credentials[i]),
                         ),
                       ],
                     ],
@@ -216,26 +212,7 @@ class _FilteredCredentialView extends ConsumerWidget {
                 children: [
                   for (var i = 0; i < matches.length; i++) ...[
                     if (i > 0) const Divider(height: 1),
-                    ListTile(
-                      title: Text(matches[i].typeName),
-                      subtitle: Text(DigitalIdentityScreen._credentialSubtitle(matches[i])),
-                      isThreeLine: matches[i].qualification != null,
-                      trailing: typeCode == 'DRIVERS_LICENCE'
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                StatusBadge.fromStatus(matches[i].status),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.chevron_right),
-                              ],
-                            )
-                          : StatusBadge.fromStatus(matches[i].status),
-                      // Driver's Licence opens its full details, including
-                      // registered vehicles.
-                      onTap: typeCode == 'DRIVERS_LICENCE'
-                          ? () => context.push(AppRoutes.citizenDriversLicence)
-                          : null,
-                    ),
+                    _CredentialTile(credential: matches[i]),
                   ],
                 ],
               ),
@@ -243,6 +220,32 @@ class _FilteredCredentialView extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// A credential row that opens its department's full details when that
+/// service has a details screen (see [credentialDetailRoute]).
+class _CredentialTile extends StatelessWidget {
+  const _CredentialTile({required this.credential});
+
+  final CredentialItem credential;
+
+  @override
+  Widget build(BuildContext context) {
+    final route = credentialDetailRoute(credential);
+    final badge = StatusBadge.fromStatus(credential.status);
+    return ListTile(
+      title: Text(credential.typeName),
+      subtitle: Text(DigitalIdentityScreen._credentialSubtitle(credential)),
+      isThreeLine: credential.qualification != null,
+      trailing: route == null
+          ? badge
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [badge, const SizedBox(width: 4), const Icon(Icons.chevron_right)],
+            ),
+      onTap: route == null ? null : () => context.push(route),
     );
   }
 }

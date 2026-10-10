@@ -83,14 +83,17 @@ class AppTheme {
           fontWeight: FontWeight.w700,
         ),
       ),
-      textTheme: const TextTheme(
-        headlineSmall: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2),
-        titleLarge: TextStyle(fontWeight: FontWeight.w700),
-        titleMedium: TextStyle(fontWeight: FontWeight.w700),
-        titleSmall: TextStyle(fontWeight: FontWeight.w600),
-        bodyLarge: TextStyle(height: 1.35),
-        bodyMedium: TextStyle(height: 1.35),
-        labelLarge: TextStyle(fontWeight: FontWeight.w600),
+      textTheme: TextTheme(
+        headlineSmall: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2),
+        titleLarge: const TextStyle(fontWeight: FontWeight.w700),
+        titleMedium: const TextStyle(fontWeight: FontWeight.w700),
+        titleSmall: const TextStyle(fontWeight: FontWeight.w600),
+        bodyLarge: const TextStyle(height: 1.35),
+        bodyMedium: const TextStyle(height: 1.35),
+        // Small supporting text (e.g. service descriptions) is white in dark
+        // mode; the default muted grey was too faint on dark cards.
+        bodySmall: TextStyle(color: isDark ? Colors.white : null),
+        labelLarge: const TextStyle(fontWeight: FontWeight.w600),
       ),
       cardTheme: CardThemeData(
         color: surface,

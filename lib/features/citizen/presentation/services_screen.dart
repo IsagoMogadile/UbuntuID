@@ -54,7 +54,9 @@ class ServicesScreen extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       service.description,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : null,
+                          ),
                       overflow: TextOverflow.fade,
                     ),
                   ),

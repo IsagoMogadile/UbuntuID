@@ -32,8 +32,6 @@ class CitizenSearchScreen extends ConsumerStatefulWidget {
 class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
   final _formKey = GlobalKey<FormState>();
   final _idNumberController = TextEditingController();
-  final _firstNameController = TextEditingController();
-  final _lastNameController = TextEditingController();
   CitizenSearchQuery? _searchQuery;
   String? _selectedCitizenId;
   final Set<String> _selectedCredentialTypeIds = {};
@@ -50,24 +48,17 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
   @override
   void dispose() {
     _idNumberController.dispose();
-    _firstNameController.dispose();
-    _lastNameController.dispose();
     super.dispose();
   }
 
   void _search() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
-    if (firstName.isEmpty && lastName.isEmpty) {
-      AppToast.warning(context, 'Enter at least a first name or last name to confirm the ID number.');
-      return;
-    }
+    // The ID number alone identifies the applicant; no name needed.
     setState(() {
       _searchQuery = (
         idNumber: AppFormatters.compactIdNumber(_idNumberController.text),
-        firstName: firstName.isEmpty ? null : firstName,
-        lastName: lastName.isEmpty ? null : lastName,
+        firstName: null,
+        lastName: null,
       );
       _selectedCitizenId = null;
       _selectedCredentialTypeIds.clear();
@@ -157,27 +148,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
                 keyboardType: TextInputType.number,
                 prefixIcon: Icons.badge_outlined,
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppTextField(
-                      label: 'First name',
-                      controller: _firstNameController,
-                      prefixIcon: Icons.person_outline,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: AppTextField(
-                      label: 'Last name',
-                      controller: _lastNameController,
-                      prefixIcon: Icons.person_outline,
-                      onFieldSubmitted: (_) => _search(),
-                    ),
-                  ),
-                ],
+                onFieldSubmitted: (_) => _search(),
               ),
               const SizedBox(height: 10),
               AppButton(label: 'Search', icon: Icons.search, onPressed: _search, expand: true),
@@ -187,8 +158,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
                 child: EmptyState(
                   icon: Icons.person_search_outlined,
                   title: 'Find an applicant',
-                  message: 'Enter the ID number plus at least a first or last name to look up the applicant and '
-                      'submit their application.',
+                  message: "Enter the applicant's ID number to look them up and submit their application.",
                 ),
               )
             else
@@ -205,7 +175,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
                       return const EmptyState(
                         icon: Icons.person_off_outlined,
                         title: 'No citizen found',
-                        message: 'No citizen matches this ID number and name.',
+                        message: 'No citizen matches this ID number.',
                       );
                     }
                     final matches = results.where((r) => r.citizenId == _selectedCitizenId);
