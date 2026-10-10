@@ -137,9 +137,12 @@ dropped this session (confirmed not needed).
 
 **Now wired up** (previously listed here as unused): `citizen_addresses`
 → citizen Personal Information screen; `compliance_audits` →
-new Admin "Compliance Audits" screen; `human_settlements_records` /
-`human_settlement_data_definitions` → new Admin "Household Records"
-screen (no department owns this data, so it's admin-only oversight).
+new Admin "Compliance Audits" screen. `human_settlements_records` /
+`human_settlements_records` → the Human Settlements (`DHS`) official's
+citizen records screen, as a view-only "Household Record" section. (It
+used to be an Admin "Household Records" screen, which was removed:
+administrators have no business with household data.)
+`human_settlement_data_definitions` is not read by any screen.
 
 ## 10. Future work
 

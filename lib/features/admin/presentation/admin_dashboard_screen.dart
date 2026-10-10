@@ -134,18 +134,6 @@ class AdminDashboardScreen extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 10),
-          AppCard(
-            onTap: () => context.push(AppRoutes.adminHouseholdRecords),
-            child: const Row(
-              children: [
-                Icon(Icons.home_outlined),
-                SizedBox(width: 12),
-                Expanded(child: Text('Household records')),
-                Icon(Icons.chevron_right),
-              ],
-            ),
-          ),
         ],
       ),
     );

@@ -202,10 +202,10 @@ exists) are also recorded as spouses in `dha_marital_records`.
 cover a subset of households (the original 152 citizens; the 100+38 added
 since have no property at all — see docs/KNOWN_LIMITATIONS.md). The
 Human Settlements department (`DHS`) now manages this data as a real
-departmental workflow (see above) — `human_settlements_records` itself
-remains admin-only oversight (`docs/SCREEN_DATABASE_MAP.md` §9), not read
-by the `DHS` official-facing screens, which go through
-`properties`/`title_deeds`/`housing_applications` directly.
+departmental workflow (see above), including `human_settlements_records`,
+which `DHS` officials see as a view-only "Household Record" section per
+citizen (`docs/SCREEN_DATABASE_MAP.md` §9). Administrators no longer
+see household data.
 
 ## SASSA (simulated, view-only for citizens)
 

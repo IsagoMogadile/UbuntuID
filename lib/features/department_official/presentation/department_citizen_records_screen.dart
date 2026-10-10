@@ -220,7 +220,7 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
     );
     if (values == null) return;
     try {
-      await widget.config.buildInsertData(ref.read(departmentRepositoryProvider), widget.citizen, values);
+      await widget.config.buildInsertData!(ref.read(departmentRepositoryProvider), widget.citizen, values);
       if (mounted) {
         setState(_load);
         final message = widget.config.label == 'Death'
@@ -345,11 +345,12 @@ class _RecordTypeSectionState extends ConsumerState<_RecordTypeSection> {
               Expanded(
                 child: Text(widget.config.label, style: Theme.of(context).textTheme.titleSmall),
               ),
-              TextButton.icon(
-                onPressed: _addRecord,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add'),
-              ),
+              if (widget.config.buildInsertData != null)
+                TextButton.icon(
+                  onPressed: _addRecord,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add'),
+                ),
             ],
           ),
           FutureBuilder<List<Map<String, dynamic>>>(

@@ -11,7 +11,6 @@ import '../domain/compliance_audit_item.dart';
 import '../domain/department_list_item.dart';
 import '../domain/department_official_detail.dart';
 import '../domain/flagged_record_item.dart';
-import '../domain/household_record_item.dart';
 import '../domain/organisation_list_item.dart';
 import '../domain/organisation_review_detail.dart';
 import '../domain/user_list_item.dart';
@@ -102,28 +101,6 @@ class AdminRepository {
           totalResolvedRecords: row['total_resolved_records'] as int? ?? 0,
           summary: row['summary'] as String?,
           generatedByName: row['ubuntuid_administrators']?['full_name'] as String?,
-        ),
-    ];
-  }
-
-  /// `human_settlements_records` has no department official of its own
-  /// (`docs/PROJECT_SCOPE.md` §5) -- an administrator is the only role that
-  /// oversees this generic household data.
-  Future<List<HouseholdRecordItem>> getHouseholdRecords() async {
-    final rows = await _client
-        .from('human_settlements_records')
-        .select('record_id, record_type, recorded_at, record_data, '
-            'citizens(first_name, last_name), properties(property_reference)')
-        .order('recorded_at', ascending: false);
-    return [
-      for (final row in rows)
-        HouseholdRecordItem(
-          recordId: row['record_id'] as String,
-          recordType: row['record_type'] as String? ?? 'RECORD',
-          recordedAt: _date(row['recorded_at']),
-          citizenName: '${row['citizens']?['first_name'] ?? ''} ${row['citizens']?['last_name'] ?? ''}'.trim(),
-          propertyReference: row['properties']?['property_reference'] as String? ?? 'Unknown property',
-          recordData: (row['record_data'] as Map<String, dynamic>?) ?? const {},
         ),
     ];
   }
@@ -891,10 +868,6 @@ final adminAppealsProvider = FutureProvider.autoDispose<List<AppealItem>>((ref) 
 
 final adminComplianceAuditsProvider = FutureProvider.autoDispose<List<ComplianceAuditItem>>((ref) {
   return ref.watch(adminRepositoryProvider).getComplianceAudits();
-});
-
-final adminHouseholdRecordsProvider = FutureProvider.autoDispose<List<HouseholdRecordItem>>((ref) {
-  return ref.watch(adminRepositoryProvider).getHouseholdRecords();
 });
 
 final departmentOfficialDetailProvider =

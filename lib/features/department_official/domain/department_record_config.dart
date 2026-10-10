@@ -29,6 +29,7 @@ const recordTypeIconByName = <String, IconData>{
   'flight_land_outlined': Icons.flight_land_outlined,
   'workspace_premium_outlined': Icons.workspace_premium_outlined,
   'home_work_outlined': Icons.home_work_outlined,
+  'home_outlined': Icons.home_outlined,
   'description_outlined': Icons.description_outlined,
   'assignment_outlined': Icons.assignment_outlined,
 };
@@ -77,9 +78,9 @@ class RecordTypeConfig {
     required this.icon,
     required this.fields,
     required this.fetchExisting,
-    required this.buildInsertData,
     required this.rowTitle,
     required this.rowSubtitle,
+    this.buildInsertData,
     this.idColumn,
     this.table,
     this.buildUpdateData,
@@ -92,7 +93,9 @@ class RecordTypeConfig {
   final List<RecordField> fields;
   final Future<List<Map<String, dynamic>>> Function(DepartmentRepository repo, CitizenLookupResult citizen)
       fetchExisting;
-  final Future<void> Function(DepartmentRepository repo, CitizenLookupResult citizen, Map<String, dynamic> formValues)
+  /// `null` makes the record type view-only -- the section shows the
+  /// citizen's existing rows but no "Add" action.
+  final Future<void> Function(DepartmentRepository repo, CitizenLookupResult citizen, Map<String, dynamic> formValues)?
       buildInsertData;
   final String Function(Map<String, dynamic> row) rowTitle;
   final String Function(Map<String, dynamic> row) rowSubtitle;
@@ -1019,6 +1022,22 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
           ),
           rowTitle: (r) => r['application_reference'] as String? ?? '',
           rowSubtitle: (r) => '${r['application_status']} • ${r['municipality'] ?? ''}',
+        ),
+        // Generic household/occupancy data from `human_settlements_records`
+        // -- view-only (no `buildInsertData`): its record_type values aren't
+        // documented anywhere, so there's no form to create one from.
+        RecordTypeConfig(
+          label: 'Household Record',
+          icon: 'home_outlined',
+          fields: const [],
+          fetchExisting: (repo, citizen) => repo.getHouseholdRecordsForCitizen(citizen.citizenId),
+          rowTitle: (r) => '${r['record_type'] ?? 'RECORD'} • ${r['properties']?['property_reference'] ?? 'Unknown property'}',
+          rowSubtitle: (r) {
+            final data = (r['record_data'] as Map<String, dynamic>?) ?? const {};
+            final details = data.entries.map((e) => '${e.key}: ${e.value}').join(' • ');
+            final recordedAt = (r['recorded_at'] as String?)?.split('T').first ?? '';
+            return [details, recordedAt].where((s) => s.isNotEmpty).join('\n');
+          },
         ),
       ];
 

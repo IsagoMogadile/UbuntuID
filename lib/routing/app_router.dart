@@ -17,7 +17,6 @@ import '../features/admin/presentation/admin_verification_queue_screen.dart';
 import '../features/admin/presentation/audit_log_detail_screen.dart';
 import '../features/admin/presentation/audit_logs_list_screen.dart';
 import '../features/admin/presentation/compliance_audits_list_screen.dart';
-import '../features/admin/presentation/household_records_list_screen.dart';
 import '../features/admin/domain/user_list_item.dart';
 import '../features/admin/presentation/department_detail_screen.dart';
 import '../features/admin/presentation/department_form_screen.dart';
@@ -571,7 +570,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (c, s) => AdminSearchScreen(initialQuery: s.extra as String?),
       ),
       GoRoute(path: AppRoutes.adminComplianceAudits, builder: (c, s) => const ComplianceAuditsListScreen()),
-      GoRoute(path: AppRoutes.adminHouseholdRecords, builder: (c, s) => const HouseholdRecordsListScreen()),
       GoRoute(path: AppRoutes.adminFlaggedRecords, builder: (c, s) => const FlaggedRecordsListScreen()),
       GoRoute(
         path: '${AppRoutes.adminFlaggedRecords}/:id',

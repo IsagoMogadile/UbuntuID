@@ -733,6 +733,18 @@ class DepartmentRepository {
     });
   }
 
+  /// `human_settlements_records` -- household/occupancy records, owned by
+  /// Human Settlements (RLS already scopes them to `DHS` officials). Ordered
+  /// by `recorded_at` since this table has no `created_at`, so it can't use
+  /// the generic `getRecordsByColumn`.
+  Future<List<Map<String, dynamic>>> getHouseholdRecordsForCitizen(String citizenId) async {
+    return _client
+        .from('human_settlements_records')
+        .select('record_id, record_type, recorded_at, record_data, properties(property_reference)')
+        .eq('citizen_id', citizenId)
+        .order('recorded_at', ascending: false);
+  }
+
   Future<void> submitHousingApplication({
     required String citizenId,
     required String programmeCode,
