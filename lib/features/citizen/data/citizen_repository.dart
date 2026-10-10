@@ -93,10 +93,24 @@ class CitizenRepository {
     };
     if (table == null || orderColumn == null) return null;
     try {
+      final idNumber = await _citizenIdNumber();
+      // Employment: every job, current and past, rides along as `history`
+      // (same shape `public_document` returns), since someone can hold
+      // more than one job and the letter lists them all.
+      if (typeCode == 'LABOUR_STATUS') {
+        final rows = await _client
+            .from(table)
+            .select()
+            .eq('national_id_number', idNumber)
+            .order(orderColumn, ascending: false);
+        if (rows.isEmpty) return null;
+        final open = rows.where((r) => r['end_date'] == null);
+        return {...rows.first, 'history': [...open, ...rows.where((r) => r['end_date'] != null)]};
+      }
       return await _client
           .from(table)
           .select()
-          .eq('national_id_number', await _citizenIdNumber())
+          .eq('national_id_number', idNumber)
           .order(orderColumn, ascending: false)
           .limit(1)
           .maybeSingle();

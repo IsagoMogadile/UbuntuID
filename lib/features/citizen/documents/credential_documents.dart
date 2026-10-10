@@ -1118,11 +1118,59 @@ class CredentialDocuments {
     Map<String, dynamic>? record,
     String reference,
   ) {
-    final contribution = record?['uif_contribution_amount'];
-    // An Unemployed record doubles as proof of unemployment -- the letter a
-    // citizen would otherwise get from a sworn statement at SAPS -- so it
-    // carries that title instead. Same record, same data, same watermark.
-    final unemployed = record?['employment_status'] == 'Unemployed';
+    // Every Labour row for this person (`history`, open rows first), or just
+    // the one record from callers that don't send history.
+    final rows = [
+      for (final r in (record?['history'] as List?) ?? (record == null ? const [] : [record]))
+        Map<String, dynamic>.from(r as Map),
+    ];
+    // A job is current while open and Employed/Self-Employed. Ended jobs are
+    // closed with an end date; an open "Unemployed" row is a status, not a job.
+    final current = rows
+        .where((r) => r['end_date'] == null && const {'Employed', 'Self-Employed'}.contains(r['employment_status']))
+        .toList();
+    final past = rows.where((r) => r['end_date'] != null).toList();
+    const maxPast = 6; // keeps the letter on one page
+    final uif = current.fold<num?>(null, (sum, r) {
+      final amount = num.tryParse('${r['uif_contribution_amount'] ?? ''}');
+      return amount == null ? sum : (sum ?? 0) + amount;
+    });
+    // With no current job the letter doubles as proof of unemployment -- the
+    // letter a citizen would otherwise get from a sworn statement at SAPS --
+    // so it carries that title instead. Same data, same watermark.
+    final unemployed = current.isEmpty;
+
+    pw.Widget jobsTable(List<Map<String, dynamic>> jobs, {required bool ended}) => pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+      columnWidths: const {0: pw.FlexColumnWidth(3), 1: pw.FlexColumnWidth(2), 2: pw.FlexColumnWidth(2)},
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey100),
+          children: [
+            for (final h in ['Employer', 'Started', ended ? 'Ended' : 'Status'])
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                child: _text(h, style: const pw.TextStyle(fontSize: 9, color: _muted)),
+              ),
+          ],
+        ),
+        for (final j in jobs)
+          pw.TableRow(
+            children: [
+              for (final v in [
+                _value(j, 'employer_name'),
+                _long(_date(j, 'start_date')),
+                ended ? _long(_date(j, 'end_date')) : _value(j, 'employment_status'),
+              ])
+                pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  child: _text(v, style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold)),
+                ),
+            ],
+          ),
+      ],
+    );
+
     return _page(
       headline: 'DEMONSTRATION / PROTOTYPE - NOT A REAL EMPLOYMENT / UIF RECORD',
       watermark: 'UBUNTUID DEMONSTRATION\nNOT A REAL UIF RECORD',
@@ -1134,15 +1182,19 @@ class CredentialDocuments {
         ),
         pw.SizedBox(height: 16),
         _holderPanel(holder),
-        _sectionTitle('Employment record'),
-        _detailsTable([
-          ('Employer', _value(record, 'employer_name')),
-          ('Employment status', _value(record, 'employment_status')),
-          ('Start date', _long(_date(record, 'start_date'))),
-        ]),
+        _sectionTitle(current.length > 1 ? 'Current employment (${current.length} jobs)' : 'Current employment'),
+        if (current.isEmpty)
+          _detailsTable([('Employment status', 'Not currently employed')])
+        else
+          jobsTable(current, ended: false),
+        if (past.isNotEmpty) ...[
+          _sectionTitle('Previous employment'),
+          jobsTable(past.take(maxPast).toList(), ended: true),
+          if (past.length > maxPast) _note('And ${past.length - maxPast} earlier job(s) on record.'),
+        ],
         _sectionTitle('Unemployment Insurance Fund (UIF)'),
         _detailsTable([
-          ('Monthly UIF contribution', contribution == null ? 'Not on record' : 'R $contribution'),
+          ('Monthly UIF contribution', uif == null ? 'Not on record' : 'R $uif'),
           ('UIF claim status', _value(record, 'uif_claim_status')),
           ('Credential status', _status(credential.status)),
         ]),
