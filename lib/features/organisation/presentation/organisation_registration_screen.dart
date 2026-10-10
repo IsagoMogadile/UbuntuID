@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/email_generator.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/app_text_field.dart';
@@ -33,7 +34,8 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
   final _detailsFormKey = GlobalKey<FormState>();
   final _legalNameController = TextEditingController();
   final _registrationNumberController = TextEditingController();
-  final _emailController = TextEditingController();
+  final _domainController = TextEditingController();
+  final _headEmailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _headFirstNameController = TextEditingController();
@@ -52,18 +54,63 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
   bool _awaitingEmailConfirmation = false;
   String? _error;
 
+  /// Set when the head already has a confirmed account (came back via
+  /// "Finish registering your organisation") -- their sign-in email is
+  /// fixed, so it's used as-is rather than regenerated from name + domain.
+  String? _sessionEmail;
+
+  /// True once the head has typed their own sign-in email -- from then on
+  /// name/domain changes stop overwriting it. Clearing the field hands it
+  /// back to the generator.
+  bool _headEmailEdited = false;
+
   @override
   void initState() {
     super.initState();
-    final currentEmail = Supabase.instance.client.auth.currentUser?.email;
-    if (currentEmail != null) _emailController.text = currentEmail;
+    _sessionEmail = Supabase.instance.client.auth.currentUser?.email;
+    final at = _sessionEmail?.indexOf('@') ?? -1;
+    if (at >= 0) _domainController.text = _sessionEmail!.substring(at + 1);
+    if (_sessionEmail != null) _headEmailController.text = _sessionEmail!;
+    for (final c in [_domainController, _headFirstNameController, _headLastNameController]) {
+      c.addListener(_regenerateHeadEmail);
+    }
+  }
+
+  void _regenerateHeadEmail() {
+    if (_sessionEmail != null || _headEmailEdited) return;
+    final generated = _generatedHeadEmail ?? '';
+    if (_headEmailController.text != generated) _headEmailController.text = generated;
+  }
+
+  /// `karoo.co.za` from whatever was typed -- tolerates a pasted
+  /// `https://www.karoo.co.za/` or `@karoo.co.za`.
+  String get _domain => _domainController.text
+      .trim()
+      .toLowerCase()
+      .replaceFirst(RegExp(r'^https?://'), '')
+      .replaceFirst(RegExp(r'^www\.'), '')
+      .replaceFirst(RegExp(r'^@'), '')
+      .replaceFirst(RegExp(r'/.*$'), '');
+
+  static final _domainPattern = RegExp(r'^[a-z0-9-]+(\.[a-z0-9-]+)+$');
+
+  /// The suggested sign-in email, `firstname.lastname@<domain>` -- the same
+  /// convention staff accounts the head adds later follow. The head can
+  /// change it (e.g. to `thandi@karoo.co.za`) if that isn't their real inbox,
+  /// since the sign-up confirmation link is sent there.
+  String? get _generatedHeadEmail {
+    final first = _headFirstNameController.text.trim();
+    final last = _headLastNameController.text.trim();
+    if (first.isEmpty || last.isEmpty || !_domainPattern.hasMatch(_domain)) return null;
+    return generateOrganisationUserEmail(firstName: first, lastName: last, organisationDomain: _domain);
   }
 
   @override
   void dispose() {
     _legalNameController.dispose();
     _registrationNumberController.dispose();
-    _emailController.dispose();
+    _domainController.dispose();
+    _headEmailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     _headFirstNameController.dispose();
@@ -99,7 +146,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
     });
 
     try {
-      final email = _emailController.text.trim();
+      final email = _headEmailController.text.trim().toLowerCase();
 
       // Already signed in (came here from "Account not configured" after
       // confirming their email) -- skip signUp and go straight to
@@ -253,12 +300,13 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
           ),
           const SizedBox(height: 14),
           AppTextField(
-            label: _hasSession ? 'Organisation / sign-in email (confirmed)' : 'Organisation / sign-in email',
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            prefixIcon: Icons.mail_outline,
+            label: 'Email domain',
+            helperText: 'e.g. karoo.co.za -- everyone at your organisation signs in with an address on this domain.',
+            controller: _domainController,
+            keyboardType: TextInputType.url,
+            prefixIcon: Icons.language_outlined,
             enabled: !_hasSession,
-            validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+            validator: (_) => _domainPattern.hasMatch(_domain) ? null : "Enter your organisation's domain, e.g. karoo.co.za",
           ),
           const SizedBox(height: 14),
           AppTextField(
@@ -267,17 +315,6 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
             keyboardType: TextInputType.phone,
             prefixIcon: Icons.call_outlined,
           ),
-          if (!_hasSession) ...[
-          const SizedBox(height: 14),
-          AppTextField(
-            label: 'Password',
-            helperText: 'At least 8 characters.',
-            controller: _passwordController,
-            obscureText: true,
-            prefixIcon: Icons.lock_outline,
-            validator: (v) => (v == null || v.length < 8) ? 'Use at least 8 characters.' : null,
-          ),
-          ],
           const SizedBox(height: 24),
           Text('Organisation head (you)', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 12),
@@ -320,6 +357,40 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
             prefixIcon: Icons.badge_outlined,
             validator: (v) => (v == null || v.trim().length != 13) ? 'Enter a 13-digit SA ID number' : null,
           ),
+          const SizedBox(height: 24),
+          Text('Your sign-in details', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 12),
+          AppTextField(
+            label: _hasSession ? 'Sign-in email (confirmed)' : 'Sign-in email',
+            helperText: _hasSession
+                ? null
+                : 'Filled in from your name and the email domain. Change it if your inbox is different -- '
+                    "we'll send a confirmation link here.",
+            controller: _headEmailController,
+            keyboardType: TextInputType.emailAddress,
+            prefixIcon: Icons.mail_outline,
+            enabled: !_hasSession,
+            onChanged: (v) => _headEmailEdited = v.trim().isNotEmpty,
+            validator: (v) {
+              final email = (v ?? '').trim().toLowerCase();
+              if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) return 'Enter a valid email';
+              if (!_hasSession && _domainPattern.hasMatch(_domain) && !email.endsWith('@$_domain')) {
+                return 'Use an address on $_domain';
+              }
+              return null;
+            },
+          ),
+          if (!_hasSession) ...[
+            const SizedBox(height: 14),
+            AppTextField(
+              label: 'Password',
+              helperText: 'At least 8 characters.',
+              controller: _passwordController,
+              obscureText: true,
+              prefixIcon: Icons.lock_outline,
+              validator: (v) => (v == null || v.length < 8) ? 'Use at least 8 characters.' : null,
+            ),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),

@@ -13,6 +13,7 @@ class AppTextField extends StatefulWidget {
     this.enabled = true,
     this.autofillHints,
     this.onFieldSubmitted,
+    this.onChanged,
     this.helperText,
   });
 
@@ -26,6 +27,7 @@ class AppTextField extends StatefulWidget {
   final bool enabled;
   final Iterable<String>? autofillHints;
   final void Function(String)? onFieldSubmitted;
+  final void Function(String)? onChanged;
 
   /// Shown under the field before anything is typed, e.g. password rules.
   final String? helperText;
@@ -54,6 +56,7 @@ class _AppTextFieldState extends State<AppTextField> {
       enabled: widget.enabled,
       autofillHints: widget.autofillHints,
       onFieldSubmitted: widget.onFieldSubmitted,
+      onChanged: widget.onChanged,
       decoration: InputDecoration(
         labelText: widget.label,
         helperText: widget.helperText,
