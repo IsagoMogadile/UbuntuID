@@ -237,6 +237,80 @@ class AdminRepository {
     }
   }
 
+  /// The SA ID number on this user's own role row -- the key to their
+  /// digital profile, since every role table carries `id_number`.
+  Future<String?> getUserIdNumber({required AdminUserRole role, required String userId}) async {
+    final (table, idColumn) = switch (role) {
+      AdminUserRole.citizen => ('citizens', 'citizen_id'),
+      AdminUserRole.departmentOfficial => ('department_officials', 'official_id'),
+      AdminUserRole.organisationUser => ('organisation_users', 'organisation_user_id'),
+      AdminUserRole.administrator => ('ubuntuid_administrators', 'admin_id'),
+    };
+    final row = await _client.from(table).select('id_number').eq(idColumn, userId).maybeSingle();
+    return row?['id_number'] as String?;
+  }
+
+  /// The person's `citizens` row by SA ID number, or `null` when they're
+  /// not registered on UbuntuID at all.
+  Future<Map<String, dynamic>?> getCitizenByIdNumber(String idNumber) {
+    return _client.from('citizens').select().eq('id_number', idNumber).maybeSingle();
+  }
+
+  /// `saps_wanted_persons` listings for this person -- a department-wide
+  /// list, so it isn't one of the per-citizen record types.
+  Future<List<Map<String, dynamic>>> getWantedListings(String idNumber) {
+    return _client
+        .from('saps_wanted_persons')
+        .select('wanted_id, reason, date_listed, status, apprehended_date')
+        .eq('national_id_number', idNumber)
+        .order('date_listed', ascending: false);
+  }
+
+  /// Marriages this person is part of, from either side of the record
+  /// (`spouse_1_id` *or* `spouse_2_id`), each with the spouse's name added
+  /// as `_spouse_name` / `_spouse_id`.
+  Future<List<Map<String, dynamic>>> getMarriages(String idNumber) async {
+    final rows = await _client
+        .from('dha_marital_records')
+        .select()
+        .or('spouse_1_id.eq.$idNumber,spouse_2_id.eq.$idNumber');
+    final spouseIds = {
+      for (final m in rows) (m['spouse_1_id'] == idNumber ? m['spouse_2_id'] : m['spouse_1_id']) as String?,
+    }.whereType<String>().toList();
+    final names = <String, String>{};
+    if (spouseIds.isNotEmpty) {
+      final spouses = await _client.from('citizens').select('id_number, first_name, last_name').inFilter('id_number', spouseIds);
+      for (final c in spouses) {
+        names[c['id_number'] as String] = '${c['first_name'] ?? ''} ${c['last_name'] ?? ''}'.trim();
+      }
+    }
+    return [
+      for (final m in rows)
+        {
+          ...m,
+          '_spouse_id': m['spouse_1_id'] == idNumber ? m['spouse_2_id'] : m['spouse_1_id'],
+          '_spouse_name': names[m['spouse_1_id'] == idNumber ? m['spouse_2_id'] : m['spouse_1_id']],
+        },
+    ];
+  }
+
+  Future<List<Map<String, dynamic>>> getAddresses(String citizenId) {
+    return _client
+        .from('citizen_addresses')
+        .select()
+        .eq('citizen_id', citizenId)
+        .order('is_current', ascending: false);
+  }
+
+  /// Organisation accounts this person holds -- shown on their profile so
+  /// an administrator sees where they already have access.
+  Future<List<Map<String, dynamic>>> getOrganisationMemberships(String idNumber) {
+    return _client
+        .from('organisation_users')
+        .select('organisation_user_id, user_role, active, organisations(organisation_id, legal_name, registration_status)')
+        .eq('id_number', idNumber);
+  }
+
   Future<List<OrganisationListItem>> getOrganisations() async {
     // `organisations` uses `registered_at`, not `created_at` -- see
     // docs/KNOWN_LIMITATIONS.md.
@@ -868,6 +942,11 @@ final adminAppealsProvider = FutureProvider.autoDispose<List<AppealItem>>((ref) 
 
 final adminComplianceAuditsProvider = FutureProvider.autoDispose<List<ComplianceAuditItem>>((ref) {
   return ref.watch(adminRepositoryProvider).getComplianceAudits();
+});
+
+final adminUserIdNumberProvider =
+    FutureProvider.autoDispose.family<String?, ({AdminUserRole role, String userId})>((ref, key) {
+  return ref.watch(adminRepositoryProvider).getUserIdNumber(role: key.role, userId: key.userId);
 });
 
 final departmentOfficialDetailProvider =

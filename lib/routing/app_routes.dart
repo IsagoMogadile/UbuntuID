@@ -94,6 +94,7 @@ class AppRoutes {
   static const adminOfficialEdit = '/admin/officials'; // + '/:id/edit'
   static const adminSearch = '/admin/search';
   static const adminComplianceAudits = '/admin/compliance-audits';
+  static const adminPersonProfile = '/admin/people'; // + '/:idNumber'
 
   // Department official
   static const departmentColleagues = '/department-official/colleagues';

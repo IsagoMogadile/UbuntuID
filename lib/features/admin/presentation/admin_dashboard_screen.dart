@@ -72,7 +72,12 @@ class AdminDashboardScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 10),
-          const _PendingOrganisationsCard(),
+          _QueueCard(
+            label: 'Organisations pending review',
+            icon: Icons.pending_actions_outlined,
+            count: ref.watch(pendingOrganisationsProvider).value?.length,
+            route: AppRoutes.adminPendingOrganisations,
+          ),
           const SizedBox(height: 20),
           const SectionHeader(title: 'Needs attention'),
           AppCard(
@@ -140,23 +145,28 @@ class AdminDashboardScreen extends ConsumerWidget {
   }
 }
 
-/// Opens the pending-organisations queue, with a live count badge that
-/// drops as applications are approved or declined.
-class _PendingOrganisationsCard extends ConsumerWidget {
-  const _PendingOrganisationsCard();
+/// Opens a review queue (pending organisations, staff requests), with a
+/// live count badge that drops as items are decided.
+class _QueueCard extends StatelessWidget {
+  const _QueueCard({required this.label, required this.icon, required this.count, required this.route});
+
+  final String label;
+  final IconData icon;
+  final int? count;
+  final String route;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final count = ref.watch(pendingOrganisationsProvider).value?.length;
+  Widget build(BuildContext context) {
+    final count = this.count;
     final scheme = Theme.of(context).colorScheme;
 
     return AppCard(
-      onTap: () => context.push(AppRoutes.adminPendingOrganisations),
+      onTap: () => context.push(route),
       child: Row(
         children: [
-          Icon(Icons.pending_actions_outlined, color: scheme.primary),
+          Icon(icon, color: scheme.primary),
           const SizedBox(width: 12),
-          const Expanded(child: Text('Organisations pending review')),
+          Expanded(child: Text(label)),
           if (count != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../../core/utils/formatters.dart';
+import '../../../routing/app_routes.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/detail_row.dart';
@@ -315,14 +318,25 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
             if (detail.staff.isEmpty) const Text('No staff accounts.'),
             for (final (i, person) in detail.staff.indexed) ...[
               if (i > 0) const Divider(height: 20),
-              Row(
-                children: [
-                  Expanded(child: Text(person.name, style: const TextStyle(fontWeight: FontWeight.w600))),
-                  Text(person.active ? person.role : '${person.role} · inactive', style: muted),
-                ],
+              InkWell(
+                onTap: (person.idNumber ?? '').isEmpty
+                    ? null
+                    : () => context.push('${AppRoutes.adminPersonProfile}/${person.idNumber}'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: Text(person.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                        Text(person.active ? person.role : '${person.role} · inactive', style: muted),
+                      ],
+                    ),
+                    if ((person.email ?? '').isNotEmpty) Text(person.email!, style: muted),
+                    if ((person.idNumber ?? '').isNotEmpty)
+                      Text('ID ${person.idNumber} · tap to view digital profile', style: muted),
+                  ],
+                ),
               ),
-              if ((person.email ?? '').isNotEmpty) Text(person.email!, style: muted),
-              if ((person.idNumber ?? '').isNotEmpty) Text('ID ${person.idNumber}', style: muted),
             ],
           ],
         ),

@@ -14,6 +14,7 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../routing/app_routes.dart';
 import '../data/admin_repository.dart';
 import '../domain/user_list_item.dart';
+import 'digital_profile_view.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 
@@ -144,6 +145,15 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 20),
+              Text('Digital profile', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              switch (ref.watch(adminUserIdNumberProvider((role: user.role, userId: user.userId)))) {
+                AsyncData(value: final idNumber?) when idNumber.isNotEmpty => DigitalProfileView(idNumber: idNumber),
+                AsyncData() => const AppCard(child: Text('No ID number on this account, so there is no digital profile to show.')),
+                AsyncError() => const AppCard(child: Text("Could not load this person's ID number.")),
+                _ => const LoadingIndicator(),
+              },
               const SizedBox(height: 20),
               if (user.role == AdminUserRole.departmentOfficial) ...[
                 AppButton(
