@@ -1118,6 +1118,28 @@ class DepartmentRepository {
   /// matches on it, case-insensitively), so a made-up address would leave
   /// them unable to ever log in. Refused if another citizen already has it,
   /// since the claim couldn't tell the two records apart.
+  /// Home Affairs: looks an ID number up in the population register
+  /// (`dha_find_citizen`). Returns `{found: false}` for someone not in the
+  /// register yet; otherwise their details, whether they already have a
+  /// digital ID, and a summary of the records each department holds.
+  Future<Map<String, dynamic>> findCitizenInRegister(String idNumber) async {
+    final result = await _client.rpc('dha_find_citizen', params: {'p_id_number': idNumber});
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Home Affairs: issues a digital ID to someone already in the register
+  /// (`dha_onboard_citizen`) -- adds their email/phone and links every
+  /// existing department record as a credential. Returns how many records
+  /// were linked.
+  Future<int> onboardCitizen({required String citizenId, required String email, String? phoneNumber}) async {
+    final result = await _client.rpc('dha_onboard_citizen', params: {
+      'p_citizen_id': citizenId,
+      'p_email': email.trim().toLowerCase(),
+      'p_phone_number': phoneNumber,
+    });
+    return ((result as Map)['credentials_linked'] as num?)?.toInt() ?? 0;
+  }
+
   Future<void> registerCitizen({
     required String idNumber,
     required String firstName,
@@ -1342,8 +1364,8 @@ class DepartmentRepository {
   static List<DepartmentServiceItem> _specialServicesFor(String departmentCode) => switch (departmentCode) {
         'HOME_AFFAIRS' => const [
             DepartmentServiceItem(
-              name: 'Register a new citizen',
-              description: "Create a citizen's central identity record.",
+              name: 'Onboard a citizen',
+              description: 'Find someone in the population register by ID number and issue their digital ID.',
               icon: Icons.person_add_alt_outlined,
               route: AppRoutes.departmentRegisterCitizen,
             ),

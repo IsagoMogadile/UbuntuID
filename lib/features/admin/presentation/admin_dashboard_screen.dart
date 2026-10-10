@@ -78,6 +78,13 @@ class AdminDashboardScreen extends ConsumerWidget {
             count: ref.watch(pendingOrganisationsProvider).value?.length,
             route: AppRoutes.adminPendingOrganisations,
           ),
+          const SizedBox(height: 10),
+          _QueueCard(
+            label: 'Staff requests from organisations',
+            icon: Icons.how_to_reg_outlined,
+            count: ref.watch(adminStaffRequestsProvider).value?.where((r) => r.status == 'pending').length,
+            route: AppRoutes.adminStaffRequests,
+          ),
           const SizedBox(height: 20),
           const SectionHeader(title: 'Needs attention'),
           AppCard(

@@ -1119,12 +1119,19 @@ class CredentialDocuments {
     String reference,
   ) {
     final contribution = record?['uif_contribution_amount'];
+    // An Unemployed record doubles as proof of unemployment -- the letter a
+    // citizen would otherwise get from a sworn statement at SAPS -- so it
+    // carries that title instead. Same record, same data, same watermark.
+    final unemployed = record?['employment_status'] == 'Unemployed';
     return _page(
       headline: 'DEMONSTRATION / PROTOTYPE - NOT A REAL EMPLOYMENT / UIF RECORD',
       watermark: 'UBUNTUID DEMONSTRATION\nNOT A REAL UIF RECORD',
       reference: reference,
       children: [
-        _docHeader(title: 'Employment & UIF Status Confirmation', authority: credential.issuingDepartment),
+        _docHeader(
+          title: unemployed ? 'Confirmation of Unemployment' : 'Employment & UIF Status Confirmation',
+          authority: credential.issuingDepartment,
+        ),
         pw.SizedBox(height: 16),
         _holderPanel(holder),
         _sectionTitle('Employment record'),

@@ -16,8 +16,8 @@ import '../data/admin_repository.dart';
 import '../domain/organisation_list_item.dart';
 import '../domain/organisation_review_detail.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/app_form_dialog.dart';
+import '../../../core/widgets/confirm_destructive_dialog.dart';
 
 class OrganisationDetailScreen extends ConsumerStatefulWidget {
   const OrganisationDetailScreen({super.key, required this.organisationId});
@@ -33,13 +33,17 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
 
   Future<void> _toggleVerified(OrganisationListItem organisation) async {
     if (organisation.verified &&
-        !await confirmAction(
-          context,
-          title: 'Remove verified status?',
-          message: '${organisation.legalName} will no longer show as a verified organisation. You can verify it again later.',
-          confirmLabel: 'Remove verified status',
-          destructive: true,
-        )) {
+        await confirmDestructive(
+              context,
+              title: 'Revoke verification?',
+              consequence: '${organisation.legalName} will no longer be able to verify citizens: no new applicants, '
+                  'uploads or checks. Its staff can still sign in and see past results, and nothing is deleted. '
+                  'You can restore verification later.',
+              confirmText: organisation.legalName,
+              confirmLabel: 'Revoke verification',
+              askReason: false,
+            ) ==
+            null) {
       return;
     }
     if (!mounted) return;
@@ -63,7 +67,16 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
   }
 
   Future<void> _revokeOrReinstate(OrganisationListItem organisation, {required bool revoke}) async {
-    final reason = await showDialog<String>(
+    final reason = revoke
+        ? await confirmDestructive(
+            context,
+            title: 'Revoke access?',
+            consequence: "${organisation.legalName}'s staff will be signed out and won't be able to sign in. "
+                'Nothing is deleted: its applicants, results and staff accounts are kept, and you can reinstate access later.',
+            confirmText: organisation.legalName,
+            confirmLabel: 'Revoke access',
+          )
+        : await showDialog<String>(
       context: context,
       builder: (context) {
         final controller = TextEditingController();
@@ -114,16 +127,14 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
   Future<void> _review(OrganisationListItem organisation, bool approve) async {
     String? notes;
     if (!approve) {
-      notes = await showDialog<String>(
-        context: context,
-        builder: (context) {
-          final controller = TextEditingController();
-          return AppFormDialog(title: 'Decline application', submitLabel: 'Decline application', onSubmit: () => Navigator.pop(context, controller.text.trim()), destructive: true, child: TextField(
-              controller: controller,
-              decoration: const InputDecoration(labelText: 'Reason (shown to the organisation)'),
-              maxLines: 3,
-            ),);
-        },
+      notes = await confirmDestructive(
+        context,
+        title: 'Decline application?',
+        consequence: "${organisation.legalName}'s application will be declined and its head notified with your reason. "
+            'They can correct it and resubmit.',
+        confirmText: organisation.legalName,
+        confirmLabel: 'Decline application',
+        reasonLabel: 'Reason (shown to the organisation)',
       );
       if (notes == null) return;
     }

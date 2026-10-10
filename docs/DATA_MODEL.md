@@ -71,6 +71,8 @@ previously had **no** dedicated table (a generic `credentials` row against
 `LABOUR_STATUS` only) — that placeholder is gone; `labour_employment_records`
 is now the authoritative detail table like every other department has.
 
+`dhet_nsfas_funding.funding_status` (Active|Ended, plus `ended_at`/`end_reason`) is set to Ended automatically when the citizen graduates (see `docs/database/graduation_srd_and_hiring_rules.sql`).
+
 Every one of these tables has a `national_id_number` column that is a
 plain `text` FK to `citizens(id_number)` — **not** `citizens.citizen_id`.
 This was a deliberate choice (matching the department-table spec as
@@ -137,6 +139,13 @@ application (`resubmit_organisation` RPC) — never a direct client write.
 `current_org_user_organisation_id()` (used throughout RLS) resolves to
 `NULL` unless `registration_status = 'approved'`, which is what actually
 blocks a pending/declined organisation's staff from citizen data.
+
+`organisation_staff_requests` (new) — people an organisation's head/admin
+asked UbuntuID to add (first/last name, ID number, status
+pending|approved|declined, the created `organisation_user_id`). Written only
+by `org_request_staff` / `admin_decide_staff_request`; readable by that
+organisation and admins. `organisation_users.cellphone` holds the head's
+cellphone from registration.
 
 ## Verification
 

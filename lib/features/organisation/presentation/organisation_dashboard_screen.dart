@@ -66,9 +66,34 @@ class OrganisationDashboardScreen extends ConsumerWidget {
           Row(
             children: [
               Expanded(child: Text(stats.organisationName, style: Theme.of(context).textTheme.titleLarge)),
-              StatusBadge.fromStatus(stats.verified ? 'verified' : 'pending'),
+              StatusBadge.fromStatus(stats.verified ? 'verified' : 'revoked'),
             ],
           ),
+          if (!stats.verified) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.warningBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.gpp_maybe_outlined, color: AppColors.warning),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "Your organisation's verification has been revoked by UbuntuID, so you can't add applicants "
+                      'or verify anyone right now. Your past results are still here. Contact UbuntuID to have it restored.',
+                      style: TextStyle(color: AppColors.warning),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           const SectionHeader(title: 'Overview'),
           OverviewStrip(

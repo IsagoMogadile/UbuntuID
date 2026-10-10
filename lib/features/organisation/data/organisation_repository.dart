@@ -6,6 +6,7 @@ import '../../../core/errors/app_exception.dart';
 import '../../../services/service_providers.dart';
 import '../../citizen/domain/credential_item.dart';
 import '../../shared/data/qualification_lookup.dart';
+import '../domain/staff_request_item.dart';
 import '../domain/organisation_colleague_item.dart';
 import '../domain/organisation_dashboard_stats.dart';
 
@@ -89,10 +90,12 @@ class OrganisationRepository {
     required String headLastName,
     required String headGender,
     required String headIdNumber,
+    required String headCellphone,
     required String accessPurpose,
     required Map<String, String> credentialReasons,
   }) async {
     await _client.rpc('register_organisation', params: {
+      'p_head_cellphone': headCellphone,
       'p_legal_name': legalName,
       'p_registration_number': registrationNumber,
       'p_organisation_type': organisationType,
@@ -166,19 +169,26 @@ class OrganisationRepository {
     ];
   }
 
-  Future<Map<String, dynamic>> createStaffMember({
-    required String firstName,
-    required String lastName,
-    required String password,
-    String? email,
-  }) async {
-    final result = await _client.rpc('org_admin_create_staff', params: {
-      'p_first_name': firstName,
-      'p_last_name': lastName,
-      'p_password': password,
-      if (email != null && email.isNotEmpty) 'p_email': email,
-    }) as Map<String, dynamic>;
-    return result;
+  /// Organisations no longer create staff accounts themselves: the head or
+  /// admin sends a request (`org_request_staff`) -- each person must be an
+  /// UbuntuID citizen -- and an UbuntuID administrator adds them.
+  Future<int> requestStaff(List<({String firstName, String lastName, String idNumber})> people) async {
+    final result = await _client.rpc('org_request_staff', params: {
+      'p_staff': [
+        for (final p in people) {'first_name': p.firstName, 'last_name': p.lastName, 'id_number': p.idNumber},
+      ],
+    });
+    return ((result as Map)['requested'] as num?)?.toInt() ?? 0;
+  }
+
+  /// This organisation's staff requests, newest first (RLS limits the
+  /// rows to the caller's own organisation).
+  Future<List<StaffRequestItem>> getStaffRequests() async {
+    final rows = await _client
+        .from('organisation_staff_requests')
+        .select(StaffRequestItem.selectColumns)
+        .order('created_at', ascending: false);
+    return [for (final r in rows) StaffRequestItem.fromRow(r)];
   }
 
   Future<void> setUserActive(String organisationUserId, bool active) {
@@ -712,6 +722,10 @@ final myCredentialScopeProvider = FutureProvider.autoDispose<List<CredentialType
 
 final organisationColleaguesProvider = FutureProvider.autoDispose<List<OrganisationColleagueItem>>((ref) {
   return ref.watch(organisationRepositoryProvider).getColleagues();
+});
+
+final organisationStaffRequestsProvider = FutureProvider.autoDispose<List<StaffRequestItem>>((ref) {
+  return ref.watch(organisationRepositoryProvider).getStaffRequests();
 });
 
 final myOrgRoleProvider = FutureProvider.autoDispose<String>((ref) {

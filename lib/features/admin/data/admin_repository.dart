@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../services/service_providers.dart';
+import '../../organisation/domain/staff_request_item.dart';
 import '../domain/appeal_item.dart';
 import '../domain/admin_search_hit.dart';
 import '../domain/admin_stats.dart';
@@ -403,6 +404,35 @@ class AdminRepository {
           ),
       ],
     );
+  }
+
+  /// Every organisation's staff requests, pending first then newest.
+  Future<List<StaffRequestItem>> getStaffRequests() async {
+    final rows = await _client
+        .from('organisation_staff_requests')
+        .select(StaffRequestItem.selectColumns)
+        .order('created_at', ascending: false);
+    final items = [for (final r in rows) StaffRequestItem.fromRow(r)];
+    items.sort((a, b) => (a.status == 'pending' ? 0 : 1).compareTo(b.status == 'pending' ? 0 : 1));
+    return items;
+  }
+
+  /// Approves (creating `firstname@<domain>` with [password]) or declines
+  /// (with [reason]) a staff request -- `admin_decide_staff_request`.
+  /// Returns the new sign-in email when approved.
+  Future<String?> decideStaffRequest({
+    required String requestId,
+    required bool approve,
+    String? password,
+    String? reason,
+  }) async {
+    final result = await _client.rpc('admin_decide_staff_request', params: {
+      'p_request_id': requestId,
+      'p_approve': approve,
+      'p_password': password,
+      'p_reason': reason,
+    });
+    return (result as Map)['email'] as String?;
   }
 
   Future<void> setOrganisationVerified(String organisationId, bool verified) {
@@ -902,6 +932,10 @@ final currentAdminNameProvider = FutureProvider.autoDispose<String?>((ref) {
 
 final adminUsersProvider =FutureProvider.autoDispose<List<UserListItem>>((ref) {
   return ref.watch(adminRepositoryProvider).getUsers();
+});
+
+final adminStaffRequestsProvider = FutureProvider.autoDispose<List<StaffRequestItem>>((ref) {
+  return ref.watch(adminRepositoryProvider).getStaffRequests();
 });
 
 final adminOrganisationsProvider = FutureProvider.autoDispose<List<OrganisationListItem>>((ref) {

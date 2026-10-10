@@ -8,6 +8,48 @@ than editing the old one — the trail matters.
 
 ---
 
+## 2026-10-10 — Onboarding instead of registering, departments that update each other, admin-added organisation staff
+
+**Decisions:**
+- **Home Affairs onboards; it doesn't create people.** Everyone is already in
+  the population register (`citizens`), and every department already holds
+  records against their ID number. A citizen row with no email and no auth
+  account is someone not on UbuntuID yet. "Onboard citizen"
+  (`dha_find_citizen` → `dha_onboard_citizen`) adds their email and turns
+  every existing record into a credential, so all their documents appear
+  at once. The old "register a new citizen" form stays as the fallback for
+  someone not in the register.
+- **Graduation updates other departments.** An enrolment set to Graduated,
+  or a passing final result, ends active NSFAS funding (new
+  `dhet_nsfas_funding.funding_status`) and records the citizen as
+  Unemployed with Labour, by trigger.
+- **SRD R370 can't be made Active** while NSFAS is active or Labour says
+  Employed/Self-Employed; **being employed suspends** an active SRD grant.
+- **Organisations no longer create staff.** Heads/admins send staff
+  requests; an UbuntuID administrator approves (account
+  `firstname@<domain>`) or declines. Organisation heads and requested staff
+  must be existing citizens (ID number + name match).
+- **Revoke verification** (`organisations.verified = false`) now blocks new
+  applications and checks; **revoke access** still deletes nothing and now
+  ends the staff's sessions. Destructive admin actions make the admin type
+  the name to confirm.
+
+**Why:** the presentation persona's story — a graduate rejected for the SRD
+grant because NSFAS was never updated, and certified copies for every job —
+is exactly the problem these rules remove. The user specified the
+onboarding model ("if we were to roll out this system, we will be using
+home affairs info") and the organisation controls directly.
+
+**Also fixed:** two RLS loopholes — an organisation admin could update its
+own `organisations` row (including `verified`) and insert
+`organisation_users` directly. Both are administrator-only now.
+
+**SQL:** `docs/database/org_registration_staff_requests_and_revocation.sql`,
+`home_affairs_onboarding.sql`, `graduation_srd_and_hiring_rules.sql`,
+`seed_population_register_30.sql` (all applied).
+
+---
+
 ## 2026-09-10 — Vercel deployment: --dart-define instead of a bundled .env
 
 **What changed:** `SUPABASE_URL`/`SUPABASE_ANON_KEY` were read at runtime

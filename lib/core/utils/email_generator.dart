@@ -1,5 +1,6 @@
 /// Auto-generates an email address for a newly created profile, following
-/// the same `firstname.lastname@<domain>` convention across every role.
+/// the `firstname.lastname@<domain>` convention for every role except
+/// organisation users, who get `firstname@<organisationDomain>`.
 /// Citizens registered by Home Affairs are the exception: they must give
 /// their own real email (`DepartmentRepository.registerCitizen`), since it's
 /// what they sign up with to claim their record.
@@ -39,14 +40,15 @@ String generateAdminEmail({
   return '${_slug(firstName)}.${_slug(lastName)}@ubuntu.gov.za';
 }
 
-/// `firstname.lastname@<organisationDomain>` for an organisation's own
-/// users, e.g. `coastaltech.co.za`.
+/// `firstname@<organisationDomain>` for an organisation's own users, e.g.
+/// `kopano@coastaltech.co.za` -- first name only, the way most company
+/// inboxes are set up. A second Kopano on the same domain gets `kopano2@`
+/// via [withDisambiguator].
 String generateOrganisationUserEmail({
   required String firstName,
-  required String lastName,
   required String organisationDomain,
 }) {
-  return '${_slug(firstName)}.${_slug(lastName)}@$organisationDomain';
+  return '${_slug(firstName)}@$organisationDomain';
 }
 
 /// Appends a numeric disambiguator (e.g. `john.smith2@gmail.com`) when the

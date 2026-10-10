@@ -41,6 +41,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
   final _headFirstNameController = TextEditingController();
   final _headLastNameController = TextEditingController();
   final _headIdNumberController = TextEditingController();
+  final _headCellphoneController = TextEditingController();
 
   String _organisationType = _organisationTypes.first;
   String _headGender = 'female';
@@ -71,7 +72,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
     final at = _sessionEmail?.indexOf('@') ?? -1;
     if (at >= 0) _domainController.text = _sessionEmail!.substring(at + 1);
     if (_sessionEmail != null) _headEmailController.text = _sessionEmail!;
-    for (final c in [_domainController, _headFirstNameController, _headLastNameController]) {
+    for (final c in [_domainController, _headFirstNameController]) {
       c.addListener(_regenerateHeadEmail);
     }
   }
@@ -94,16 +95,17 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
 
   static final _domainPattern = RegExp(r'^[a-z0-9-]+(\.[a-z0-9-]+)+$');
 
-  /// The suggested sign-in email, `firstname.lastname@<domain>` -- the same
-  /// convention staff accounts the head adds later follow. The head can
-  /// change it (e.g. to `thandi@karoo.co.za`) if that isn't their real inbox,
-  /// since the sign-up confirmation link is sent there.
+  /// The suggested sign-in email, `firstname@<domain>` -- the same
+  /// convention staff accounts the administrator adds later follow. The head
+  /// can change it if that isn't their real inbox, since the sign-up
+  /// confirmation link is sent there.
   String? get _generatedHeadEmail {
     final first = _headFirstNameController.text.trim();
-    final last = _headLastNameController.text.trim();
-    if (first.isEmpty || last.isEmpty || !_domainPattern.hasMatch(_domain)) return null;
-    return generateOrganisationUserEmail(firstName: first, lastName: last, organisationDomain: _domain);
+    if (first.isEmpty || !_domainPattern.hasMatch(_domain)) return null;
+    return generateOrganisationUserEmail(firstName: first, organisationDomain: _domain);
   }
+
+
 
   @override
   void dispose() {
@@ -116,6 +118,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
     _headFirstNameController.dispose();
     _headLastNameController.dispose();
     _headIdNumberController.dispose();
+    _headCellphoneController.dispose();
     _scope.dispose();
     super.dispose();
   }
@@ -177,6 +180,7 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
             headLastName: _headLastNameController.text.trim(),
             headGender: _headGender,
             headIdNumber: _headIdNumberController.text.trim(),
+            headCellphone: _headCellphoneController.text.trim(),
           );
 
       setState(() => _submitted = true);
@@ -355,7 +359,16 @@ class _OrganisationRegistrationScreenState extends ConsumerState<OrganisationReg
             controller: _headIdNumberController,
             keyboardType: TextInputType.number,
             prefixIcon: Icons.badge_outlined,
+            helperText: 'You must already be an UbuntuID citizen. Your ID number and name are checked against your record.',
             validator: (v) => (v == null || v.trim().length != 13) ? 'Enter a 13-digit SA ID number' : null,
+          ),
+          const SizedBox(height: 14),
+          AppTextField(
+            label: 'Cellphone number (optional)',
+            helperText: "We'll let you know here when your application is approved or declined.",
+            controller: _headCellphoneController,
+            keyboardType: TextInputType.phone,
+            prefixIcon: Icons.smartphone_outlined,
           ),
           const SizedBox(height: 24),
           Text('Your sign-in details', style: Theme.of(context).textTheme.titleSmall),

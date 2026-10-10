@@ -7,11 +7,19 @@ class AppFormatters {
   static final _dateTimeFormat = DateFormat('d MMM y, HH:mm');
   static final _currencyFormat = NumberFormat.currency(locale: 'en_ZA', symbol: 'R');
 
-  // Supabase timestamps parse as UTC; show them in the viewer's local time
-  // (e.g. 14:05 SAST, not 12:05). Date-only values are already local.
-  static String date(DateTime value) => _dateFormat.format(value.toLocal());
+  /// South African Standard Time is UTC+2 all year (no daylight saving).
+  static const _sastOffset = Duration(hours: 2);
 
-  static String dateTime(DateTime value) => _dateTimeFormat.format(value.toLocal());
+  /// Supabase timestamps parse as UTC; show them in SAST whatever the
+  /// viewer's device is set to (14:05 SAST, not 12:05 UTC), so an audit
+  /// trail reads the same on every screen. Date-only values parse as local
+  /// midnight and are shown as they are.
+  static DateTime toSast(DateTime value) =>
+      value.isUtc ? DateTime.fromMillisecondsSinceEpoch(value.add(_sastOffset).millisecondsSinceEpoch, isUtc: true) : value;
+
+  static String date(DateTime value) => _dateFormat.format(toSast(value));
+
+  static String dateTime(DateTime value) => _dateTimeFormat.format(toSast(value));
 
   static String currencyZar(num value) => _currencyFormat.format(value);
 

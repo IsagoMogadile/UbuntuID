@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/confirm_destructive_dialog.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/detail_row.dart';
@@ -16,7 +17,6 @@ import '../data/admin_repository.dart';
 import '../domain/user_list_item.dart';
 import 'digital_profile_view.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../../../core/widgets/confirm_dialog.dart';
 
 class UserDetailScreen extends ConsumerStatefulWidget {
   const UserDetailScreen({super.key, required this.userId});
@@ -32,13 +32,15 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
 
   Future<void> _toggleActive(UserListItem user) async {
     if (user.active &&
-        !await confirmAction(
-          context,
-          title: 'Suspend ${user.displayName}?',
-          message: 'They will not be able to sign in until you reactivate the account. Nothing is deleted.',
-          confirmLabel: 'Suspend account',
-          destructive: true,
-        )) {
+        await confirmDestructive(
+              context,
+              title: 'Suspend ${user.displayName}?',
+              consequence: 'They will be signed out and unable to sign in until you reactivate the account. Nothing is deleted.',
+              confirmText: user.displayName,
+              confirmLabel: 'Suspend account',
+              askReason: false,
+            ) ==
+            null) {
       return;
     }
     if (!mounted) return;
@@ -63,19 +65,16 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   }
 
   Future<void> _delete(UserListItem user) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: Text('Delete ${user.displayName}?'),
-        content: Text('This permanently removes ${user.displayName} and their account. This cannot be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          TextButton(style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error), onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete official')),
-        ],
-      ),
+    final confirmed = await confirmDestructive(
+      context,
+      title: 'Delete ${user.displayName}?',
+      consequence: 'This permanently removes ${user.displayName} and their sign-in account. Records they captured stay, '
+          'but this cannot be undone. To block sign-in without deleting, suspend the account instead.',
+      confirmText: user.displayName,
+      confirmLabel: 'Delete official',
+      askReason: false,
     );
-    if (confirmed != true) return;
+    if (confirmed == null) return;
 
     setState(() => _isSubmitting = true);
     try {

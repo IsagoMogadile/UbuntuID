@@ -30,6 +30,7 @@ import '../features/admin/presentation/flagged_records_list_screen.dart';
 import '../features/admin/presentation/organisation_detail_screen.dart';
 import '../features/admin/presentation/organisations_list_screen.dart';
 import '../features/admin/presentation/pending_organisations_screen.dart';
+import '../features/admin/presentation/staff_requests_screen.dart';
 import '../features/admin/presentation/user_detail_screen.dart';
 import '../features/admin/presentation/users_list_screen.dart';
 import '../features/auth/application/logout.dart';
@@ -581,6 +582,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.adminPendingOrganisations,
         builder: (c, s) => const PendingOrganisationsScreen(),
       ),
+      GoRoute(path: AppRoutes.adminStaffRequests, builder: (c, s) => const StaffRequestsScreen()),
       GoRoute(
         path: '${AppRoutes.adminVerification}/:id',
         builder: (c, s) => VerificationRequestDetailScreen(requestId: s.pathParameters['id']!),

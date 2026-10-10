@@ -19,6 +19,30 @@ confirmed applied live and deleted once confirmed (see `docs/DECISIONS.md`'s
 kept as historical narrative (the surrounding sentence still explains what
 happened) rather than rewritten one by one.
 
+## New: onboarding, cross-department updates, staff requests
+
+- **Head cellphone isn't messaged yet.** It's stored
+  (`organisation_users.cellphone`) and the head is told about approval,
+  decline and revocation in UbuntuID's own notifications, through their
+  citizen account. Sending an SMS or email needs a messaging provider,
+  which this prototype doesn't have.
+- **Existing organisation users who aren't citizens stay.** 21 organisation
+  users predate the "must be a citizen" rule; it applies to new
+  registrations and staff requests only.
+- **`setOrganisationVerified` still writes the table directly** (an admin
+  RLS update, no reason captured). Restoring verification has no reason
+  either.
+- **Revoke access signs staff out by ending their sessions.** An access
+  token already issued stays usable until it expires (up to an hour), but
+  `current_org_user_organisation_id()` already returns null for a revoked
+  organisation, so RLS blocks its data straight away.
+- **The 30 register citizens' ID numbers are random** (generated on load);
+  find them with `select first_name, last_name, id_number from citizens
+  where email is null and auth_user_id is null`.
+- **Graduation triggers fire on database writes**, so loading historical
+  data must set `ubuntuid.seeding = on` (as `seed_population_register_30.sql`
+  does) to avoid sending notifications for old events.
+
 ## New: live QA pass — 9 department officials, an organisation, a citizen, real RLS
 
 Tested end-to-end via real Supabase Auth accounts + PostgREST calls (same

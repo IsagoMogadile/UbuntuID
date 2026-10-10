@@ -771,8 +771,11 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             disbursedAmount: num.tryParse(values['disbursed_amount']?.toString() ?? '') ?? 0,
           ),
           rowTitle: (r) => 'NSFAS ${r['funding_year']}',
+          // funding_status: 'Ended' once the citizen graduates (the
+          // trg_enrolment_graduated / trg_academic_result_passed triggers).
           rowSubtitle: (r) =>
-              '${r['approved_status'] == true ? 'Approved' : 'Not approved'} • R${r['disbursed_amount']}',
+              '${r['approved_status'] == true ? (r['funding_status'] == 'Ended' ? 'Ended' : 'Approved') : 'Not approved'}'
+              ' • R${r['disbursed_amount']}',
         ),
       ];
 
