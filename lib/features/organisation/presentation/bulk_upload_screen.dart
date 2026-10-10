@@ -7,11 +7,13 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/utils/file_names.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../core/utils/report_export.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/detail_row.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/list_search_field.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../routing/app_routes.dart';
@@ -48,6 +50,9 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
   double? _readingProgress;
   _Sort _sort = _Sort.readyFirst;
   _Filter _filter = _Filter.all;
+
+  /// Lower-cased search text -- matches a name, surname or ID number.
+  String _query = '';
 
   bool _submitting = false;
   int _done = 0;
@@ -106,6 +111,7 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
       _fileName = file.name;
       _parsed = null;
       _outcomes = null;
+      _query = '';
     });
     step('Reading ${file.name}…', 0.05);
     try {
@@ -280,12 +286,26 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
     );
   }
 
+  /// Whether [row] matches the search: any word of the name in the file or
+  /// the registered name, or the ID number (spaces ignored).
+  bool _matchesQuery(BulkRow row) {
+    if (_query.isEmpty) return true;
+    final idQuery = AppFormatters.compactIdNumber(_query);
+    if (idQuery.isNotEmpty && RegExp(r'^\d+$').hasMatch(idQuery) && row.idNumber.contains(idQuery)) return true;
+    final names = [row.firstName, row.lastName, row.displayName, row.registeredName ?? ''].join(' ').toLowerCase();
+    return _query.split(RegExp(r'\s+')).every(names.contains);
+  }
+
   List<BulkRow> _visibleRows() {
-    final rows = _parsed!.rows.where((r) => !r.removed).where((r) => switch (_filter) {
-          _Filter.all => true,
-          _Filter.ready => r.willSubmit,
-          _Filter.attention => !r.willSubmit,
-        }).toList();
+    final rows = _parsed!.rows
+        .where((r) => !r.removed)
+        .where((r) => switch (_filter) {
+              _Filter.all => true,
+              _Filter.ready => r.willSubmit,
+              _Filter.attention => !r.willSubmit,
+            })
+        .where(_matchesQuery)
+        .toList();
     int rank(BulkRow r) => r.willSubmit ? 0 : 1;
     switch (_sort) {
       case _Sort.readyFirst:
@@ -496,8 +516,23 @@ class _BulkUploadScreenState extends ConsumerState<BulkUploadScreen> {
           else
             _summaryCard(parsed),
           const SizedBox(height: 12),
+          ListSearchField(
+            // A new file starts with an empty search box.
+            key: ValueKey(_fileName),
+            hintText: 'Search by name, surname or ID number',
+            onChanged: (q) => setState(() => _query = q),
+          ),
+          const SizedBox(height: 12),
           if (outcomes == null) _controls(),
           const SizedBox(height: 8),
+          if (_query.isNotEmpty && _visibleRows().isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'No applicants match "$_query"${_filter == _Filter.all ? '' : ' in this filter'}.',
+                textAlign: TextAlign.center,
+              ),
+            ),
           for (final row in _visibleRows())
             Card(
               margin: const EdgeInsets.only(bottom: 8),
