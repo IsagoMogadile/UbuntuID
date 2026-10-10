@@ -24,16 +24,15 @@ String actorTypeLabel(String actorType) => switch (actorType) {
       _ => actorType,
     };
 
-/// Turns `action` (a raw `<insert|update|delete>_<table>` machine string,
-/// via `fn_audit_log`) plus [AuditLogItem.metadata]/[AuditLogItem.targetCitizenName]
-/// into a human sentence for the handful of actions this session added
-/// deliberately readable handling for. Everything else falls back to the
-/// raw label rather than fabricating a sentence for tables this wasn't
-/// written to understand -- honest partial coverage, not a full audit-log
-/// rewrite.
+/// Turns `action` (a raw `<insert|update|delete>_<table>` machine string
+/// from `fn_audit_log`, or a named event such as `feedback_submitted`) plus
+/// [AuditLogItem.metadata]/[AuditLogItem.targetCitizenName] into a plain
+/// English sentence. Events without specific wording fall back to a generic
+/// "Added/Updated/Removed a ..." sentence built from the table name.
 String friendlyAuditAction(AuditLogItem log) {
   final target = log.targetCitizenName;
   final meta = log.metadata;
+  final forTarget = target == null ? '' : ' for $target';
   switch (log.action) {
     case 'update_organisations':
       final status = meta?['registration_status'] as String?;
@@ -41,25 +40,115 @@ String friendlyAuditAction(AuditLogItem log) {
         'revoked' => 'Revoked an organisation\'s access',
         'approved' => 'Approved an organisation',
         'declined' => 'Declined an organisation\'s application',
-        _ => 'Updated an organisation',
+        _ => 'Updated an organisation\'s details',
       };
     case 'insert_organisations':
-      return 'Registered an organisation';
+      return 'Registered a new organisation';
     case 'insert_verification_requests':
-      return target == null ? 'Submitted a verification request' : 'Submitted a verification request for $target';
+      return 'Requested verification$forTarget';
     case 'update_verification_requests':
       final status = meta?['overall_status'] as String?;
-      if (status == null) return 'Updated a verification request';
-      final subject = target == null ? 'A verification request' : 'A verification request for $target';
-      return '$subject was marked ${status.replaceAll('_', ' ')}';
+      final subject = target == null ? 'A verification request' : '$target\'s verification request';
+      return switch (status) {
+        null => 'Updated a verification request',
+        'completed' || 'verified' || 'approved' => '$subject was completed',
+        'failed' || 'rejected' => '$subject was unsuccessful',
+        'cancelled' => '$subject was cancelled',
+        'pending' => '$subject is awaiting review',
+        _ => '$subject is now ${_humanise(status)}',
+      };
+    case 'application_replaced':
+      return target == null
+          ? 'Replaced an earlier application with a new one'
+          : 'Replaced an earlier application for $target with a new one';
     case 'insert_organisation_employees':
       final title = meta?['job_title'] as String?;
       final who = target ?? 'a citizen';
-      return title == null ? 'Offered employment to $who' : 'Offered $who employment as $title';
-    default:
-      return log.action;
+      return title == null ? 'Offered a job to $who' : 'Offered $who a job as $title';
+    case 'update_organisation_employees':
+      final status = meta?['employment_status'] as String?;
+      final who = target ?? 'an employee';
+      return switch (status) {
+        'active' || 'accepted' || 'employed' => '${_capitalise(who)} started employment',
+        'declined' => '${_capitalise(who)} declined a job offer',
+        'cancelled' || 'withdrawn' => 'Withdrew a job offer to $who',
+        'terminated' || 'ended' || 'resigned' => 'Ended employment for $who',
+        _ => 'Updated employment details for $who',
+      };
+    case 'delete_organisation_employees':
+      return 'Removed ${target ?? 'an employee'} from the organisation';
+    case 'feedback_submitted':
+      return 'Submitted feedback';
+    case 'feedback_status_updated':
+      final status = meta?['status'] as String?;
+      return status == null ? 'Updated the status of feedback' : 'Marked feedback as ${_humanise(status)}';
+    case 'insert_credentials':
+      return 'Issued a credential$forTarget';
+    case 'update_credentials':
+      return 'Updated a credential$forTarget';
+    case 'delete_credentials':
+      return 'Removed a credential$forTarget';
   }
+
+  final match = RegExp(r'^(insert|update|delete)_(.+)$').firstMatch(log.action);
+  if (match == null) return _capitalise(_humanise(log.action));
+  final verb = switch (match.group(1)) {
+    'insert' => 'Added',
+    'update' => 'Updated',
+    _ => 'Removed',
+  };
+  final record = _recordNames[match.group(2)] ?? _humanise(match.group(2)!);
+  return '$verb ${_article(record)} $record$forTarget';
 }
+
+/// Singular, plain-English names for audited tables.
+const _recordNames = <String, String>{
+  'appeals': 'appeal',
+  'citizen_addresses': 'citizen address',
+  'citizen_feedback': 'feedback entry',
+  'citizens': 'citizen profile',
+  'compliance_audits': 'compliance audit',
+  'consent_grants': 'consent grant',
+  'credential_types': 'credential type',
+  'credentials': 'credential',
+  'dbe_nsc_results': 'matric result',
+  'department_officials': 'department official',
+  'departments': 'department',
+  'dha_marital_records': 'marital record',
+  'dha_passports': 'passport record',
+  'dhet_academic_records': 'academic record',
+  'dhet_student_enrollment': 'student enrolment',
+  'documents': 'document',
+  'dot_driver_licences': 'driver\'s licence',
+  'dot_vehicles': 'vehicle record',
+  'flagged_records': 'flagged record',
+  'housing_applications': 'housing application',
+  'housing_beneficiaries': 'housing beneficiary',
+  'housing_programmes': 'housing programme',
+  'human_settlements_records': 'human settlements record',
+  'notifications': 'notification',
+  'organisation_credential_scopes': 'organisation credential permission',
+  'organisation_employees': 'employment record',
+  'organisation_users': 'organisation user',
+  'organisations': 'organisation',
+  'properties': 'property record',
+  'saps_clearance_certificates': 'police clearance certificate',
+  'saps_criminal_records': 'criminal record',
+  'saps_wanted_persons': 'wanted person record',
+  'sars_tax_returns': 'tax return',
+  'sars_taxpayers': 'taxpayer record',
+  'sassa_grants': 'social grant',
+  'title_deeds': 'title deed',
+  'ubuntuid_administrators': 'administrator',
+  'verification_requests': 'verification request',
+  'verification_results': 'verification result',
+};
+
+String _humanise(String value) => value.replaceAll('_', ' ').trim();
+
+String _capitalise(String value) => value.isEmpty ? value : '${value[0].toUpperCase()}${value.substring(1)}';
+
+String _article(String noun) => 'aeiou'.contains(noun[0].toLowerCase()) ? 'an' : 'a';
 
 class AuditLogsListScreen extends ConsumerStatefulWidget {
   const AuditLogsListScreen({super.key});

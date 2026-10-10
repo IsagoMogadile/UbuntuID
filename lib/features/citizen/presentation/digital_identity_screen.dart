@@ -220,7 +220,21 @@ class _FilteredCredentialView extends ConsumerWidget {
                       title: Text(matches[i].typeName),
                       subtitle: Text(DigitalIdentityScreen._credentialSubtitle(matches[i])),
                       isThreeLine: matches[i].qualification != null,
-                      trailing: StatusBadge.fromStatus(matches[i].status),
+                      trailing: typeCode == 'DRIVERS_LICENCE'
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                StatusBadge.fromStatus(matches[i].status),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.chevron_right),
+                              ],
+                            )
+                          : StatusBadge.fromStatus(matches[i].status),
+                      // Driver's Licence opens its full details, including
+                      // registered vehicles.
+                      onTap: typeCode == 'DRIVERS_LICENCE'
+                          ? () => context.push(AppRoutes.citizenDriversLicence)
+                          : null,
                     ),
                   ],
                 ],

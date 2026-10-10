@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_text_field.dart';
@@ -33,7 +34,7 @@ class _SapsClearanceSearchScreenState extends ConsumerState<SapsClearanceSearchS
   }
 
   void _search() {
-    final value = _idNumberController.text.trim();
+    final value = AppFormatters.compactIdNumber(_idNumberController.text);
     if (value.isEmpty) return;
     setState(() => _searchedIdNumber = value);
   }

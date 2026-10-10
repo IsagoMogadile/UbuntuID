@@ -8,6 +8,7 @@ import '../../../core/widgets/loading_indicator.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../domain/citizen_lookup_result.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/utils/formatters.dart';
 
 /// Citizen search by any combination of first name, last name and/or ID
 /// number, plus a "View all" browse, ending in a selectable result list --
@@ -54,7 +55,7 @@ class _CitizenSearchPanelState extends State<CitizenSearchPanel> {
   @override
   void initState() {
     super.initState();
-    final initialId = widget.initialIdNumber?.trim() ?? '';
+    final initialId = AppFormatters.compactIdNumber(widget.initialIdNumber ?? '');
     if (initialId.isNotEmpty) {
       _idNumberController.text = initialId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -72,7 +73,7 @@ class _CitizenSearchPanelState extends State<CitizenSearchPanel> {
   }
 
   Future<void> _runSearch({required bool browseAll}) async {
-    final idNumber = _idNumberController.text.trim();
+    final idNumber = AppFormatters.compactIdNumber(_idNumberController.text);
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     if (!browseAll && idNumber.isEmpty && firstName.isEmpty && lastName.isEmpty) return;

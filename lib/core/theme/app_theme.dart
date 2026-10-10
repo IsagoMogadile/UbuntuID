@@ -164,6 +164,11 @@ class AppTheme {
         backgroundColor: surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? null : Colors.grey.shade400,
+        ),
+      ),
       dividerTheme: DividerThemeData(color: outline),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.charcoal,

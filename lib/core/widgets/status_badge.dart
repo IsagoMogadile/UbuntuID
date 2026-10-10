@@ -21,7 +21,7 @@ class StatusBadge extends StatelessWidget {
 
   static const _successStatuses = {
     'active', 'approved', 'verified', 'completed', 'issued', 'resolved',
-    'matched', 'current', 'paid', 'read', 'delivered', 'confirmed', 'offered',
+    'matched', 'current', 'paid', 'read', 'delivered', 'confirmed', 'offered', 'valid',
   };
   static const _warningStatuses = {
     'pending', 'submitted', 'in_review', 'under_review', 'processing',

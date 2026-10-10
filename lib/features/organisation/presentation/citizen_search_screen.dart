@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_text_field.dart';
@@ -64,7 +65,7 @@ class _CitizenSearchScreenState extends ConsumerState<CitizenSearchScreen> {
     }
     setState(() {
       _searchQuery = (
-        idNumber: _idNumberController.text.trim(),
+        idNumber: AppFormatters.compactIdNumber(_idNumberController.text),
         firstName: firstName.isEmpty ? null : firstName,
         lastName: lastName.isEmpty ? null : lastName,
       );

@@ -82,7 +82,7 @@ class CitizenDashboardScreen extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: ListItemCard(
                 title: n.message,
-                subtitle: n.channel.toUpperCase(),
+                subtitle: n.channelLabel,
                 leadingIcon: Icons.notifications_outlined,
                 trailing: n.isRead ? null : const _UnreadDot(),
                 onTap: () => context.go('${AppRoutes.citizenNotifications}/${n.notificationId}'),

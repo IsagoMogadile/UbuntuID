@@ -17,6 +17,18 @@ class NotificationItem {
   final DateTime createdAt;
   final bool isRead;
 
+  /// User-facing name for [channel], e.g. `in_app` -> "App Notification".
+  String get channelLabel {
+    return switch (channel.toLowerCase().trim()) {
+      'app' || 'in_app' || 'in-app' => 'App Notification',
+      'sms' => 'SMS Message',
+      'email' => 'Email',
+      'push' => 'Push Notification',
+      final other when other.isEmpty => 'Notification',
+      final other => '${other[0].toUpperCase()}${other.substring(1).replaceAll('_', ' ')}',
+    };
+  }
+
   NotificationItem copyWith({bool? isRead}) {
     return NotificationItem(
       notificationId: notificationId,

@@ -43,7 +43,7 @@ class NotificationsListScreen extends ConsumerWidget {
                   final notification = notifications[index];
                   return ListItemCard(
                     title: notification.message,
-                    subtitle: '${notification.channel.toUpperCase()} • '
+                    subtitle: '${notification.channelLabel} • '
                         '${AppFormatters.dateTime(notification.createdAt)}',
                     leadingIcon: notification.isRead
                         ? Icons.notifications_none_outlined

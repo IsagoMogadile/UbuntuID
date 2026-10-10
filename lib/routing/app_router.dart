@@ -44,6 +44,7 @@ import '../features/citizen/data/citizen_repository.dart';
 import '../features/citizen/presentation/citizen_dashboard_screen.dart';
 import '../features/citizen/presentation/citizen_verification_list_screen.dart';
 import '../features/citizen/presentation/consent_management_screen.dart';
+import '../features/citizen/presentation/drivers_licence_screen.dart';
 import '../features/citizen/presentation/citizen_timeline_screen.dart';
 import '../features/citizen/presentation/my_appeals_screen.dart';
 import '../features/citizen/presentation/my_employment_screen.dart';
@@ -354,6 +355,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (c, s) => const PersonalInformationScreen(),
       ),
       GoRoute(path: AppRoutes.citizenSassa, builder: (c, s) => const SassaScreen()),
+      GoRoute(path: AppRoutes.citizenDriversLicence, builder: (c, s) => const DriversLicenceScreen()),
       GoRoute(
         path: AppRoutes.citizenHumanSettlements,
         builder: (c, s) => const HumanSettlementsScreen(),

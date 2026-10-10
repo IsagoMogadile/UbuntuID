@@ -544,6 +544,27 @@ class CitizenRepository {
   }
 
   // ---------------------------------------------------------------------
+  // Transport (Driver's Licence)
+  // ---------------------------------------------------------------------
+
+  /// This citizen's `dot_driver_licences` rows, newest first.
+  Future<List<Map<String, dynamic>>> getDriversLicences() async {
+    final idNumber = await _citizenIdNumber();
+    return _client
+        .from('dot_driver_licences')
+        .select()
+        .eq('national_id_number', idNumber)
+        .order('issue_date', ascending: false);
+  }
+
+  /// Vehicles registered to this citizen (`dot_vehicles.owner_id` holds
+  /// the owner's ID number).
+  Future<List<Map<String, dynamic>>> getMyVehicles() async {
+    final idNumber = await _citizenIdNumber();
+    return _client.from('dot_vehicles').select().eq('owner_id', idNumber);
+  }
+
+  // ---------------------------------------------------------------------
   // Human Settlements (simulated)
   // ---------------------------------------------------------------------
 
@@ -642,6 +663,14 @@ final notificationsControllerProvider =
 
 final sassaGrantsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
   return ref.watch(citizenRepositoryProvider).getSassaGrants();
+});
+
+final driversLicencesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+  return ref.watch(citizenRepositoryProvider).getDriversLicences();
+});
+
+final myVehiclesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+  return ref.watch(citizenRepositoryProvider).getMyVehicles();
 });
 
 final housingApplicationsRawProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {

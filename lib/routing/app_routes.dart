@@ -36,6 +36,7 @@ class AppRoutes {
   static const citizenDigitalIdentity = '/citizen/digital-identity';
   static const citizenDocuments = '/citizen/documents';
   static const citizenSassa = '/citizen/services/sassa';
+  static const citizenDriversLicence = '/citizen/services/drivers-licence';
   static const citizenHumanSettlements = '/citizen/services/human-settlements';
   static const citizenPersonalInformation = '/citizen/profile/personal-information';
   static const citizenVerification = '/citizen/verification';

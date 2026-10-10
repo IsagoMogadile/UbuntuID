@@ -14,4 +14,8 @@ class AppFormatters {
   static String dateTime(DateTime value) => _dateTimeFormat.format(value.toLocal());
 
   static String currencyZar(num value) => _currencyFormat.format(value);
+
+  /// Strips the spaces people type into SA ID numbers, so
+  /// "030418 2723 09 4" searches as "0304182723094".
+  static String compactIdNumber(String value) => value.replaceAll(RegExp(r'\s'), '');
 }
