@@ -164,9 +164,23 @@ class AppTheme {
         backgroundColor: surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
+      // Off switches get a solid grey thumb and outlined track in both
+      // themes, so they don't read as empty.
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected) ? null : Colors.grey.shade400,
+          (states) => states.contains(WidgetState.selected) || states.contains(WidgetState.disabled)
+              ? null
+              : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) || states.contains(WidgetState.disabled)
+              ? null
+              : (isDark ? Colors.grey.shade800 : Colors.grey.shade200),
+        ),
+        trackOutlineColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) || states.contains(WidgetState.disabled)
+              ? null
+              : (isDark ? Colors.grey.shade500 : Colors.grey.shade600),
         ),
       ),
       dividerTheme: DividerThemeData(color: outline),
