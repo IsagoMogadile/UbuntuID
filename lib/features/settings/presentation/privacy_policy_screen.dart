@@ -15,11 +15,13 @@ class PrivacyPolicyScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Privacy policy')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+      body: LayoutBuilder(
+        builder: (context, constraints) => ListView(
+            // Full-width list (scrollbar at the window's edge), content centred.
+            padding: EdgeInsets.symmetric(
+              horizontal: ((constraints.maxWidth - 760) / 2).clamp(16.0, double.infinity),
+              vertical: 16,
+            ),
             children: [
               Text('UbuntuID privacy policy', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 4),
@@ -28,7 +30,6 @@ class PrivacyPolicyScreen extends StatelessWidget {
               for (final part in _policy) part.build(context),
             ],
           ),
-        ),
       ),
     );
   }

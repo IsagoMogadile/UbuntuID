@@ -68,7 +68,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
+            child: Center(
+              // Full-width scroll view (scrollbar at the window's edge), content centred.
+              child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Form(
                 key: _formKey,
@@ -120,6 +122,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                   ],
                 ),
               ),
+            ),
             ),
           ),
         ),

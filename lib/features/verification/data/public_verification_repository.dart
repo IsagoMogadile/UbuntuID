@@ -19,7 +19,9 @@ class PublicVerificationRepository {
   /// Null when no document matches [ref] (including a malformed one).
   Future<PublicVerificationResult?> verify(String ref) async {
     if (!_uuid.hasMatch(ref)) return null;
-    final row = await _client.rpc('verify_document_public', params: {'p_ref': ref});
+    final row = await _client.rpc('verify_document_public', params: {'p_ref': ref}) ??
+        // An NSC Statement of Results (docs/database/nsc_statement_of_results.sql).
+        await _client.rpc('verify_nsc_statement_public', params: {'p_ref': ref});
     if (row == null) return null;
     return PublicVerificationResult.fromJson(Map<String, dynamic>.from(row as Map));
   }

@@ -813,6 +813,30 @@ class DepartmentRepository {
     });
   }
 
+  /// Marriages where [idNumber] is either spouse (so a marriage shows when
+  /// either partner is searched), each with the other spouse's
+  /// `spouse_id_number` and `spouse_name`.
+  Future<List<Map<String, dynamic>>> getMarriagesForCitizen(String idNumber) async {
+    final rows = await _client
+        .from('dha_marital_records')
+        .select()
+        .or('spouse_1_id.eq.$idNumber,spouse_2_id.eq.$idNumber')
+        .order('date_of_marriage', ascending: false);
+    String? spouseOf(Map<String, dynamic> r) =>
+        (r['spouse_1_id'] == idNumber ? r['spouse_2_id'] : r['spouse_1_id']) as String?;
+    final spouseIds = rows.map(spouseOf).whereType<String>().toSet().toList();
+    final people = spouseIds.isEmpty
+        ? const <Map<String, dynamic>>[]
+        : await _client.from('citizens').select('id_number, first_name, last_name').inFilter('id_number', spouseIds);
+    final names = {
+      for (final p in people)
+        p['id_number'] as String: '${p['first_name'] ?? ''} ${p['last_name'] ?? ''}'.trim(),
+    };
+    return [
+      for (final r in rows) {...r, 'spouse_id_number': spouseOf(r), 'spouse_name': names[spouseOf(r)]},
+    ];
+  }
+
   /// Home Affairs only -- full citizen row for the "Edit Citizen" form
   /// (includes `gender`/`citizenship_status`, which `CitizenLookupResult`
   /// deliberately omits since it's shared with every department's generic
@@ -1342,6 +1366,14 @@ class DepartmentRepository {
               description: 'Department-wide list of offenders on record.',
               icon: Icons.gavel_outlined,
               route: AppRoutes.departmentSapsOffenders,
+            ),
+          ],
+        'DBE' => const [
+            DepartmentServiceItem(
+              name: 'Examination Results',
+              description: 'Synchronise, review and publish National Senior Certificate results.',
+              icon: Icons.fact_check_outlined,
+              route: AppRoutes.departmentExamResults,
             ),
           ],
         _ => const [],

@@ -63,9 +63,12 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
                 alignment: Alignment.topCenter,
                 child: SingleChildScrollView(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: compact ? 12 : 40),
-                  child: ConstrainedBox(
+                  child: Center(
+                    // Full-width scroll view (scrollbar at the window's edge), content centred.
+                    child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 560),
                     child: _NotificationCard(notification: notification, compact: compact),
+                  ),
                   ),
                 ),
               );
@@ -87,6 +90,7 @@ class _NotificationTopic {
   final IconData icon;
 
   static const _topics = <(List<String>, _NotificationTopic)>[
+    (['examination results'], _NotificationTopic('Examination Results Available', Icons.school_outlined)),
     (['verification', 'verify', 'verified'], _NotificationTopic('Verification Request Update', Icons.verified_user_outlined)),
     (['feedback'], _NotificationTopic('Feedback Update', Icons.forum_outlined)),
     (['sassa', 'grant'], _NotificationTopic('Social Grant Update', Icons.volunteer_activism_outlined)),
@@ -195,6 +199,22 @@ class _NotificationCard extends StatelessWidget {
             label: 'Received',
             child: Text(AppFormatters.dateTime(notification.createdAt), style: theme.textTheme.bodyMedium),
           ),
+          // Results notifications lead to Government Services → Basic
+          // Education → National Senior Certificate, where each certificate
+          // card has its Statement of Results.
+          if (notification.message.toLowerCase().contains('examination results')) ...[
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => context.push(
+                  '${AppRoutes.citizenServiceRecords}?type=NSC&title=${Uri.encodeComponent('National Senior Certificate')}',
+                ),
+                icon: const Icon(Icons.description_outlined),
+                label: const Text('View Statement of Results'),
+              ),
+            ),
+          ],
         ],
       ),
     );

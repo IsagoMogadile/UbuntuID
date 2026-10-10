@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_card.dart';
@@ -50,6 +51,7 @@ class ServiceRecordsScreen extends ConsumerWidget {
             )
           : RefreshIndicator(
               onRefresh: () async {
+                ref.invalidate(myNscStatementsProvider);
                 for (final section in sections) {
                   ref.invalidate(_sectionRowsProvider(section.key));
                 }
@@ -146,6 +148,10 @@ class _RecordCard extends StatelessWidget {
           const SizedBox(height: 12),
           for (final field in section.fields) DetailRow(label: field.label, value: field.display(row)),
           for (final entry in extras) DetailRow(label: _humanise(entry.key), value: _formatAny(entry.value)),
+          if (section.footer != null) ...[
+            const SizedBox(height: 8),
+            section.footer!(row),
+          ],
         ],
       ),
     );
@@ -199,6 +205,7 @@ class _Section {
     required this.fields,
     this.status,
     this.hiddenKeys = const {},
+    this.footer,
   });
 
   /// Unique across all sections; keys [_sectionRowsProvider].
@@ -213,6 +220,9 @@ class _Section {
 
   /// Columns already covered by a computed field, left out of the extras.
   final Set<String> hiddenKeys;
+
+  /// Extra content under a record's details (e.g. Statement of Results).
+  final Widget Function(Map<String, dynamic> row)? footer;
 }
 
 final _sectionRowsProvider = FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, key) {
@@ -226,52 +236,56 @@ String? _institutionName(Map<String, dynamic> row) =>
     (row['dhet_institutions'] as Map<String, dynamic>?)?['institution_name'] as String? ??
     row['institution_code'] as String?;
 
-final Map<String, List<_Section>> _sectionsByType = {
-  'PASSPORT': [
-    _Section(
-      key: 'passports',
-      title: 'Passports',
-      icon: Icons.menu_book_outlined,
-      emptyMessage: 'Home Affairs has no passport on file for you.',
-      fetch: (repo) => repo.getDepartmentRecords(table: 'dha_passports', orderBy: 'issue_date'),
-      cardTitle: (r) => 'South African Passport',
-      status: (r) => r['status'] as String?,
-      fields: const [
-        _Field('passport_number', 'Passport number'),
-        _Field('issue_date', 'Issue date', _Kind.date),
-        _Field('expiry_date', 'Expiry date', _Kind.date),
-      ],
-    ),
-    _Section(
-      key: 'immigration',
-      title: 'Visas and permits',
-      icon: Icons.flight_land_outlined,
-      emptyMessage: 'You have no visas or permits on record.',
-      fetch: (repo) => repo.getDepartmentRecords(table: 'dha_immigration_records', orderBy: 'issue_date'),
-      cardTitle: (r) => _text(r['visa_type'], 'Visa or permit'),
-      status: (r) => r['status'] as String?,
-      fields: const [
-        _Field('visa_type', 'Type'),
-        _Field('issue_date', 'Issue date', _Kind.date),
-        _Field('expiry_date', 'Expiry date', _Kind.date),
-      ],
-    ),
-    _Section(
-      key: 'marriages',
-      title: 'Marriage records',
-      icon: Icons.favorite_outline,
-      emptyMessage: 'You have no marriage on record.',
-      fetch: (repo) => repo.getMyMarriages(),
-      cardTitle: (r) => '${_text(r['marriage_type'], 'Registered')} marriage',
-      status: (r) => r['status'] as String?,
-      fields: const [
-        _Field('marriage_type', 'Marriage type'),
-        _Field('date_of_marriage', 'Date of marriage', _Kind.date),
-        _Field('spouse_1_id', 'Spouse 1 ID number'),
-        _Field('spouse_2_id', 'Spouse 2 ID number'),
-      ],
-    ),
+final _passports = _Section(
+  key: 'passports',
+  title: 'Passports',
+  icon: Icons.menu_book_outlined,
+  emptyMessage: 'Home Affairs has no passport on file for you.',
+  fetch: (repo) => repo.getDepartmentRecords(table: 'dha_passports', orderBy: 'issue_date'),
+  cardTitle: (r) => 'South African Passport',
+  status: (r) => r['status'] as String?,
+  fields: const [
+    _Field('passport_number', 'Passport number'),
+    _Field('issue_date', 'Issue date', _Kind.date),
+    _Field('expiry_date', 'Expiry date', _Kind.date),
   ],
+);
+
+final _immigration = _Section(
+  key: 'immigration',
+  title: 'Visas and permits',
+  icon: Icons.flight_land_outlined,
+  emptyMessage: 'You have no visas or permits on record.',
+  fetch: (repo) => repo.getDepartmentRecords(table: 'dha_immigration_records', orderBy: 'issue_date'),
+  cardTitle: (r) => _text(r['visa_type'], 'Visa or permit'),
+  status: (r) => r['status'] as String?,
+  fields: const [
+    _Field('visa_type', 'Type'),
+    _Field('issue_date', 'Issue date', _Kind.date),
+    _Field('expiry_date', 'Expiry date', _Kind.date),
+  ],
+);
+
+final _marriages = _Section(
+  key: 'marriages',
+  title: 'Marriage records',
+  icon: Icons.favorite_outline,
+  emptyMessage: 'You have no marriage on record.',
+  fetch: (repo) => repo.getMyMarriages(),
+  cardTitle: spouseLabel,
+  status: (r) => r['status'] as String?,
+  hiddenKeys: const {'spouse_id_number'},
+  fields: const [
+    _Field('spouse_name', 'Spouse'),
+    _Field('marriage_type', 'Marriage type'),
+    _Field('date_of_marriage', 'Date of marriage', _Kind.date),
+  ],
+);
+
+final Map<String, List<_Section>> _sectionsByType = {
+  // The Home Affairs records reached from Digital Identity.
+  'HOME_AFFAIRS': [_marriages, _passports, _immigration],
+  'PASSPORT': [_passports, _immigration, _marriages],
   'TAX_COMPLIANCE': [
     _Section(
       key: 'taxpayer',
@@ -347,6 +361,7 @@ final Map<String, List<_Section>> _sectionsByType = {
         _Field('year', 'Year written'),
         _Field('overall_pass_status', 'Pass type'),
       ],
+      footer: (r) => _StatementOfResultsTile(matricExamNumber: r['matric_exam_number']?.toString() ?? ''),
     ),
   ],
   'TERTIARY_QUALIFICATION': [
@@ -445,4 +460,41 @@ String _formatAny(Object? value) {
   final text = value.toString();
   if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(text)) return _formatDate(text) ?? text;
   return text;
+}
+
+/// "Statement of Results" inside a National Senior Certificate card. Opens
+/// the published statement for that certificate; until one is published it
+/// says so and stays inactive.
+class _StatementOfResultsTile extends ConsumerWidget {
+  const _StatementOfResultsTile({required this.matricExamNumber});
+
+  final String matricExamNumber;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final statementsAsync = ref.watch(myNscStatementsProvider);
+    final available = statementsAsync.value?.any((s) => s.matricExamNumber == matricExamNumber) ?? false;
+    final note = switch (statementsAsync) {
+      AsyncLoading() => 'Checking for your Statement of Results…',
+      AsyncError() => 'Your Statement of Results could not be checked. Pull down to try again.',
+      _ when !available => 'Your Statement of Results is not yet available.',
+      _ => null,
+    };
+
+    return Material(
+      color: theme.colorScheme.primary.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        leading: Icon(Icons.description_outlined, color: theme.colorScheme.primary),
+        title: const Text('Statement of Results', style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(note ?? 'View your examination subjects, marks and achievement levels.'),
+        trailing: available ? const Icon(Icons.chevron_right) : null,
+        onTap: available
+            ? () => context.push('${AppRoutes.citizenNscStatement}/${Uri.encodeComponent(matricExamNumber)}')
+            : null,
+      ),
+    );
+  }
 }

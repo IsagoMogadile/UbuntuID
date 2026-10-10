@@ -219,8 +219,9 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             }
             return null;
           },
-          fetchExisting: (repo, citizen) =>
-              repo.getRecordsByColumn(table: 'dha_marital_records', column: 'spouse_1_id', value: citizen.idNumber),
+          // Either spouse -- a marriage registered from the other partner's
+          // record still shows here.
+          fetchExisting: (repo, citizen) => repo.getMarriagesForCitizen(citizen.idNumber),
           // Via the register_marriage RPC, which rejects the request
           // server-side if either citizen is already married -- not a
           // plain insertRecord (docs/database/register_marriage.sql).
@@ -230,7 +231,10 @@ List<RecordTypeConfig> recordTypesForDepartment(String departmentCode) {
             marriageType: values['marriage_type'] as String,
             dateOfMarriage: DateTime.parse(values['date_of_marriage'] as String),
           ),
-          rowTitle: (r) => 'Married to ${r['spouse_2_id']}',
+          rowTitle: (r) {
+            final name = (r['spouse_name'] as String?)?.trim();
+            return 'Married to ${name == null || name.isEmpty ? r['spouse_id_number'] : name}';
+          },
           rowSubtitle: (r) => '${r['marriage_type']} • ${r['date_of_marriage']}',
         ),
         RecordTypeConfig(

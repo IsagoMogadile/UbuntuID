@@ -38,6 +38,7 @@ class AppRoutes {
   static const citizenSassa = '/citizen/services/sassa';
   static const citizenDriversLicence = '/citizen/services/drivers-licence';
   static const citizenServiceRecords = '/citizen/services/records';
+  static const citizenNscStatement = '/citizen/services/nsc-statement'; // + '/:examNumber'
   static const citizenHumanSettlements = '/citizen/services/human-settlements';
   static const citizenPersonalInformation = '/citizen/profile/personal-information';
   static const citizenVerification = '/citizen/verification';
@@ -60,6 +61,7 @@ class AppRoutes {
   static const departmentEditCitizen = '/department-official/citizens'; // + '/:id/edit'
   static const departmentSapsWanted = '/department-official/saps/wanted';
   static const departmentSapsOffenders = '/department-official/saps/offenders';
+  static const departmentExamResults = '/department-official/exam-results'; // + '/:id'
 
   // Organisation
   static const organisationDashboard = '/organisation';

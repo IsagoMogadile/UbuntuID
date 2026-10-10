@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/citizen_repository.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
+import '../domain/nsc_statement.dart';
 import 'credential_documents.dart';
 import '../../../core/utils/friendly_error.dart';
+import '../../../core/utils/public_links.dart';
 import '../../../core/widgets/app_toast.dart';
 
 /// Builds and shares a citizen's prototype PDFs -- the Documents screen's
@@ -69,6 +71,23 @@ class DocumentDownloads {
       await CredentialDocuments.share(
         bytes,
         CredentialDocuments.credentialFileName(identity.firstName, identity.lastName, credential.typeName),
+      );
+    });
+  }
+
+  /// A published NSC Statement of Results.
+  static Future<void> nscStatement(
+    BuildContext context,
+    WidgetRef ref,
+    DigitalIdentity identity,
+    NscStatement statement,
+  ) {
+    return _withFeedback(context, () async {
+      final holder = await _holder(ref, identity);
+      final bytes = await CredentialDocuments.nscStatement(holder, statement, PublicLinks.verify(statement.statementId));
+      await CredentialDocuments.share(
+        bytes,
+        CredentialDocuments.nscStatementFileName(identity.firstName, identity.lastName, statement.examYear),
       );
     });
   }

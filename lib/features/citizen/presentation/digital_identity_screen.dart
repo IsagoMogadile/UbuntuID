@@ -16,6 +16,7 @@ import '../../../routing/app_routes.dart';
 import '../data/citizen_repository.dart';
 import '../domain/credential_item.dart';
 import '../domain/digital_identity.dart';
+import 'marital_status_row.dart';
 import 'service_records_screen.dart';
 
 class DigitalIdentityScreen extends ConsumerWidget {
@@ -100,6 +101,22 @@ class DigitalIdentityScreen extends ConsumerWidget {
                   DetailRow(label: 'Date of birth', value: AppFormatters.date(identity.dateOfBirth)),
                   DetailRow(label: 'Phone', value: identity.phoneNumber ?? 'Not on file'),
                   DetailRow(label: 'Email', value: identity.email ?? 'Not on file'),
+                  const MaritalStatusRow(),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const SectionHeader(title: 'Home Affairs records'),
+            AppCard(
+              onTap: () => context.push(
+                '${AppRoutes.citizenServiceRecords}?type=HOME_AFFAIRS&title=${Uri.encodeComponent('Home Affairs records')}',
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.account_balance_outlined),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Marriage, passport and visa records')),
+                  Icon(Icons.chevron_right),
                 ],
               ),
             ),

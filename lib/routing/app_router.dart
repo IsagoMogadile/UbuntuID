@@ -44,6 +44,7 @@ import '../features/citizen/presentation/citizen_dashboard_screen.dart';
 import '../features/citizen/presentation/citizen_verification_list_screen.dart';
 import '../features/citizen/presentation/consent_management_screen.dart';
 import '../features/citizen/presentation/drivers_licence_screen.dart';
+import '../features/citizen/presentation/nsc_statement_screen.dart';
 import '../features/citizen/presentation/service_records_screen.dart';
 import '../features/citizen/presentation/citizen_timeline_screen.dart';
 import '../features/citizen/presentation/my_appeals_screen.dart';
@@ -68,6 +69,8 @@ import '../features/department_official/presentation/edit_citizen_screen.dart';
 import '../features/department_official/presentation/register_citizen_screen.dart';
 import '../features/department_official/presentation/saps_clearance_search_screen.dart';
 import '../features/department_official/presentation/saps_offenders_screen.dart';
+import '../features/department_official/presentation/exam_results_screen.dart';
+import '../features/department_official/presentation/exam_result_detail_screen.dart';
 import '../features/department_official/presentation/saps_wanted_persons_screen.dart';
 import '../features/organisation/presentation/citizen_search_screen.dart';
 import '../features/organisation/presentation/organisation_colleagues_screen.dart';
@@ -357,6 +360,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.citizenSassa, builder: (c, s) => const SassaScreen()),
       GoRoute(path: AppRoutes.citizenDriversLicence, builder: (c, s) => const DriversLicenceScreen()),
       GoRoute(
+        path: '${AppRoutes.citizenNscStatement}/:examNumber',
+        builder: (c, s) => NscStatementScreen(matricExamNumber: s.pathParameters['examNumber']!),
+      ),
+      GoRoute(
         path: AppRoutes.citizenServiceRecords,
         builder: (c, s) => ServiceRecordsScreen(
           typeCode: s.uri.queryParameters['type'] ?? '',
@@ -433,6 +440,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Visible only to SAPS officials.
       GoRoute(path: AppRoutes.departmentSapsWanted, builder: (c, s) => const SapsWantedPersonsScreen()),
       GoRoute(path: AppRoutes.departmentSapsOffenders, builder: (c, s) => const SapsOffendersScreen()),
+      // Visible only to Basic Education officials.
+      GoRoute(path: AppRoutes.departmentExamResults, builder: (c, s) => const ExamResultsScreen()),
+      GoRoute(
+        path: '${AppRoutes.departmentExamResults}/:id',
+        builder: (c, s) => ExamResultDetailScreen(statementId: s.pathParameters['id']!),
+      ),
 
       // --- Organisation ---
       StatefulShellRoute.indexedStack(

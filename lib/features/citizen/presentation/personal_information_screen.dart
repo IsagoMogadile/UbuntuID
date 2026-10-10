@@ -7,6 +7,7 @@ import '../../../core/widgets/detail_row.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../data/citizen_repository.dart';
+import 'marital_status_row.dart';
 
 class PersonalInformationScreen extends ConsumerWidget {
   const PersonalInformationScreen({super.key});
@@ -34,6 +35,7 @@ class PersonalInformationScreen extends ConsumerWidget {
                   DetailRow(label: 'Date of birth', value: AppFormatters.date(identity.dateOfBirth)),
                   DetailRow(label: 'Phone', value: identity.phoneNumber ?? 'Not on file'),
                   DetailRow(label: 'Email', value: identity.email ?? 'Not on file'),
+                  const MaritalStatusRow(),
                 ],
               ),
             ),

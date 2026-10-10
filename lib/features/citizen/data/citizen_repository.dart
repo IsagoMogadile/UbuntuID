@@ -15,6 +15,7 @@ import '../domain/appeal_summary.dart';
 import '../domain/document_item.dart';
 import '../domain/employment_item.dart';
 import '../domain/notification_item.dart';
+import '../domain/nsc_statement.dart';
 import '../domain/service_item.dart';
 import '../domain/timeline_event.dart';
 
@@ -179,7 +180,6 @@ class CitizenRepository {
   /// Identity). Not its own table -- see `TimelineEvent`.
   Future<List<TimelineEvent>> getLifeTimeline() async {
     final row = await _citizenRow();
-    final idNumber = row['id_number'] as String;
     final events = <TimelineEvent>[];
 
     final dob = _parseDate(row['date_of_birth']);
@@ -197,18 +197,13 @@ class CitizenRepository {
       ));
     }
 
-    final marriageRows = await _client
-        .from('dha_marital_records')
-        .select('spouse_1_id, spouse_2_id, marriage_type, date_of_marriage')
-        .or('spouse_1_id.eq.$idNumber,spouse_2_id.eq.$idNumber');
-    for (final m in marriageRows) {
-      final spouseId = m['spouse_1_id'] == idNumber ? m['spouse_2_id'] : m['spouse_1_id'];
+    for (final m in await getMyMarriages()) {
       final date = _parseDate(m['date_of_marriage']);
       if (date == null) continue;
       events.add(TimelineEvent(
         date: date,
         title: 'Married',
-        subtitle: '${m['marriage_type']} marriage • spouse ID $spouseId',
+        subtitle: '${m['marriage_type'] ?? 'Registered'} marriage • ${spouseLabel(m)}',
         icon: Icons.favorite_outline,
       ));
     }
@@ -596,14 +591,42 @@ class CitizenRepository {
         .order('tax_year', ascending: false);
   }
 
-  /// Marriages where this citizen is either spouse.
+  /// This citizen's published NSC Statements of Results. Unpublished
+  /// results never leave the database (`my_nsc_statements()` returns only
+  /// the citizen's own published snapshots).
+  Future<List<NscStatement>> getMyNscStatements() async {
+    final rows = await _client.rpc('my_nsc_statements');
+    return [
+      for (final row in (rows as List? ?? const []))
+        NscStatement.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
+  }
+
+  /// Marriages where this citizen is either spouse, newest first, each with
+  /// `spouse_name` and `spouse_id_number` (the other spouse). The name comes
+  /// from `my_marriages()` (docs/database/marriage_spouse_names.sql), since
+  /// citizens can't read each other's records; until that's applied the
+  /// marriage still shows, just without the name.
   Future<List<Map<String, dynamic>>> getMyMarriages() async {
-    final idNumber = await _citizenIdNumber();
-    return _client
-        .from('dha_marital_records')
-        .select()
-        .or('spouse_1_id.eq.$idNumber,spouse_2_id.eq.$idNumber')
-        .order('date_of_marriage', ascending: false);
+    try {
+      final rows = await _client.rpc('my_marriages');
+      return [for (final r in (rows as List? ?? const [])) Map<String, dynamic>.from(r as Map)];
+    } catch (_) {
+      final idNumber = await _citizenIdNumber();
+      final rows = await _client
+          .from('dha_marital_records')
+          .select()
+          .or('spouse_1_id.eq.$idNumber,spouse_2_id.eq.$idNumber')
+          .order('date_of_marriage', ascending: false);
+      return [
+        for (final r in rows)
+          {
+            ...r,
+            'spouse_id_number': r['spouse_1_id'] == idNumber ? r['spouse_2_id'] : r['spouse_1_id'],
+            'spouse_name': null,
+          }..remove('spouse_1_id')..remove('spouse_2_id'),
+      ];
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -709,6 +732,25 @@ final sassaGrantsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>
 
 final driversLicencesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
   return ref.watch(citizenRepositoryProvider).getDriversLicences();
+});
+
+/// This citizen's marriages, with the spouse's name.
+final myMarriagesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+  return ref.watch(citizenRepositoryProvider).getMyMarriages();
+});
+
+/// "Married to Thandi Mokoena" -- or, without a name on record, the last
+/// four digits of the spouse's ID number.
+String spouseLabel(Map<String, dynamic> marriage) {
+  final name = (marriage['spouse_name'] as String?)?.trim();
+  if (name != null && name.isNotEmpty) return 'Married to $name';
+  final id = marriage['spouse_id_number']?.toString() ?? '';
+  return id.length >= 4 ? 'Married to spouse (ID ending ${id.substring(id.length - 4)})' : 'Married';
+}
+
+/// Published NSC Statements of Results, keyed by certificate in the UI.
+final myNscStatementsProvider = FutureProvider.autoDispose<List<NscStatement>>((ref) {
+  return ref.watch(citizenRepositoryProvider).getMyNscStatements();
 });
 
 final myVehiclesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {

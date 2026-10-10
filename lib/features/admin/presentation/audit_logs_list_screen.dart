@@ -82,6 +82,22 @@ String friendlyAuditAction(AuditLogItem log) {
     case 'feedback_status_updated':
       final status = meta?['status'] as String?;
       return status == null ? 'Updated the status of feedback' : 'Marked feedback as ${_humanise(status)}';
+    case 'nsc_results_synchronised':
+      return 'Synchronised National Senior Certificate examination results';
+    case 'nsc_record_imported':
+      return 'Imported an examination record$forTarget';
+    case 'nsc_record_updated':
+      return 'Updated an examination record$forTarget';
+    case 'nsc_discrepancy_identified':
+      return 'Identified a pass category discrepancy$forTarget';
+    case 'nsc_record_requires_review':
+      return 'Flagged an examination record for review$forTarget';
+    case 'nsc_record_reviewed':
+      return 'Reviewed updated examination results$forTarget';
+    case 'nsc_results_published':
+      return 'Published examination results$forTarget';
+    case 'nsc_sync_failed':
+      return 'Examination results synchronisation was unsuccessful';
     case 'insert_credentials':
       return 'Issued a credential$forTarget';
     case 'update_credentials':
@@ -112,6 +128,7 @@ const _recordNames = <String, String>{
   'credential_types': 'credential type',
   'credentials': 'credential',
   'dbe_nsc_results': 'matric result',
+  'dbe_nsc_statements': 'examination record',
   'department_officials': 'department official',
   'departments': 'department',
   'dha_marital_records': 'marital record',
