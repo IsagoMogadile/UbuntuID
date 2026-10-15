@@ -48,6 +48,7 @@ class AppRoutes {
   static const citizenEmployment = '/citizen/employment';
   static const citizenAppeals = '/citizen/appeals';
   static const citizenFeedback = '/citizen/feedback';
+  static const citizenGuide = '/citizen/guide';
 
   // Department official
   static const departmentDashboard = '/department-official';

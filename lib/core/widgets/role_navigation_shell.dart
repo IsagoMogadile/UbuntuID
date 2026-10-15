@@ -80,6 +80,7 @@ class RoleNavigationShell extends StatelessWidget {
     required this.destinations,
     required this.profileRoute,
     this.headerSearch,
+    this.guideRoute,
   });
 
   final StatefulNavigationShell navigationShell;
@@ -87,6 +88,10 @@ class RoleNavigationShell extends StatelessWidget {
   final List<AppNavDestination> destinations;
   final String profileRoute;
   final Widget? headerSearch;
+
+  /// When set, a labelled "Guide" button sits just before Profile in the
+  /// header, opening the user guide from every page of the shell.
+  final String? guideRoute;
 
   static const _wideBreakpoint = 840.0;
   static const _centredSearchBreakpoint = 600.0;
@@ -229,6 +234,22 @@ class RoleNavigationShell extends StatelessWidget {
           : brand,
       actions: [
         if (search != null && !centreSearch) search,
+        if (guideRoute case final route?)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Tooltip(
+              message: 'Open the user guide',
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.help_outline, size: 20),
+                label: const Text('Guide'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                ),
+                onPressed: () => context.push(route),
+              ),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.only(right: 8),
           child: IconButton(

@@ -65,6 +65,11 @@ class CitizenDashboardScreen extends ConsumerWidget {
               label: 'Timeline',
               onTap: () => context.push(AppRoutes.citizenTimeline),
             ),
+            _QuickAction(
+              icon: Icons.menu_book_outlined,
+              label: 'User guide',
+              onTap: () => context.push(AppRoutes.citizenGuide),
+            ),
           ],
         ),
         const SizedBox(height: 20),

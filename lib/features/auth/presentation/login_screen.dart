@@ -8,6 +8,7 @@ import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../routing/app_routes.dart';
+import '../../citizen/guide/guide_prompt.dart';
 import '../../../services/service_providers.dart';
 import '../application/role_resolution.dart';
 import '../../../core/utils/friendly_error.dart';
@@ -49,6 +50,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
       final destination = await resolveDestinationRoute(ref);
       if (!mounted) return;
+      ref.read(guidePromptPendingProvider.notifier).signedIn();
       context.go(destination);
     } on AuthException catch (e) {
       setState(() => _error = friendlyAuthMessage(e.message));

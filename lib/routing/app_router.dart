@@ -42,6 +42,8 @@ import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
 import '../features/auth/presentation/splash_screen.dart';
 import '../features/citizen/data/citizen_repository.dart';
+import '../features/citizen/guide/guide_prompt.dart';
+import '../features/citizen/guide/user_guide_screen.dart';
 import '../features/citizen/presentation/citizen_dashboard_screen.dart';
 import '../features/citizen/presentation/citizen_verification_list_screen.dart';
 import '../features/citizen/presentation/consent_management_screen.dart';
@@ -295,23 +297,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, navigationShell) => Consumer(
           builder: (context, ref, _) {
             final unread = ref.watch(unreadNotificationCountProvider).value ?? 0;
-            return RoleNavigationShell(
-              navigationShell: navigationShell,
-              title: 'UbuntuID',
-              destinations: [
-                const AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
-                const AppNavDestination(icon: Icons.apps_outlined, selectedIcon: Icons.apps, label: 'Services'),
-                AppNavDestination(
-                  icon: Icons.notifications_outlined,
-                  selectedIcon: Icons.notifications,
-                  label: 'Notifications',
-                  badgeCount: unread,
-                ),
-                _reportsDestination,
-                _settingsDestination,
-                _logOutDestination(ref),
-              ],
-              profileRoute: AppRoutes.citizenProfile,
+            // Right after signing in, points the citizen at the user guide.
+            return GuidePromptOnSignIn(
+              child: RoleNavigationShell(
+                navigationShell: navigationShell,
+                title: 'UbuntuID',
+                guideRoute: AppRoutes.citizenGuide,
+                destinations: [
+                  const AppNavDestination(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard'),
+                  const AppNavDestination(icon: Icons.apps_outlined, selectedIcon: Icons.apps, label: 'Services'),
+                  AppNavDestination(
+                    icon: Icons.notifications_outlined,
+                    selectedIcon: Icons.notifications,
+                    label: 'Notifications',
+                    badgeCount: unread,
+                  ),
+                  _reportsDestination,
+                  _settingsDestination,
+                  _logOutDestination(ref),
+                ],
+                profileRoute: AppRoutes.citizenProfile,
+              ),
             );
           },
         ),
@@ -610,6 +616,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: AppRoutes.citizenAppeals, builder: (c, s) => const MyAppealsScreen()),
       GoRoute(path: AppRoutes.citizenFeedback, builder: (c, s) => const GiveFeedbackScreen()),
+      GoRoute(path: AppRoutes.citizenGuide, builder: (c, s) => const UserGuideScreen()),
       GoRoute(path: AppRoutes.adminFeedback, builder: (c, s) => const AdminFeedbackListScreen()),
       GoRoute(
         path: '${AppRoutes.adminFeedback}/:id',
